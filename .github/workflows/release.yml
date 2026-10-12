@@ -1,0 +1,128 @@
+# Release of the public repository (tag vX.Y.Z, test version vX.Y.Z-beta.N) – the GitHub counterpart of the release
+# stage of .gitlab-ci.yml. scripts/public-snapshot.mjs makes the commit and the tag; pushing the tag starts this workflow:
+#   check   – the tag is the version of the code, the changelog has notes for it
+#   ci      – all checks of ci.yml; a finding of npm audit in the shipped packages stops the release
+#   build   – Windows installer, portable ZIP, Linux AppImage and .deb (desktop-build.yml; signed if CSC_LINK is set)
+#   publish – GitHub release with notes, files and checksums; then the beta channel
+# The installed apps find the update there (desktop/src/feeds.ts): the stable channel reads
+# releases/latest/download/latest.yml (the newest release that is no pre-release), the beta channel reads beta.yml from
+# the pre-release "beta-channel", which every release replaces – so apps on the beta channel always see the newest
+# build of either kind. A test version is published as a pre-release: "latest" stays on the last real release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: The tag is the version of the code
+        id: version
+        run: |
+          tag="$GITHUB_REF_NAME"
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]] || { echo "::error::$tag is no release tag"; exit 1; }
+          test "$tag" = "v$(node -p "require('./package.json').version")" || { echo "::error::$tag is not the version in package.json"; exit 1; }
+          npm run version:check
+          version="${tag#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          case "$version" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+      # Without a signing certificate (CSC_LINK) the release page tells about the SmartScreen warning and the hash check
+      - name: Release notes
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then node scripts/release-notes.mjs "$GITHUB_REF_NAME" > RELEASE_NOTES.md; else node scripts/release-notes.mjs "$GITHUB_REF_NAME" --unsigned > RELEASE_NOTES.md; fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-notes
+          path: RELEASE_NOTES.md
+
+  ci:
+    needs: check
+    uses: ./.github/workflows/ci.yml
+    with:
+      release: true
+
+  build:
+    needs: [check, ci]
+    uses: ./.github/workflows/desktop-build.yml
+    secrets: inherit
+
+  # Waits for both builds: a failed Linux build stops the release page (as release:publish in .gitlab-ci.yml)
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.check.outputs.version }}
+      PRERELEASE: ${{ needs.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v7
+        with:
+          name: app-windows
+          path: dist
+      - uses: actions/download-artifact@v7
+        with:
+          name: app-linux
+          path: dist
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-notes
+      - name: Checksums
+        working-directory: dist
+        run: |
+          # The feed files: latest.yml of a release, beta.yml of a test version (electron-builder names them after the version)
+          if [ "$PRERELEASE" = true ]; then feed=beta; else feed=latest; fi
+          echo "FEED=$feed" >> "$GITHUB_ENV"
+          sha256sum -b "Cognatio-Setup-$VERSION.exe" "Cognatio-Setup-$VERSION.exe.blockmap" "$feed.yml" "Cognatio-$VERSION-portable.zip" > SHA256SUMS
+          sha256sum "Cognatio-$VERSION.AppImage" "Cognatio-$VERSION.deb" "$feed-linux.yml" > SHA256SUMS-linux
+          cat SHA256SUMS SHA256SUMS-linux
+      - name: GitHub release
+        working-directory: dist
+        run: |
+          kind=(--latest)
+          if [ "$PRERELEASE" = true ]; then kind=(--prerelease --latest=false); fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "Cognatio $GITHUB_REF_NAME" --notes-file ../RELEASE_NOTES.md "${kind[@]}" \
+            "Cognatio-Setup-$VERSION.exe" "Cognatio-Setup-$VERSION.exe.blockmap" "Cognatio-$VERSION-portable.zip" "$FEED.yml" SHA256SUMS \
+            "Cognatio-$VERSION.AppImage" "Cognatio-$VERSION.deb" "$FEED-linux.yml" SHA256SUMS-linux
+      # Beta channel: the feed files with absolute addresses of this release, always the newest build of either kind
+      # (also of releases, so apps on the beta channel move on to the real release after their test versions)
+      - name: Beta channel
+        run: |
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          mkdir -p channel
+          node desktop/scripts/channel-feed.mjs "dist/$FEED.yml" "$base" channel/beta.yml
+          node desktop/scripts/channel-feed.mjs "dist/$FEED-linux.yml" "$base" channel/beta-linux.yml
+          if ! gh release view beta-channel > /dev/null 2>&1; then
+            gh release create beta-channel --prerelease --latest=false --target "$GITHUB_SHA" --title "Beta channel (update feed)" \
+              --notes "Update feed of the beta channel (Settings → System → Also test versions). No download: the installers are on the release pages."
+          fi
+          gh release upload beta-channel channel/beta.yml channel/beta-linux.yml --clobber

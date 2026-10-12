@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// The connection address is in prisma.config.ts (DATABASE_URL): Prisma 7 no longer takes a url here
+datasource db {
+  provider = "postgresql"
+}
+
+/// A family tree: a separately managed set of data. Every person belongs to exactly one family tree;
+/// relations, life events and notes hang off the person, media and imports carry the family tree themselves.
+model FamilyTree {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  persons Person[]
+  media   Media[]
+  imports ImportRecord[]
+}
+
+model Person {
+  id                 String    @id @default(uuid())
+  familyTreeId       String
+  firstName          String
+  lastName           String?
+  middleName         String?
+  birthName          String?
+  title              String?
+  nickname           String?
+  birthDate          String?
+  birthDatePrecision String? // "EXACT", "MONTH", "YEAR", "APPROXIMATE"
+  birthPlace         String?
+  gender             String    @default("UNKNOWN") // "MALE", "FEMALE", "UNKNOWN"
+  deathDate          String?
+  deathDatePrecision String?
+  deathPlace         String?
+  address            String?
+  phone              String?
+  email              String?
+  occupation         String?
+  hobbies            String?
+  maritalStatus      String? // "SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "CIVIL_PARTNERSHIP"
+  nationality        String?
+  languages          String[]
+  profilePictureId   String?
+  // Cologne phonetics of all name parts (phonetic search, duplicate hint); maintained by the backend
+  phonetics          String[]  @default([])
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relationen
+  familyTree   FamilyTree @relation(fields: [familyTreeId], references: [id])
+  relationsAsA Relation[] @relation("PersonA")
+  relationsAsB Relation[] @relation("PersonB")
+  events       Event[]
+  notes        Note[]
+  media        Media[]
+
+  @@index([phonetics], type: Gin)
+  @@index([familyTreeId])
+}
+
+model Relation {
+  id        String    @id @default(uuid())
+  personAId String
+  personBId String
+  type      String // "MOTHER", "FATHER", "CHILD", "SIBLING", "HUSBAND", "WIFE", "LIFE_PARTNER", "PARTNER", "OTHER"
+  label     String? // z.B. "Adoptivkind"
+  active    Boolean   @default(true)
+  note      String?
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  personA Person @relation("PersonA", fields: [personAId], references: [id])
+  personB Person @relation("PersonB", fields: [personBId], references: [id])
+
+  // PostgreSQL does not index foreign keys automatically – without an index every query
+  // or every deletion of a person scans the whole table
+  @@index([personAId])
+  @@index([personBId])
+}
+
+model Event {
+  id            String   @id @default(uuid())
+  personId      String
+  date          String?
+  datePrecision String?
+  title         String
+  category      String
+  description   String?
+  place         String?
+  sortOrder     Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  person Person       @relation(fields: [personId], references: [id])
+  // Linked files (map, photo, certificate …) – also media of other persons, e.g. a group photo
+  media  EventMedia[]
+
+  @@index([personId])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  personId  String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@index([personId])
+}
+
+model Media {
+  id               String   @id @default(uuid())
+  familyTreeId     String
+  /// Person the file belongs to (media tab); it can be linked with events of any person
+  personId         String?
+  fileName         String
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  type             String // "PROFILE_PICTURE", "DOCUMENT", "PHOTO", "OTHER"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  familyTree FamilyTree   @relation(fields: [familyTreeId], references: [id])
+  person     Person?      @relation(fields: [personId], references: [id])
+  events     EventMedia[]
+
+  @@index([personId])
+  @@index([familyTreeId])
+}
+
+/// Link event ↔ medium (n:m); deleted together with the event or the medium
+model EventMedia {
+  eventId   String
+  mediaId   String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, mediaId])
+  @@index([mediaId])
+}
+
+/// Log of executed imports (version history, §2.8): which file was imported when, with which result
+model ImportRecord {
+  id                String    @id @default(uuid())
+  familyTreeId      String
+  importedAt        DateTime  @default(now())
+  fileName          String
+  /// SHA-256 of the file content – detects a repeated import of the same file
+  fileHash          String
+  kind              String // "ZIP", "GEDCOM"
+  source            String?
+  /// State of the file according to its header (export time)
+  exportedAt        DateTime?
+  strategy          String
+  createdPersons    Int
+  updatedPersons    Int
+  removedPersons    Int
+  recognizedPersons Int       @default(0)
+  createdRelations  Int
+  createdEvents     Int
+  createdNotes      Int
+  createdMedia      Int
+  missingFiles      Int
+
+  familyTree FamilyTree @relation(fields: [familyTreeId], references: [id])
+
+  @@index([fileHash])
+  @@index([importedAt])
+  @@index([familyTreeId])
+}

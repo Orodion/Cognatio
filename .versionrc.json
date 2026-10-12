@@ -1,0 +1,9 @@
+{
+  "tagPrefix": "v",
+  "skip": { "changelog": true },
+  "releaseCommitMessageFormat": "chore(release): v{{currentTag}}",
+  "scripts": {
+    "postbump": "node scripts/sync-version.mjs && node scripts/release-changelog.mjs",
+    "precommit": "git add backend/package.json frontend/package.json e2e/package.json desktop/package.json package-lock.json CHANGELOG.md"
+  }
+}

@@ -1,0 +1,262 @@
+@import 'tailwindcss';
+
+@plugin 'tailwindcss-animate';
+
+@custom-variant dark (&:is(.dark *));
+
+@utility container {
+  margin-inline: auto;
+  padding-inline: 2rem;
+  @media (width >= --theme(--breakpoint-sm)) {
+    max-width: none;
+  }
+  @media (width >= 1400px) {
+    max-width: 1400px;
+  }
+}
+
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-chart: hsl(var(--chart-1));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@layer base {
+  :root {
+    --background: 36 33% 93%;
+    --foreground: 30 27% 13%;
+    --card: 40 60% 98%;
+    --card-foreground: 30 27% 13%;
+    --popover: 40 60% 98%;
+    --popover-foreground: 30 27% 13%;
+    --primary: 142 35% 28%;
+    --primary-foreground: 40 60% 98%;
+    --secondary: 22 32% 18%;
+    --secondary-foreground: 40 60% 98%;
+    --muted: 36 20% 88%;
+    /* Contrast >= 4.5:1 also on --muted/--accent (WCAG AA) */
+    --muted-foreground: 32 14% 38%;
+    --accent: 36 33% 90%;
+    --accent-foreground: 30 27% 13%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 60% 98%;
+    --border: 36 20% 85%;
+    --input: 36 20% 85%;
+    --ring: 142 35% 28%;
+    --radius: 0.75rem;
+    /* Chart colour: a stronger green than --primary (chroma/contrast check against --card passed) */
+    --chart-1: 142 55% 32%;
+  }
+
+  .dark {
+    --background: 240 27% 8%;
+    --foreground: 36 44% 85%;
+    --card: 240 24% 15%;
+    --card-foreground: 36 44% 85%;
+    --popover: 240 24% 15%;
+    --popover-foreground: 36 44% 85%;
+    /* Lighter green: readable as text (>= 5.8:1); text on green areas is therefore dark (7.3:1) */
+    --primary: 148 40% 50%;
+    --primary-foreground: 240 27% 8%;
+    --secondary: 42 48% 56%;
+    --secondary-foreground: 240 27% 8%;
+    --muted: 240 20% 18%;
+    --chart-1: 148 50% 40%;
+    --muted-foreground: 250 10% 62%;
+    --accent: 240 20% 20%;
+    --accent-foreground: 36 44% 85%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 36 44% 95%;
+    --border: 240 15% 22%;
+    --input: 240 15% 22%;
+    --ring: 148 40% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-body);
+  }
+}
+
+/*
+ * Appearance (Settings → Appearance): fonts, font size and accent colour are chosen by attributes
+ * on <html> (see applyAppearance in lib/appearance.ts). No attribute = default.
+ */
+:root {
+  --font-inter: 'Inter Variable', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
+  --font-readable: 'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif;
+  --font-system: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'DejaVu Sans Mono', monospace;
+  --font-body: var(--font-inter);
+  --font-tree: var(--font-body);
+}
+[data-font='serif'] {
+  --font-body: var(--font-serif);
+}
+[data-font='readable'] {
+  --font-body: var(--font-readable);
+}
+[data-font='system'] {
+  --font-body: var(--font-system);
+}
+[data-font='mono'] {
+  --font-body: var(--font-mono);
+}
+[data-tree-font='inter'] {
+  --font-tree: var(--font-inter);
+}
+[data-tree-font='serif'] {
+  --font-tree: var(--font-serif);
+}
+[data-tree-font='readable'] {
+  --font-tree: var(--font-readable);
+}
+[data-tree-font='system'] {
+  --font-tree: var(--font-system);
+}
+[data-tree-font='mono'] {
+  --font-tree: var(--font-mono);
+}
+
+/* Everything is sized in rem, so the root font size scales the whole app */
+[data-font-size='small'] {
+  font-size: 90%;
+}
+[data-font-size='large'] {
+  font-size: 112.5%;
+}
+
+/* Accent colours: text on the accent is light (light theme) or dark (dark theme), like for the default green */
+[data-accent='blue'] {
+  --primary: 217 70% 38%;
+  --ring: 217 70% 38%;
+  --chart-1: 217 70% 40%;
+}
+[data-accent='purple'] {
+  --primary: 271 45% 40%;
+  --ring: 271 45% 40%;
+  --chart-1: 271 45% 42%;
+}
+[data-accent='orange'] {
+  --primary: 24 85% 36%;
+  --ring: 24 85% 36%;
+  --chart-1: 24 85% 38%;
+}
+[data-accent='rose'] {
+  --primary: 350 65% 40%;
+  --ring: 350 65% 40%;
+  --chart-1: 350 65% 42%;
+}
+.dark[data-accent='blue'] {
+  --primary: 217 85% 68%;
+  --ring: 217 85% 68%;
+  --chart-1: 217 75% 55%;
+}
+.dark[data-accent='purple'] {
+  --primary: 271 75% 74%;
+  --ring: 271 75% 74%;
+  --chart-1: 271 60% 58%;
+}
+.dark[data-accent='orange'] {
+  --primary: 28 90% 58%;
+  --ring: 28 90% 58%;
+  --chart-1: 28 80% 48%;
+}
+.dark[data-accent='rose'] {
+  --primary: 350 80% 68%;
+  --ring: 350 80% 68%;
+  --chart-1: 350 70% 55%;
+}
+
+/*
+ * Zoom bar of the family tree in the theme colours (otherwise a light background with light text in
+ * dark mode). Deliberately outside of @layer so the rules beat the default rules of React Flow.
+ */
+.react-flow {
+  --xy-controls-button-background-color: hsl(var(--card));
+  --xy-controls-button-background-color-hover: hsl(var(--accent));
+  --xy-controls-button-color: hsl(var(--foreground));
+  --xy-controls-button-color-hover: hsl(var(--foreground));
+  --xy-controls-button-border-color: hsl(var(--border));
+  --xy-controls-box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.react-flow .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+}
+
+.react-flow .react-flow__controls-button {
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+}
+
+.react-flow .react-flow__controls-button svg {
+  max-width: 16px;
+  max-height: 16px;
+}
+
+/* "React Flow" credit in the theme colours (its default grey does not meet the contrast requirement) */
+.react-flow .react-flow__attribution {
+  background: hsl(var(--card) / 0.8);
+}
+.react-flow .react-flow__attribution a {
+  color: hsl(var(--muted-foreground));
+}

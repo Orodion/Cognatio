@@ -1,0 +1,465 @@
+default:
+  image: node:22-alpine
+  # Cancel outdated pipelines when new commits are pushed (saves CI minutes)
+  interruptible: true
+
+stages:
+  - lint
+  - test
+  - build
+  - test_security
+  - release
+
+# A push to a branch starts nothing: branch pipelines are started by hand (Build > Pipelines > New pipeline).
+# Merge requests and tags (releases) still start their pipeline automatically.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG
+
+variables:
+  # The Windows app is only built on a Windows machine: CI installs without the Electron binary (110 MB)
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+  # npm download cache inside the project folder so GitLab can cache it
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+# The npm cache is cached, not node_modules (npm ci deletes node_modules anyway)
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - .npm/
+
+# -----------------
+# 1. LINTING
+# -----------------
+lint:backend:
+  stage: lint
+  script:
+    - npm ci --prefer-offline
+    # One version for backend, frontend and e2e (root package.json)
+    - npm run version:check
+    - npm run notices:check
+    - npm run test:scripts
+    - npm run format:check
+    - npm run lint -w backend
+
+lint:frontend:
+  stage: lint
+  script:
+    - npm ci --prefer-offline
+    - npm run lint -w frontend
+
+lint:desktop:
+  stage: lint
+  script:
+    - npm ci --prefer-offline
+    - npm run lint -w desktop
+    # also checks the types of the shell
+    - npm run build -w desktop
+
+# -----------------
+# 2. TESTING
+# -----------------
+# needs: backend and frontend run as separate chains in parallel; tests only start after a successful lint
+test:backend:
+  stage: test
+  needs: [lint:backend]
+  script:
+    - npm ci --prefer-offline
+    - export DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+    - cd backend
+    - npx prisma generate
+    - npm run test -- --coverage --reporters=default --reporters=jest-junit
+  coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - backend/coverage/
+    reports:
+      junit: backend/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage/cobertura-coverage.xml
+
+test:desktop:
+  stage: test
+  needs: [lint:desktop]
+  script:
+    - npm ci --prefer-offline
+    - npm run test -w desktop
+
+# Every earlier state of the migration chain is migrated to the current version with test data (see
+# backend/src/lib/__tests__/upgradeMatrix.test.ts)
+test:upgrade:
+  stage: test
+  needs: [lint:backend]
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_USER: cognatio
+    POSTGRES_PASSWORD: cognatio123
+    POSTGRES_DB: cognatio_test
+    UPGRADE_TEST_DATABASE_URL: 'postgresql://cognatio:cognatio123@postgres:5432/cognatio_test'
+  script:
+    - npm ci --prefer-offline
+    - npm run test -w backend -- src/lib/__tests__/upgradeMatrix
+
+test:frontend:
+  stage: test
+  needs: [lint:frontend]
+  script:
+    - npm ci --prefer-offline
+    - cd frontend
+    - npm run test -- --coverage --reporter=default --reporter=junit --outputFile=junit.xml
+  coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - frontend/coverage/
+    reports:
+      junit: frontend/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: frontend/coverage/cobertura-coverage.xml
+
+test:e2e:
+  stage: test
+  needs: [lint:backend, lint:frontend]
+  # Most expensive job: only on the main branch and in merge requests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+  # The browser version must match the @playwright/test version in e2e/package.json
+  image: mcr.microsoft.com/playwright:v1.63.0-noble
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_USER: cognatio
+    POSTGRES_PASSWORD: cognatio123
+    POSTGRES_DB: cognatio_test
+    TEST_DATABASE_URL: 'postgresql://cognatio:cognatio123@postgres:5432/cognatio_test?schema=public'
+  script:
+    - npm ci --prefer-offline
+    - (cd backend && DATABASE_URL="$TEST_DATABASE_URL" npx prisma generate)
+    - cd e2e
+    - npx playwright test
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - e2e/playwright-report/
+      - e2e/test-results/
+      - e2e/.tmp/backend.log
+    reports:
+      junit: e2e/results/junit.xml
+
+# -----------------
+# 3. BUILD
+# -----------------
+build:backend:
+  stage: build
+  needs: [test:backend]
+  script:
+    - npm ci --prefer-offline
+    - export DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+    - cd backend
+    - npx prisma generate
+    - npm run build
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - backend/dist/
+
+build:frontend:
+  stage: build
+  needs: [test:frontend]
+  script:
+    - npm ci --prefer-offline
+    - npm run build -w frontend
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - frontend/dist/
+
+# -----------------
+# 4. SECURITY (GitLab Free)
+# -----------------
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+# Dependencies with known vulnerabilities. What ends up in the app: no finding is allowed – a release stops there
+# (release:check needs this job); in other pipelines a finding only turns the job yellow, so work can go on.
+audit:prod:
+  stage: test_security
+  needs: []
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: on_success
+      allow_failure: true
+  script:
+    - npm audit --omit=dev --audit-level=low
+
+# Build and test tools (development only): high and critical findings are reported (yellow), they never stop anything
+audit:dev:
+  stage: test_security
+  needs: []
+  cache: []
+  script:
+    - npm audit --audit-level=high
+  allow_failure: true
+
+# -----------------
+# 5. RELEASE (tag vX.Y.Z, test version vX.Y.Z-beta.N)
+# -----------------
+# `npm run release` (see documentation/release-checklist.md) raises the version, rolls the changelog and sets the tag.
+# The tag pipeline runs all tests above, builds the Windows installer and publishes it as a GitLab release; the
+# installed apps find the update there (permalink of the latest release, see desktop/electron-builder.yml).
+# A test version (`npm run release:beta`, tag vX.Y.Z-beta.N) is built and uploaded the same way, but gets no GitLab
+# release: the permalink "latest" stays on the last real release, so only apps on the beta channel see the test
+# version (through the package cognatio-channel/beta, see desktop/scripts/channel-feed.mjs).
+.release_tag: &release_tag
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-beta\.\d+)?$/
+
+.release_stable: &release_stable
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+
+release:check:
+  stage: release
+  <<: *release_tag
+  needs: [lint:backend, lint:frontend, lint:desktop, test:backend, test:frontend, test:desktop, test:upgrade, test:e2e, audit:prod]
+  script:
+    - npm ci --prefer-offline
+    # The tag has to be the version of the code, and the changelog needs notes for it
+    - test "$CI_COMMIT_TAG" = "v$(node -p "require('./package.json').version")"
+    - npm run version:check
+    # Without a signing certificate (CSC_LINK) the release page tells about the SmartScreen warning and the hash check
+    - if [ -n "$CSC_LINK" ]; then node scripts/release-notes.mjs "$CI_COMMIT_TAG" > RELEASE_NOTES.md; else node scripts/release-notes.mjs "$CI_COMMIT_TAG" --unsigned > RELEASE_NOTES.md; fi
+    # The version without the "v" for the file names of the release (GitLab cannot cut text off a variable)
+    - echo "RELEASE_VERSION=${CI_COMMIT_TAG#v}" > release.env
+  artifacts:
+    # release builds are kept
+    expire_in: never
+    paths:
+      - RELEASE_NOTES.md
+    reports:
+      dotenv: release.env
+
+# Needs a Windows runner (GitLab.com: saas-windows-medium-amd64). Signing: with the protected CI/CD variables
+# CSC_LINK (certificate as base64 or URL) and CSC_KEY_PASSWORD the installer is signed, without them it is not.
+.windows_build:
+  tags:
+    - saas-windows-medium-amd64
+  image: null
+  # Caches (the machine is new for every job): npm packages, Electron and electron-builder tools, the PostgreSQL
+  # binaries (about 250 MB from EDB)
+  cache:
+    - key:
+        files:
+          - package-lock.json
+      paths:
+        - .npm/
+        - .cache/
+    - key:
+        files:
+          - scripts/fetch-postgres.mjs
+      paths:
+        - tools/postgres/
+  variables:
+    NODE_VERSION: '22.23.3'
+    ELECTRON_CACHE: '$CI_PROJECT_DIR/.cache/electron'
+    ELECTRON_BUILDER_CACHE: '$CI_PROJECT_DIR/.cache/electron-builder'
+  script:
+    # The virus scanner stays on, but ignores the build folder, the temp folder and node.exe: npm creates thousands of small files
+    # there, which it would check one by one (the machine is thrown away after the job). Without the right to do so the job goes on.
+    - try { Add-MpPreference -ExclusionPath $env:CI_PROJECT_DIR, $env:TEMP -ExclusionProcess node.exe -ErrorAction Stop; Write-Host "virus scanner ignores the build folder" } catch { Write-Host "virus scanner exclusion not possible, going on" }
+    # Node comes straight from nodejs.org: the Chocolatey package does not carry every patch version (tar unpacks much faster than Expand-Archive)
+    - Write-Host "[$(Get-Date -Format HH:mm:ss)] Node"
+    # No progress bar: Windows PowerShell 5.1 draws it so slowly that downloads take many times longer
+    - $ProgressPreference = "SilentlyContinue"
+    - Invoke-WebRequest -UseBasicParsing -Uri "https://nodejs.org/dist/v$env:NODE_VERSION/node-v$env:NODE_VERSION-win-x64.zip" -OutFile node.zip
+    - New-Item -ItemType Directory node-dist | Out-Null
+    - tar -xf node.zip -C node-dist
+    - $env:Path = (Resolve-Path "node-dist/node-v$env:NODE_VERSION-win-x64").Path + ";" + $env:Path
+    - node --version
+    - Write-Host "[$(Get-Date -Format HH:mm:ss)] npm ci"
+    - npm ci --prefer-offline --no-audit --no-fund
+    - Write-Host "[$(Get-Date -Format HH:mm:ss)] PostgreSQL"
+    - npm run postgres:fetch
+    - Write-Host "[$(Get-Date -Format HH:mm:ss)] installer"
+    - $extra = @(); if ($env:CSC_LINK) { $extra += "-c.win.signAndEditExecutable=true" }
+    - npm run dist -w desktop -- --publish never @extra
+    - Write-Host "[$(Get-Date -Format HH:mm:ss)] portable ZIP"
+    - node desktop/scripts/portable.mjs
+    - Write-Host "[$(Get-Date -Format HH:mm:ss)] done"
+
+# Trial run of the Windows build without a release: start it by hand in the pipeline of a branch or merge request
+# (play button). The installer and latest.yml stay as job artifacts for seven days; nothing is published.
+build:windows:
+  stage: release
+  extends: .windows_build
+  needs: []
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH
+      when: manual
+      allow_failure: true
+  script:
+    - !reference [.windows_build, script]
+    - Get-ChildItem desktop/release -File | Select-Object Name, Length
+  artifacts:
+    paths:
+      - desktop/release/Cognatio-Setup-*.exe
+      - desktop/release/latest.yml
+    expire_in: 7 days
+
+release:windows:
+  stage: release
+  extends: .windows_build
+  <<: *release_tag
+  needs: [release:check]
+  variables:
+    NODE_VERSION: '22.23.3'
+    PACKAGE_URL: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio'
+    CHANNEL_URL: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio-channel/beta'
+  script:
+    - !reference [.windows_build, script]
+    - $version = $env:CI_COMMIT_TAG.TrimStart("v")
+    - Set-Location desktop/release
+    # The feed file: latest.yml of a release, beta.yml of a test version (electron-builder names it after the version)
+    - $feed = if ($version.Contains("-")) { "beta.yml" } else { "latest.yml" }
+    - $files = @("Cognatio-Setup-$version.exe", "Cognatio-Setup-$version.exe.blockmap", $feed, "Cognatio-$version-portable.zip")
+    - $files | ForEach-Object { "{0} *{1}" -f (Get-FileHash $_ -Algorithm SHA256).Hash.ToLower(), $_ } | Set-Content -Encoding ascii SHA256SUMS
+    - $files += "SHA256SUMS"
+    - foreach ($f in $files) { Invoke-RestMethod -Method Put -Headers @{ "JOB-TOKEN" = $env:CI_JOB_TOKEN } -InFile $f -Uri "$env:PACKAGE_URL/$version/$f" | Out-Null; Write-Host "uploaded $f" }
+    # Beta channel: the same feed with absolute addresses, always the newest build of either kind (also of releases,
+    # so apps on the beta channel move on to the real release after their test versions)
+    - node ../scripts/channel-feed.mjs $feed "$env:PACKAGE_URL/$version" channel-beta.yml
+    - Invoke-RestMethod -Method Put -Headers @{ "JOB-TOKEN" = $env:CI_JOB_TOKEN } -InFile channel-beta.yml -Uri "$env:CHANNEL_URL/beta.yml" | Out-Null; Write-Host "uploaded beta.yml to the beta channel"
+
+# Linux app (AppImage). Runs on the normal Linux runners; PostgreSQL is built from the official source archive
+# (scripts/fetch-postgres.mjs, about three minutes, cached) because there are no relocatable binaries.
+.linux_build:
+  image: node:22-bookworm
+  cache:
+    - key:
+        files:
+          - package-lock.json
+      paths:
+        - .npm/
+    - key:
+        files:
+          - scripts/fetch-postgres.mjs
+      paths:
+        - tools/postgres/
+  script:
+    - npm ci --prefer-offline
+    - npm run postgres:fetch
+    - npm run dist:linux -w desktop
+
+# Trial run of the Linux build without a release (play button), like build:windows
+build:linux:
+  stage: release
+  extends: .linux_build
+  needs: []
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH
+      when: manual
+      allow_failure: true
+  artifacts:
+    paths:
+      - desktop/release/Cognatio-*.AppImage
+      - desktop/release/Cognatio-*.deb
+      - desktop/release/latest-linux.yml
+    expire_in: 7 days
+
+release:linux:
+  stage: release
+  extends: .linux_build
+  <<: *release_tag
+  needs: [release:check]
+  variables:
+    PACKAGE_URL: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio'
+    CHANNEL_URL: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio-channel/beta'
+    AUTH_HEADER: 'JOB-TOKEN: $CI_JOB_TOKEN'
+  script:
+    - !reference [.linux_build, script]
+    - version="${CI_COMMIT_TAG#v}"
+    - cd desktop/release
+    # electron-updater reads latest-linux.yml, on the beta channel beta-linux.yml (the name follows the version)
+    - case "$version" in *-*) feed=beta-linux.yml ;; *) feed=latest-linux.yml ;; esac
+    - sha256sum "Cognatio-$version.AppImage" "Cognatio-$version.deb" "$feed" > SHA256SUMS-linux
+    - for f in "Cognatio-$version.AppImage" "Cognatio-$version.deb" "$feed" SHA256SUMS-linux; do curl --fail --silent --show-error --header "$AUTH_HEADER" --upload-file "$f" "$PACKAGE_URL/$version/$f"; echo "uploaded $f"; done
+    # Beta channel: the same feed with absolute addresses (see release:windows)
+    - node ../scripts/channel-feed.mjs "$feed" "$PACKAGE_URL/$version" channel-beta-linux.yml
+    - curl --fail --silent --show-error --header "$AUTH_HEADER" --upload-file channel-beta-linux.yml "$CHANNEL_URL/beta-linux.yml"
+    - echo "uploaded beta-linux.yml to the beta channel"
+
+release:publish:
+  stage: release
+  <<: *release_stable
+  needs:
+    - job: release:check
+      artifacts: true
+    - job: release:windows
+    - job: release:linux
+  # Pinned version (not "latest"): a changed tool must not change the release job unnoticed
+  image: registry.gitlab.com/gitlab-org/release-cli:v0.24.0
+  cache: []
+  script:
+    - echo "Release $CI_COMMIT_TAG"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: 'Cognatio $CI_COMMIT_TAG'
+    description: ./RELEASE_NOTES.md
+    # filepath = direct asset path: the update feed reads .../releases/permalink/latest/downloads/<filepath>
+    assets:
+      links:
+        - name: Cognatio-Setup.exe (Windows installer)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/Cognatio-Setup-${RELEASE_VERSION}.exe'
+          filepath: /Cognatio-Setup-${RELEASE_VERSION}.exe
+          link_type: package
+        - name: Cognatio portable.zip (Windows, no installation)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/Cognatio-${RELEASE_VERSION}-portable.zip'
+          filepath: /Cognatio-${RELEASE_VERSION}-portable.zip
+          link_type: package
+        - name: SHA256SUMS
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/SHA256SUMS'
+          filepath: /SHA256SUMS
+          link_type: other
+        - name: latest.yml (update feed)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/latest.yml'
+          filepath: /latest.yml
+          link_type: other
+        - name: Cognatio-Setup.exe.blockmap (update feed)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/Cognatio-Setup-${RELEASE_VERSION}.exe.blockmap'
+          filepath: /Cognatio-Setup-${RELEASE_VERSION}.exe.blockmap
+          link_type: other
+        - name: Cognatio.AppImage (Linux)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/Cognatio-${RELEASE_VERSION}.AppImage'
+          filepath: /Cognatio-${RELEASE_VERSION}.AppImage
+          link_type: package
+        - name: Cognatio.deb (Debian, Ubuntu)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/Cognatio-${RELEASE_VERSION}.deb'
+          filepath: /Cognatio-${RELEASE_VERSION}.deb
+          link_type: package
+        - name: SHA256SUMS-linux
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/SHA256SUMS-linux'
+          filepath: /SHA256SUMS-linux
+          link_type: other
+        - name: latest-linux.yml (update feed)
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/cognatio/${RELEASE_VERSION}/latest-linux.yml'
+          filepath: /latest-linux.yml
+          link_type: other

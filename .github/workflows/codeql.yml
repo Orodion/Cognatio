@@ -1,0 +1,37 @@
+# Static analysis of the code (the counterpart of GitLab SAST in .gitlab-ci.yml): JavaScript/TypeScript of backend,
+# frontend, desktop and the scripts, and the workflows themselves. Findings appear under Security → Code scanning.
+# Secret detection is a setting of the repository on GitHub (Settings → Advanced Security: secret scanning and push protection).
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, for new queries on unchanged code
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    # Code scanning is free for public repositories only; while the repository is private the job is skipped
+    if: github.event.repository.private != true
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

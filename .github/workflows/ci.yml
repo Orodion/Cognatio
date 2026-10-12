@@ -1,0 +1,272 @@
+# Checks of the public repository on GitHub – the same jobs as .gitlab-ci.yml (the private development repository on
+# GitLab), so both stay alike: lint, tests (with coverage thresholds, upgrade matrix, E2E), build, npm audit.
+# Runs for pushes to main and pull requests, by hand (Actions → CI → Run workflow) and as the first part of a release
+# (.github/workflows/release.yml calls it with `release: true`: then a finding of npm audit in the shipped packages stops it).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release:
+        description: Part of a release (npm audit of the shipped packages must be clean)
+        type: boolean
+        default: false
+
+# Outdated runs of a branch are cancelled when new commits arrive (a release run is never cancelled)
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.release && 'release' || 'check' }}
+  cancel-in-progress: ${{ !inputs.release }}
+
+permissions:
+  contents: read
+
+env:
+  # The apps are built in their own workflow: the checks install without the Electron binary (110 MB)
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+  DUMMY_DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+
+jobs:
+  # -----------------
+  # 1. LINTING
+  # -----------------
+  lint-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      # One version for backend, frontend, e2e and desktop (root package.json)
+      - run: npm run version:check
+      - run: npm run notices:check
+      - run: npm run test:scripts
+      - run: npm run format:check
+      - run: npm run lint -w backend
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npm run lint -w frontend
+
+  lint-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npm run lint -w desktop
+      # also checks the types of the shell
+      - run: npm run build -w desktop
+
+  # -----------------
+  # 2. TESTING
+  # -----------------
+  test-backend:
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npx prisma generate
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.DUMMY_DATABASE_URL }}
+      - run: npm run test -- --coverage --reporters=default --reporters=jest-junit
+        working-directory: backend
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: backend-coverage
+          path: |
+            backend/coverage/
+            backend/junit.xml
+          retention-days: 7
+
+  test-desktop:
+    runs-on: ubuntu-latest
+    needs: lint-desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npm run test -w desktop
+
+  # Every earlier state of the migration chain is migrated to the current version with test data (see
+  # backend/src/lib/__tests__/upgradeMatrix.test.ts)
+  test-upgrade:
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cognatio
+          POSTGRES_PASSWORD: cognatio123
+          POSTGRES_DB: cognatio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cognatio -d cognatio_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      UPGRADE_TEST_DATABASE_URL: postgresql://cognatio:cognatio123@localhost:5432/cognatio_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npm run test -w backend -- src/lib/__tests__/upgradeMatrix
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    needs: lint-frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npm run test -- --coverage --reporter=default --reporter=junit --outputFile=junit.xml
+        working-directory: frontend
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: frontend-coverage
+          path: |
+            frontend/coverage/
+            frontend/junit.xml
+          retention-days: 7
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend]
+    # The browser version must match the @playwright/test version in e2e/package.json (as in .gitlab-ci.yml)
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cognatio
+          POSTGRES_PASSWORD: cognatio123
+          POSTGRES_DB: cognatio_test
+        options: >-
+          --health-cmd "pg_isready -U cognatio -d cognatio_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://cognatio:cognatio123@postgres:5432/cognatio_test?schema=public
+    steps:
+      - uses: actions/checkout@v5
+      - run: npm ci --prefer-offline
+      - run: npx prisma generate
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - run: npx playwright test
+        working-directory: e2e
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+            e2e/.tmp/backend.log
+            e2e/results/junit.xml
+          retention-days: 7
+
+  # -----------------
+  # 3. BUILD
+  # -----------------
+  build-backend:
+    runs-on: ubuntu-latest
+    needs: test-backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npx prisma generate
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.DUMMY_DATABASE_URL }}
+      - run: npm run build
+        working-directory: backend
+      - uses: actions/upload-artifact@v6
+        with:
+          name: backend-dist
+          path: backend/dist/
+          retention-days: 7
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    needs: test-frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: npm run build -w frontend
+      - uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  # -----------------
+  # 4. SECURITY (CodeQL: .github/workflows/codeql.yml; secret scanning: repository settings)
+  # -----------------
+  # Dependencies with known vulnerabilities. What ends up in the app: no finding is allowed in a release; otherwise a
+  # finding only shows as a failed job that does not stop the run.
+  audit-prod:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm audit --omit=dev --audit-level=low
+
+  # Build and test tools (development only): high and critical findings are reported, they never stop anything
+  audit-dev:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm audit --audit-level=high

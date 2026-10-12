@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+backend/src/generated
+backend/uploads
+backups
+playwright-report
+test-results
+package-lock.json
+THIRD-PARTY-NOTICES.md

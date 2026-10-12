@@ -1,0 +1,22 @@
+{
+  "name": "cognatio-e2e",
+  "version": "1.0.0",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install chromium",
+    "db:reset": "node scripts/reset-db.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.0.0",
+    "fflate": "^0.8.3",
+    "playwright-core": "1.63.0",
+    "typescript": "^7.0.2"
+  }
+}

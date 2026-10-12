@@ -1,0 +1,955 @@
+{
+  "app": {
+    "name": "Cognatio",
+    "tagline": "Family Tree",
+    "skipToContent": "Skip to content"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "persons": "Persons",
+    "tree": "Family Tree",
+    "statistics": "Statistics",
+    "importExport": "Import/Export",
+    "settings": "Settings",
+    "familyTrees": "Family trees",
+    "trash": "Recycle bin",
+    "trashCount_one": "{{count}} item",
+    "trashCount_other": "{{count}} items",
+    "help": "Help",
+    "quit": "Quit"
+  },
+  "header": {
+    "searchPlaceholder": "Search persons…",
+    "language": "Language",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
+    "help": "Help for this page"
+  },
+  "persons": {
+    "title": "Persons",
+    "count_one": "{{count}} person",
+    "count_other": "{{count}} persons",
+    "newPerson": "New person",
+    "empty": "No persons yet.",
+    "emptySearch": "No persons found for \"{{query}}\".",
+    "loading": "Loading persons…",
+    "error": "Could not load persons.",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "born": "b.",
+    "died": "d.",
+    "years_one": "{{count}} year",
+    "years_other": "{{count}} years",
+    "deceased": "deceased",
+    "bornAs": "née {{name}}",
+    "unknownGivenName": "(first name unknown)",
+    "showMore_one": "Show more ({{count, number}} remaining)",
+    "showMore_other": "Show more ({{count, number}} remaining)"
+  },
+  "personDetail": {
+    "notFound": "Person not found.",
+    "loading": "Loading person…",
+    "edit": "Edit",
+    "delete": "Delete",
+    "showTree": "Show tree",
+    "deleteConfirm": "Do you really want to delete {{name}}?",
+    "deleteSuccess": "Person was deleted.",
+    "tabs": {
+      "overview": "Overview",
+      "timeline": "Timeline",
+      "relations": "Relations",
+      "notes": "Notes",
+      "media": "Media"
+    },
+    "sections": {
+      "personal": "Personal data",
+      "contact": "Contact",
+      "other": "Other details"
+    },
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "middleName": "Middle name",
+      "birthName": "Birth name",
+      "title": "Title",
+      "nickname": "Nickname",
+      "birthDate": "Date of birth",
+      "birthPlace": "Place of birth",
+      "deathDate": "Date of death",
+      "deathPlace": "Place of death",
+      "gender": "Gender",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "occupation": "Occupation",
+      "hobbies": "Hobbies",
+      "maritalStatus": "Marital status",
+      "nationality": "Nationality",
+      "languages": "Languages"
+    },
+    "tabsLabel": "Person sections",
+    "filter": {
+      "placeholder": {
+        "timeline": "Filter the timeline…",
+        "relations": "Filter the relations…",
+        "notes": "Filter the notes…",
+        "media": "Filter the media…"
+      },
+      "noMatches": "No hits for “{{query}}”."
+    }
+  },
+  "gender": {
+    "MALE": "Male",
+    "FEMALE": "Female",
+    "UNKNOWN": "Not specified"
+  },
+  "maritalStatus": {
+    "SINGLE": "Single",
+    "MARRIED": "Married",
+    "DIVORCED": "Divorced",
+    "WIDOWED": "Widowed",
+    "CIVIL_PARTNERSHIP": "Partnership"
+  },
+  "common": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "retry": "Retry",
+    "clear": "Clear field",
+    "loading": "Loading…",
+    "error": "An error occurred.",
+    "delete": "Delete",
+    "close": "Close"
+  },
+  "form": {
+    "createTitle": "Create New Person",
+    "editTitle": "Edit Person",
+    "create": "Create",
+    "noSelection": "No selection",
+    "precision": "Precision",
+    "errors": {
+      "required": "This field is required",
+      "tooLong": "At most 100 characters",
+      "invalidName": "Only letters, spaces, hyphen, apostrophe and period are allowed",
+      "invalidDate": "Unknown date format (e.g. 04.01.1980, 01.1980, 1980, about 1980, 1980-1985)",
+      "futureDate": "The date must not be in the future",
+      "rangeOrder": "The end of the range is before its start",
+      "deathBeforeBirth": "The date of death is before the date of birth",
+      "lifespanTooLong": "A lifespan of more than 125 years is implausible",
+      "invalidEmail": "Invalid email address",
+      "invalidPhone": "Invalid phone number",
+      "checkInput": "Please check the highlighted fields.",
+      "saveFailed": "Saving failed.",
+      "relationsFailed": "The person was saved, but the following relations could not be created: {{names}}",
+      "profilePictureFailed": "The person was saved, but the profile picture could not be uploaded: {{reason}}"
+    },
+    "datePlaceholder": "e.g. 04.01.1980, 01.1980, about 1980",
+    "openCalendar": "Open calendar",
+    "detectedPrecision": "Detected: {{precision}}",
+    "addLanguage": "Language",
+    "selectLanguage": "Select language…",
+    "removeLanguage": "Remove {{language}}",
+    "dateHelp": "Date formats: 04.01.1980 (exact), 01.1980 (month), 1980 (year), \"about 1980\", \"after 1980\", \"before 1980\" or range \"1980-1985\" (approximate).",
+    "relationsEditHint": "New relations can be added here. Existing relations are managed in the \"Relations\" tab.",
+    "titlePlaceholder": "Dr., Prof.",
+    "similar": {
+      "title": "Does this person already exist?",
+      "hint": "Similar entries found. You can still save.",
+      "open": "Open {{name}} (new tab)"
+    },
+    "profilePicture": "Profile picture",
+    "chooseProfilePicture": "Choose picture",
+    "changeProfilePicture": "Choose another picture",
+    "discardProfilePicture": "Discard selection",
+    "profilePictureHint": "Optional. The picture is stored with the media of the person when saving.",
+    "profilePictureSelected": "“{{name}}” will be uploaded when saving.",
+    "firstNameUnknown": "First name unknown"
+  },
+  "precision": {
+    "EXACT": "Exact (Day, Month, Year)",
+    "MONTH": "Month & Year",
+    "YEAR": "Year only",
+    "APPROXIMATE": "Approximate"
+  },
+  "relations": {
+    "title": "Relations",
+    "add": "Add relation",
+    "empty": "No relations found.",
+    "loading": "Loading relations…",
+    "error": "Error loading relations.",
+    "deleteConfirm": "Do you really want to delete the relation with {{name}}?",
+    "roles": {
+      "PARENT": "Parents",
+      "CHILD": "Children",
+      "PARTNER": "Partners",
+      "SIBLING": "Siblings",
+      "OTHER": "Other"
+    },
+    "types": {
+      "MOTHER": "Mother",
+      "FATHER": "Father",
+      "CHILD": "Child",
+      "SIBLING": "Sibling",
+      "HUSBAND": "Husband",
+      "WIFE": "Wife",
+      "LIFE_PARTNER": "Life partner",
+      "PARTNER": "Partner",
+      "OTHER": "Other",
+      "PARENT": "Parent",
+      "SPOUSE": "Spouse"
+    },
+    "form": {
+      "title": "Add New Relation",
+      "searchPerson": "Search person",
+      "searchPlaceholder": "Enter name...",
+      "personSelect": "Person",
+      "personSource": "Choose or create a person",
+      "existingPerson": "Existing person",
+      "newPerson": "New person",
+      "newPersonHint": "You can add more details later on the new person's page.",
+      "createAndSave": "Create person and save",
+      "type": "Relation type",
+      "label": "Label (optional)",
+      "labelPlaceholder": "e.g. adopted child, stepfather",
+      "note": "Note (optional)",
+      "startDate": "From date",
+      "endDate": "Until date",
+      "startFromBirth": "Taken from the child's date of birth – can be changed",
+      "typeHint": "The selected person is the … of the current person.",
+      "dateOrderError": "The end date must not be before the start date.",
+      "noPersons": "No persons available",
+      "createNew": "Create new relation",
+      "addToList": "Add",
+      "removePending": "Remove relation to {{name}}",
+      "typeHintNew": "The selected person is the … of the new person.",
+      "errors": {
+        "personRequired": "Please select a person.",
+        "duplicate": "This relation is already in the list."
+      },
+      "moreResults_one": "{{count, number}} more match – please refine the search",
+      "moreResults_other": "{{count, number}} more matches – please refine the search"
+    },
+    "ongoing": "present",
+    "deleteLabel": "Delete relation to {{name}}",
+    "graph": {
+      "button": "Graph",
+      "label": "Relationship graph of {{name}}",
+      "hint": "Click a person to open them. A person without a connecting line is related in another way (e.g. godfather) – see the list."
+    }
+  },
+  "timeline": {
+    "title": "Timeline",
+    "add": "Add event",
+    "empty": "No events found.",
+    "loading": "Loading timeline…",
+    "error": "Error loading timeline.",
+    "deleteConfirm": "Do you really want to delete the event '{{title}}'?",
+    "categories": {
+      "BIRTH": "Birth",
+      "BAPTISM": "Baptism",
+      "SCHOOL_START": "Enrollment",
+      "WEDDING": "Wedding",
+      "OCCUPATION": "Occupation",
+      "MOVE": "Move",
+      "DEATH": "Death",
+      "OTHER": "Other"
+    },
+    "form": {
+      "createTitle": "Add Event",
+      "editTitle": "Edit Event",
+      "title": "Title",
+      "category": "Category",
+      "date": "Date",
+      "precision": "Date precision",
+      "location": "Location",
+      "description": "Description"
+    },
+    "view": {
+      "label": "View",
+      "timeline": "Timeline",
+      "table": "Table"
+    },
+    "order": {
+      "label": "Order",
+      "oldest": "Oldest first",
+      "newest": "Newest first"
+    },
+    "table": {
+      "date": "Date",
+      "event": "Event",
+      "category": "Category",
+      "place": "Place",
+      "description": "Description",
+      "files": "Files",
+      "actions": "Actions"
+    },
+    "editLabel": "Edit “{{title}}”",
+    "deleteLabel": "Delete “{{title}}”",
+    "media": {
+      "title": "Files",
+      "none": "No files linked yet.",
+      "upload": "Upload file",
+      "pickExisting": "Link existing",
+      "source": "Source of the media",
+      "ownMedia": "Media of this person",
+      "otherMedia": "Media of other persons",
+      "choosePerson": "Choose person",
+      "mediaOf": "Media of {{name}}",
+      "changePerson": "Choose another person",
+      "noMedia": "No media available.",
+      "from": "from {{name}}",
+      "unlink": "Unlink “{{name}}”",
+      "removeFile": "Do not upload “{{name}}”",
+      "uploadOnSave": "Uploaded when saving",
+      "tooLarge": "Too large (max. 50 MB): {{names}}",
+      "uploadFailed": "The event was saved, but the following files could not be uploaded: {{names}}"
+    }
+  },
+  "notes": {
+    "title": "Notes",
+    "add": "Add note",
+    "empty": "No notes found.",
+    "loading": "Loading notes…",
+    "error": "Error loading notes.",
+    "placeholder": "Write a new note here...",
+    "save": "Save",
+    "deleteConfirm": "Do you really want to delete this note?",
+    "editLabel": "Edit note",
+    "deleteLabel": "Delete note",
+    "length": "{{used}} of {{max}} characters"
+  },
+  "media": {
+    "title": "Media",
+    "uploadButton": "Upload file",
+    "downloadButton": "Download",
+    "uploading": "Uploading...",
+    "empty": "No media found. Upload an image or document.",
+    "fileTooLarge": "File is too large (Max 50MB)",
+    "uploadError": "Error uploading file",
+    "confirmDelete": "Do you really want to delete this file?",
+    "profilePicture": "Profile picture",
+    "setProfilePicture": "Set as profile picture",
+    "removeProfilePicture": "Remove profile picture",
+    "uploadProfilePicture": "Upload profile picture",
+    "imageRequired": "Please select an image file.",
+    "linkedWith": "Linked with: {{events}}",
+    "linkedTitle": "Linked media of other persons",
+    "linkedHint": "These files belong to other persons and are linked with events in the timeline.",
+    "confirmDeleteLinked_one": "The file is linked with one event. Do you really want to delete it?",
+    "confirmDeleteLinked_other": "The file is linked with {{count}} events. Do you really want to delete it?",
+    "view": {
+      "label": "View",
+      "grid": "Tiles",
+      "list": "List"
+    }
+  },
+  "tree": {
+    "subtitle": "Visualization of family relationships",
+    "toolbar": "Family tree settings",
+    "view": "View",
+    "views": {
+      "tree": "Family tree",
+      "ancestors": "Ancestor chart",
+      "descendants": "Descendant chart",
+      "network": "Relationship network"
+    },
+    "focus": {
+      "label": "Focus person",
+      "none": "— none —",
+      "set": "Set as focus person",
+      "setFor": "Set {{name}} as focus person"
+    },
+    "depth": {
+      "label": "Generations",
+      "all": "All",
+      "needsFocus": "Choose a focus person first"
+    },
+    "needsFocus": "Choose a focus person to show the {{view}}.",
+    "empty": "No persons recorded yet.",
+    "export": {
+      "label": "Export",
+      "png": "PNG",
+      "svg": "SVG",
+      "pdf": "Print / PDF",
+      "failed": "Export failed.",
+      "visibleOnly": "Visible area only"
+    },
+    "legend": {
+      "label": "Border colour:"
+    },
+    "tooMany": "This view contains {{count, number}} persons. To keep the family tree clear and fast, it is not drawn automatically above {{limit, number}} persons – choose a focus person above and limit the generations.",
+    "showAll": "Show all {{count, number}} anyway (may take a while)",
+    "background": {
+      "label": "Background",
+      "none": "None",
+      "dots": "Dots",
+      "grid": "Grid"
+    }
+  },
+  "dashboard": {
+    "intro": "Manage your family tree, document family relationships and explore your origins.",
+    "totalPersons": "Total persons",
+    "totalPersonsHint": "Family members recorded in the database",
+    "genderDistribution": "Gender distribution",
+    "quickAccess": "Quick access",
+    "openPersonList": "Open person list",
+    "recentlyAdded": "Recently added",
+    "noPersons": "No persons recorded yet.",
+    "noLifeDates": "No life dates",
+    "tips": {
+      "title": "Tips & tricks",
+      "treeTitle": "Visualize the family tree:",
+      "treeText": "Add parent-child connections via relations. The family tree then arranges your family members hierarchically.",
+      "searchTitle": "Use the search:",
+      "searchText": "Filter persons by first or last name using the search field in the top bar.",
+      "datesTitle": "Uncertain dates:",
+      "datesText": "Enter historical dates as you know them – e.g. \"1880\", \"05.1880\", \"about 1880\" or \"1880-1885\". The precision is detected automatically."
+    }
+  },
+  "apiErrors": {
+    "UNKNOWN": "An unexpected error occurred.",
+    "NETWORK": "The server cannot be reached. Please try again later.",
+    "PERSON_NOT_FOUND": "The person does not exist (anymore).",
+    "PERSONS_REQUIRED": "Please specify both persons.",
+    "SELF_RELATION": "A person cannot be related to themselves.",
+    "INVALID_RELATION_TYPE": "Invalid relation type.",
+    "INVALID_DATE": "Invalid date.",
+    "DATE_ORDER": "The end date must not be before the start date.",
+    "DUPLICATE": "This relation already exists.",
+    "CYCLE": "A person cannot be their own ancestor.",
+    "INVALID_LIMIT": "The size limit must be a whole number of megabytes (64 MB to 1 TB).",
+    "INVALID_CATEGORY": "Invalid category.",
+    "TITLE_REQUIRED": "Please enter a title.",
+    "NOTE_TEXT_REQUIRED": "The note text must not be empty.",
+    "MEDIA_NOT_FOUND": "The file was not found.",
+    "MEDIA_DELETE_FAILED": "The file could not be deleted.",
+    "NO_FILE": "No file was uploaded.",
+    "UPLOAD_FAILED": "Error uploading the file.",
+    "PERSON_NOT_DELETED": "Only persons in the trash can be deleted permanently.",
+    "INVALID_PROFILE_PICTURE": "Only images of this person can be used as profile picture.",
+    "EVENT_NOT_FOUND": "The event no longer exists.",
+    "DOWNLOAD_FAILED": "The file could not be downloaded.",
+    "TREE_NOT_FOUND": "The family tree does not exist (anymore).",
+    "TREE_NAME_REQUIRED": "Please enter a name for the family tree.",
+    "TREE_NAME_TOO_LONG": "The name must not be longer than 100 characters.",
+    "TREE_NOT_DELETED": "Only family trees in the recycle bin can be deleted permanently.",
+    "RELATION_NOT_FOUND": "The relation does not exist (anymore).",
+    "NOTE_NOT_FOUND": "The note does not exist (anymore).",
+    "NOTE_TOO_LONG": "A note can be at most 10,000 characters long.",
+    "INVALID_GENDER": "Invalid gender.",
+    "INVALID_DATE_PRECISION": "Invalid date precision.",
+    "PERSON_IN_TRASH": "The person is in the trash – restore them first to add files."
+  },
+  "trash": {
+    "title": "Trash",
+    "description": "Deleted persons of the open family tree and deleted family trees can be restored or permanently deleted here. Permanent deletion also removes relations, events, notes and media.",
+    "restore": "Restore",
+    "deleteForever": "Delete permanently",
+    "deleteForeverConfirm": "Permanently delete {{name}}? Relations, timeline, notes and media will be deleted as well. This cannot be undone.",
+    "movedToTrash": "{{name}} was moved to the trash.",
+    "undo": "Undo",
+    "inTrash": "This person is in the trash.",
+    "deletedOn": "This person was deleted on {{date}} and is in the trash.",
+    "deletedAt": "deleted on {{date}}",
+    "personsTitle": "Persons from “{{name}}”",
+    "emptyPersons": "No deleted persons in this family tree."
+  },
+  "importExport": {
+    "subtitle": "Back up data, move it to another computer or exchange it with other genealogy programs",
+    "export": {
+      "title": "Export",
+      "description": "All persons including the trash, relations, timeline and notes.",
+      "zipTitle": "Full backup (ZIP)",
+      "withMedia": "Include media (images and documents)",
+      "zipButton": "Download ZIP",
+      "gedcomTitle": "GEDCOM",
+      "gedcomHint": "Exchange format for programs such as Gramps, Ancestry or MyHeritage – without the recycle bin.",
+      "gedcomVersion": "Version",
+      "gedcomButton": "Download GEDCOM",
+      "saveLocation": "Your browser decides where the file is saved; you can set it to ask every time in the browser settings.",
+      "done": "{{filename}} has been downloaded.",
+      "missingMedia_one": "{{count}} media file was missing on the server and was skipped.",
+      "missingMedia_other": "{{count}} media files were missing on the server and were skipped.",
+      "gedcomWithMedia": "Include images and documents (ZIP file; GEDZIP for 7.0)",
+      "tree": "Exporting the family tree “{{name}}”."
+    },
+    "import": {
+      "title": "Import",
+      "description": "ZIP export of this application or GEDCOM file (5.5.1 / 7.0, also as ZIP/GEDZIP with media). You will see what changes before importing.",
+      "file": "Choose file",
+      "checking": "Checking file…",
+      "fileZip": "Export from {{source}} of {{date}}",
+      "fileGedcom": "{{source}} file from {{date}}",
+      "counts": "{{imported}} persons in the file, {{existing}} persons present",
+      "missingFiles_one": "{{count}} media file is missing in the ZIP file and will be skipped.",
+      "missingFiles_other": "{{count}} media files are missing in the ZIP file and will be skipped.",
+      "backupHint": "There is existing data. Download a backup before importing so you can restore it if needed.",
+      "backupButton": "Download backup",
+      "backupDone": "Backup downloaded",
+      "strategy": "How to handle existing data",
+      "summaryTitle": "Planned changes",
+      "run": "Run import",
+      "overwriteConfirm_one": "All data of the family tree “{{tree}}” ({{count}} person) will be deleted and replaced by the import file. Other family trees stay unchanged. Continue?",
+      "overwriteConfirm_other": "All data of the family tree “{{tree}}” ({{count}} persons) will be deleted and replaced by the import file. Other family trees stay unchanged. Continue?",
+      "success": "Import completed.",
+      "recognized_one": "{{count}} person in the file already exists and will not be duplicated ({{byName}} recognised by name and year of birth).",
+      "recognized_other": "{{count}} persons in the file already exist and will not be duplicated ({{byName}} recognised by name and year of birth).",
+      "previousImport": "This file was already imported on {{date}} ({{strategy}}).",
+      "target": "Import into",
+      "targetCurrent": "the open family tree “{{name}}”",
+      "targetNew": "a new family tree",
+      "treeName": "Name of the new family tree",
+      "successNewTree": "Import completed – the new family tree “{{name}}” is open."
+    },
+    "strategies": {
+      "OVERWRITE": {
+        "label": "Overwrite",
+        "description": "All data of the open family tree is deleted and replaced by the import file."
+      },
+      "MERGE_NEWER": {
+        "label": "Merge – newer wins",
+        "description": "New persons are added. Where data differs, the newer version is kept."
+      },
+      "MERGE_MANUAL": {
+        "label": "Merge – decide manually",
+        "description": "New persons are added. Where data differs, you decide per person."
+      }
+    },
+    "summary": {
+      "newPersons": "New persons",
+      "updatedPersons": "Updated persons",
+      "keptPersons": "Conflicts – existing data kept",
+      "unchangedPersons": "Unchanged",
+      "removedPersons": "Deleted persons",
+      "conflicts": "Persons with differences",
+      "newRelations": "New relations",
+      "newEvents": "New timeline entries",
+      "newNotes": "New notes",
+      "newMedia": "New media"
+    },
+    "conflicts": {
+      "title_one": "{{count}} person with differences",
+      "title_other": "{{count}} persons with differences",
+      "allImport": "Take all from file",
+      "allKeep": "Keep all",
+      "field": "Field",
+      "existing": "Existing",
+      "imported": "Import file",
+      "importNewer": "Import file is newer",
+      "existingNewer": "Existing data is newer",
+      "keep": "Keep existing",
+      "take": "Take from file",
+      "decision": "Decision for {{name}}"
+    },
+    "errors": {
+      "UNKNOWN": "An unexpected error occurred during import/export. See the server log for details.",
+      "NETWORK": "The server cannot be reached. Please try again later.",
+      "NO_FILE": "No file was selected.",
+      "TOO_LARGE": "The file is too large (limit: {{limit}}).",
+      "UNPACKED_TOO_LARGE": "The file is too large once unpacked (limit: {{limit}}).",
+      "EXPORT_TOO_LARGE": "The media of this family tree are too large for one file (about {{size}}, limit: {{limit}}). Export without media instead.",
+      "UNSUPPORTED_FILE": "The file is neither an export of this application (ZIP) nor a GEDCOM file (.ged).",
+      "INVALID_ZIP": "The ZIP file is damaged and cannot be extracted.",
+      "MISSING_PERSONS_JSON": "The ZIP file contains no persons.json – is it an export of this application?",
+      "INVALID_JSON": "The file persons.json is not valid JSON.",
+      "INVALID_SCHEMA": "The file persons.json does not have the expected format.",
+      "UNSUPPORTED_VERSION": "The file comes from a newer version of the application and cannot be imported.",
+      "INTEGRITY": "The data is incomplete or inconsistent (e.g. references to missing persons).",
+      "INVALID_GEDCOM": "The GEDCOM file is malformed.",
+      "UNSUPPORTED_ENCODING": "The character encoding of the GEDCOM file (ANSEL) is not supported. Please export as UTF-8.",
+      "INVALID_STRATEGY": "Unknown import strategy.",
+      "INVALID_DECISIONS": "The conflict decisions are invalid.",
+      "IMPORT_FAILED": "The import failed. No data was changed.",
+      "EXPORT_FAILED": "The export failed.",
+      "details": "Technical details",
+      "TREE_NOT_FOUND": "The open family tree does not exist (anymore). Please choose another one.",
+      "TREE_NAME_REQUIRED": "Please enter a name for the new family tree.",
+      "BACKUP_INVALID": "The file is not a valid Cognatio backup.",
+      "BACKUP_IS_EXPORT": "This is an export of a single family tree, not a backup. Please import it under “Import/Export”.",
+      "BACKUP_TOO_NEW": "The backup comes from a newer version of the application and cannot be restored.",
+      "BACKUP_CHECKSUM": "The backup is damaged or was modified (checksum mismatch).",
+      "RESTORE_NOT_CONFIRMED": "The restore was not confirmed.",
+      "SAFETY_BACKUP_FAILED": "The current state could not be saved – so nothing was restored. Is the backup folder writable?",
+      "BACKUP_FAILED": "The backup failed.",
+      "RESTORE_FAILED": "The restore failed. No data was changed.",
+      "MEDIA_TOO_LARGE": "A file in the import is larger than {{limit}} and cannot be taken over.",
+      "DOWNLOAD_CANCELLED": "The backup was not saved – the restore was not started.",
+      "OPERATION_IN_PROGRESS": "Another import, export or backup is running. Please wait until it is finished and try again."
+    },
+    "history": {
+      "title": "Previous imports",
+      "empty": "No imports yet.",
+      "date": "Imported on",
+      "file": "File",
+      "fileDate": "File dated",
+      "strategy": "Method",
+      "result": "Result",
+      "created_one": "{{count}} new person",
+      "created_other": "{{count}} new persons",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated",
+      "removed_one": "{{count}} removed",
+      "removed_other": "{{count}} removed",
+      "media_one": "{{count}} media file",
+      "media_other": "{{count}} media files"
+    }
+  },
+  "statistics": {
+    "subtitle": "Analyses across all recorded persons (excluding the trash)",
+    "empty": "No persons recorded yet – the analyses appear here once persons have been added.",
+    "noData": "No data available.",
+    "barAria": "{{label}}: {{value}} ({{share}})",
+    "years_one": "{{count, number}} year",
+    "years_other": "{{count, number}} years",
+    "kpi": {
+      "persons": "Persons",
+      "gender": "{{male, number}} male · {{female, number}} female · {{unknown, number}} not specified",
+      "relations": "Relations",
+      "families": "Family groups",
+      "unconnected_one": "{{count, number}} person without relations",
+      "unconnected_other": "{{count, number}} persons without relations",
+      "lifespan": "Average lifespan",
+      "lifespanHint": "Deceased persons with year of birth and death",
+      "oldest": "Earliest year of birth",
+      "deceasedLabel": "Deceased",
+      "withoutDeath_one": "{{count, number}} person without death details",
+      "withoutDeath_other": "{{count, number}} persons without death details"
+    },
+    "ages": {
+      "title": "Age distribution",
+      "description": "In ten-year age groups; for approximate dates the earliest possible year counts.",
+      "living": "Living persons – current age",
+      "deceased": "Deceased – age reached",
+      "range": "{{from}}–{{to}}",
+      "plus": "{{from}}+",
+      "withoutAge_one": "{{count, number}} person without year of birth or death is not included.",
+      "withoutAge_other": "{{count, number}} persons without year of birth or death are not included.",
+      "probablyDeceased_one": "{{count, number}} person would be older than {{max, number}} years but has no date of death – probably deceased, not included.",
+      "probablyDeceased_other": "{{count, number}} persons would be older than {{max, number}} years but have no date of death – probably deceased, not included."
+    },
+    "surnames": {
+      "title": "Most common surnames",
+      "description_one": "{{count, number}} distinct surname",
+      "description_other": "{{count, number}} distinct surnames"
+    },
+    "places": {
+      "title": "Places of origin",
+      "description_one": "Most common birthplaces – {{count, number}} person with birthplace, {{places, number}} distinct places",
+      "description_other": "Most common birthplaces – {{count, number}} persons with birthplace, {{places, number}} distinct places"
+    },
+    "generations": {
+      "title": "Generations overview",
+      "description": "Generation 1 is the oldest recorded generation of a family group; partners count as the same generation.",
+      "generation": "Generation",
+      "persons": "Persons",
+      "births": "Years of birth",
+      "footnote": "{{families, number}} family groups, {{unconnected, number}} persons without relations (each in generation 1)."
+    }
+  },
+  "search": {
+    "foundVia": "Found via: {{list}}",
+    "match": {
+      "NAME": "name",
+      "PHONETIC": "similar spelling",
+      "DETAILS": "personal data",
+      "EVENT": "timeline",
+      "NOTE": "notes"
+    }
+  },
+  "settings": {
+    "subtitle": "Display and family tree apply to this device; backup and system to the whole application.",
+    "deviceHint": "Saved in this browser.",
+    "display": {
+      "title": "Display",
+      "theme": "Colour scheme",
+      "themes": {
+        "system": "Same as operating system",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "tree": {
+      "title": "Family tree",
+      "view": "View when opening",
+      "depth": "Generations when opening",
+      "hint": "The family tree opens the way you last left it – changes made there are taken over here. A link with a focus person (e.g. “Show family tree”) takes precedence. Stored in this browser.",
+      "focus": "Focus person when opening"
+    },
+    "limits": {
+      "title": "Size limits",
+      "hint": "Largest file for export and import and for backup and restore. These are processed in memory, so the default of 2 GB suits most computers. Raise it only on a computer with plenty of free memory.",
+      "import": "Largest export and import file",
+      "backup": "Largest backup file",
+      "unit": "GB",
+      "save": "Save",
+      "reset": "Restore default",
+      "saved": "Saved. The new limits apply at once.",
+      "memoryWarning": "Above 4 GB: exporting, importing or restoring needs at least twice the file size as free memory (RAM). With less, the app can become very slow or stop."
+    },
+    "backup": {
+      "title": "Backup",
+      "last": "Last automatic backup",
+      "none": "none found",
+      "count": "Available backups",
+      "folder": "Location (server)",
+      "lastImport": "Last import",
+      "outdated": "The last automatic backup is older than {{days}} days. Is the automatic backup running?",
+      "missing": "No automatic backup found. Is the automatic backup running and the location set correctly?",
+      "manualTitle": "Back up all family trees",
+      "manualHint": "One file with all family trees, media, the recycle bin and the import history. Restoring it replaces all data.",
+      "download": "Download backup",
+      "restoreButton": "Restore backup…",
+      "downloaded": "Saved as {{file}}.",
+      "missingMedia_one": "{{count}} media file was missing on the server and is not included.",
+      "missingMedia_other": "{{count}} media files were missing on the server and are not included.",
+      "overLimit": "The backup (about {{size}}) is larger than the limit of {{limit}}: it is saved, but this app cannot restore it. Also save single family trees via “Import/Export”.",
+      "singleTreeHint": "Export or import a single family tree:",
+      "restore": {
+        "title": "Restore backup",
+        "intro": "Choose a backup file (cognatio_backup_….zip). It is checked first – nothing is changed yet.",
+        "file": "Backup file",
+        "checking": "Checking file …",
+        "backupFrom": "Backup from {{date}} (version {{version}})",
+        "compare": "Current data and backup contents",
+        "current": "Now",
+        "inBackup": "In backup",
+        "rows": {
+          "trees": "Family trees",
+          "persons": "Persons",
+          "relations": "Relations",
+          "events": "Life events",
+          "notes": "Notes",
+          "media": "Media",
+          "trash": "In recycle bin"
+        },
+        "trees": "Family trees in the backup (persons):",
+        "missingFiles_one": "{{count}} media file is missing in the backup – the entry is kept, the file is not.",
+        "missingFiles_other": "{{count}} media files are missing in the backup – the entries are kept, the files are not.",
+        "warning": "All current data will be deleted – all family trees, persons, media, the recycle bin and the import history – and replaced by the backup.",
+        "autoBackup": "Before that, the current state is saved automatically in the backup folder on the server; the last three of these backups are kept.",
+        "downloadFirst": "Also download the current state",
+        "confirmWord": "DELETE",
+        "typeToConfirm": "Type “{{word}}” to confirm",
+        "submit": "Restore",
+        "downloading": "Downloading the current state …",
+        "restoring": "Restoring … Please do not close the page.",
+        "done_one": "The backup was restored: {{trees}} family tree(s), {{count}} person.",
+        "done_other": "The backup was restored: {{trees}} family tree(s), {{count}} persons.",
+        "safetyBackup": "The previous state was saved as {{file}} (folder {{dir}}). This file can be used to undo the restore."
+      }
+    },
+    "system": {
+      "title": "System",
+      "languageSystem": "Same as the operating system",
+      "version": "Version",
+      "server": "Server",
+      "database": "Database",
+      "reachable": "reachable",
+      "unreachable": "unreachable",
+      "serverUnreachable": "The server cannot be reached.",
+      "persons": "Persons",
+      "personsValue_one": "{{count}} (plus {{deleted}} in the recycle bin)",
+      "personsValue_other": "{{count, number}} (plus {{deleted}} in the recycle bin)",
+      "media": "Media",
+      "mediaValue_one": "{{count}} file, {{size}} MB",
+      "mediaValue_other": "{{count, number}} files, {{size}} MB",
+      "logLevel": "Log level",
+      "trees": "Family trees",
+      "status": "Status",
+      "data": "Data in the database",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "licenceNote": "Cognatio is free software under the GNU GPL (version 3 or later).",
+      "licenceLink": "Open-source licences"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "hint": "Saved in this browser. Changes apply immediately.",
+      "reset": "Reset to defaults",
+      "preview": "Preview",
+      "px": "{{value}} px",
+      "groups": {
+        "font": "Typography",
+        "lines": "Lines in the family tree",
+        "cards": "Cards",
+        "colors": "Colours"
+      },
+      "fields": {
+        "font": "Font",
+        "treeFont": "Font in the family tree",
+        "fontSize": "Font size",
+        "accent": "Accent colour",
+        "lineStyle": "Line style",
+        "lineWidth": "Line width",
+        "partnerLine": "Partner line",
+        "lineColor": "Line colour",
+        "density": "Card size",
+        "corner": "Corners",
+        "border": "Border width",
+        "showPhoto": "Show photo",
+        "showDates": "Show life dates",
+        "showRibbon": "Show mourning ribbon for deceased persons",
+        "male": "Border: male",
+        "female": "Border: female",
+        "unknown": "Border: not specified"
+      },
+      "fonts": {
+        "inter": "Inter",
+        "serif": "Serif",
+        "readable": "Highly legible",
+        "system": "System font",
+        "mono": "Monospace",
+        "app": "Same as app"
+      },
+      "sizes": {
+        "small": "Small",
+        "normal": "Normal",
+        "large": "Large"
+      },
+      "lineStyles": {
+        "step": "Right-angled",
+        "straight": "Straight",
+        "curved": "Curved"
+      },
+      "partnerLines": {
+        "dashed": "Dashed",
+        "dotted": "Dotted",
+        "solid": "Solid"
+      },
+      "lineColors": {
+        "neutral": "Neutral",
+        "accent": "Accent colour"
+      },
+      "densities": {
+        "compact": "Compact",
+        "normal": "Normal",
+        "comfortable": "Spacious"
+      },
+      "corners": {
+        "square": "Square",
+        "rounded": "Rounded",
+        "round": "Very round"
+      },
+      "colors": {
+        "green": "Green",
+        "blue": "Blue",
+        "purple": "Purple",
+        "orange": "Orange",
+        "rose": "Rose",
+        "sky": "Sky blue",
+        "teal": "Teal",
+        "pink": "Pink"
+      }
+    },
+    "sections": {
+      "fontColors": "Font and colours",
+      "treeAppearance": "Family tree: appearance",
+      "treeBehaviour": "Family tree: behaviour",
+      "data": "Data and backup",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all"
+    },
+    "logs": {
+      "view": "Show logs",
+      "export": "Export logs",
+      "title": "Logs",
+      "refresh": "Refresh",
+      "empty": "No entries.",
+      "noFile": "The server writes no log file (LOG_FILE is empty).",
+      "filter": "Show",
+      "allLevels": "All levels",
+      "warnUp": "Warnings and errors",
+      "errorsOnly": "Errors only",
+      "hint": "The export contains the log files of the server and of this browser session, but no persons and no media. Entries can contain technical details such as page addresses and file names – look through them before you send them.",
+      "exportPartial": "The server log could not be included, the file contains only the browser log.",
+      "clear": "Clear logs",
+      "confirmClear": "Delete all logs of the server and of this browser? This cannot be undone.",
+      "cleared": "Logs deleted."
+    },
+    "search": {
+      "label": "Search settings",
+      "placeholder": "Search settings…",
+      "none": "No setting found."
+    },
+    "updates": {
+      "title": "Program updates",
+      "intro": "Cognatio looks for a new version once a day. Only the request for the version file is sent – no data about you or your family trees.",
+      "check": "Check for updates automatically",
+      "checkNow": "Check now",
+      "checking": "Looking for updates …",
+      "upToDate": "Cognatio is up to date.",
+      "downloading": "Version {{version}} is being downloaded …",
+      "ready": "Version {{version}} is ready and is installed when you restart.",
+      "restartNow": "Restart and install",
+      "channel": "Versions",
+      "channelStable": "Released versions only (recommended)",
+      "channelBeta": "Also test versions (beta)",
+      "betaHint": "Test versions come before the release and can contain errors. Cognatio saves your data before every update, but a database that a test version has changed cannot be used by an earlier version. Going back to released versions only takes effect with the next release.",
+      "error": "The update check failed: {{message}}"
+    }
+  },
+  "familyTrees": {
+    "title": "Family trees",
+    "subtitle": "Each family tree has its own persons, relations, timelines, notes and media. All pages show the one currently open.",
+    "active": "Open family tree",
+    "activeBadge": "Open",
+    "create": "New family tree",
+    "open": "Open",
+    "rename": "Rename",
+    "deleteLabel": "Delete {{name}}",
+    "deleteConfirm_one": "Move the family tree “{{name}}” with {{count}} person to the recycle bin? It can be restored there.",
+    "deleteConfirm_other": "Move the family tree “{{name}}” with {{count}} persons to the recycle bin? It can be restored there.",
+    "persons_one": "{{count}} person",
+    "persons_other": "{{count, number}} persons",
+    "createdAt": "created on {{date}}",
+    "trashHint": "Deleted family trees can be restored:",
+    "loadError": "The family trees could not be loaded. Is the server reachable?",
+    "form": {
+      "createTitle": "New family tree",
+      "editTitle": "Rename family tree",
+      "name": "Name",
+      "namePlaceholder": "e.g. Miller family",
+      "description": "Description",
+      "createHint": "The new family tree is empty and opens right away. Add persons or import them (Import/Export).",
+      "create": "Create and open",
+      "nameRequired": "Please enter a name."
+    },
+    "trash": {
+      "title": "Deleted family trees",
+      "restoreLabel": "Restore {{name}}",
+      "deleteForeverLabel": "Permanently delete {{name}}",
+      "deleteForeverConfirm_one": "Permanently delete the family tree “{{name}}” with {{count}} person and all relations, timelines, notes and media? This cannot be undone.",
+      "deleteForeverConfirm_other": "Permanently delete the family tree “{{name}}” with {{count}} persons and all relations, timelines, notes and media? This cannot be undone."
+    },
+    "none": {
+      "title": "No family tree",
+      "text": "Create a new family tree, import a file (Cognatio ZIP or GEDCOM) or get a deleted family tree back from the recycle bin.",
+      "import": "Import a file",
+      "trash": "Get back from the recycle bin",
+      "option": "– no family tree –"
+    }
+  },
+  "help": {
+    "title": "Help",
+    "subtitle": "Short explanations of all areas of Cognatio.",
+    "contents": "Contents",
+    "search": "Search help",
+    "noResults": "No matching sections found.",
+    "results_one": "{{count}} section found",
+    "results_other": "{{count}} sections found",
+    "notTranslated": "The help is not yet available in this language and is shown in English.",
+    "showOriginal": "Show original (English)",
+    "showTranslation": "Show translation",
+    "version": "Version {{version}}"
+  },
+  "dateWords": {
+    "about": "about|around|circa|approx.|approx|abt.|abt",
+    "after": "after|aft.|aft",
+    "before": "before|bef.|bef"
+  },
+  "errorPage": {
+    "title": "Something went wrong",
+    "text": "This page could not be shown. Reloading usually helps; saved data is not affected. Details are in the log (Settings → System).",
+    "reload": "Reload"
+  }
+}

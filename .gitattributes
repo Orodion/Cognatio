@@ -1,0 +1,8 @@
+# Normalize line endings to LF in the repository
+# and convert to native line endings (CRLF on Windows, LF on Unix) in the working directory.
+* text=auto
+
+# Ensure shell scripts and batch files have correct line endings
+*.bat text eol=crlf
+*.ps1 text eol=lf
+*.sh text eol=lf

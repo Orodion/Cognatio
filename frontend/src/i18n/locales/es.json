@@ -1,0 +1,955 @@
+{
+  "app": {
+    "name": "Cognatio",
+    "tagline": "Árbol genealógico",
+    "skipToContent": "Saltar al contenido"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "persons": "Personas",
+    "tree": "Árbol genealógico",
+    "statistics": "Estadísticas",
+    "importExport": "Importar/Exportar",
+    "settings": "Ajustes",
+    "familyTrees": "Árboles genealógicos",
+    "trash": "Papelera",
+    "trashCount_one": "{{count}} elemento",
+    "trashCount_other": "{{count}} elementos",
+    "help": "Ayuda",
+    "quit": "Salir"
+  },
+  "header": {
+    "searchPlaceholder": "Buscar personas…",
+    "language": "Idioma",
+    "darkMode": "Modo oscuro",
+    "lightMode": "Modo claro",
+    "help": "Ayuda para esta página"
+  },
+  "persons": {
+    "title": "Personas",
+    "count_one": "{{count}} persona",
+    "count_other": "{{count}} personas",
+    "newPerson": "Nueva persona",
+    "empty": "Aún no hay personas.",
+    "emptySearch": "No se encontraron personas para \"{{query}}\".",
+    "loading": "Cargando personas…",
+    "error": "No se pudieron cargar las personas.",
+    "gridView": "Vista de cuadrícula",
+    "listView": "Vista de lista",
+    "born": "n.",
+    "died": "f.",
+    "years_one": "{{count}} año",
+    "years_other": "{{count}} años",
+    "deceased": "fallecido/a",
+    "bornAs": "de soltera {{name}}",
+    "unknownGivenName": "(nombre desconocido)",
+    "showMore_one": "Mostrar más (quedan {{count, number}})",
+    "showMore_other": "Mostrar más (quedan {{count, number}})"
+  },
+  "personDetail": {
+    "notFound": "Persona no encontrada.",
+    "loading": "Cargando persona…",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "showTree": "Mostrar árbol",
+    "deleteConfirm": "¿Realmente quieres eliminar a {{name}}?",
+    "deleteSuccess": "La persona ha sido eliminada.",
+    "tabs": {
+      "overview": "Resumen",
+      "timeline": "Cronología",
+      "relations": "Relaciones",
+      "notes": "Notas",
+      "media": "Archivos"
+    },
+    "sections": {
+      "personal": "Datos personales",
+      "contact": "Contacto",
+      "other": "Otros datos"
+    },
+    "fields": {
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "middleName": "Segundo nombre",
+      "birthName": "Apellido de nacimiento",
+      "title": "Título",
+      "nickname": "Apodo",
+      "birthDate": "Fecha de nacimiento",
+      "birthPlace": "Lugar de nacimiento",
+      "deathDate": "Fecha de fallecimiento",
+      "deathPlace": "Lugar de fallecimiento",
+      "gender": "Sexo",
+      "address": "Dirección",
+      "phone": "Teléfono",
+      "email": "Correo electrónico",
+      "occupation": "Profesión",
+      "hobbies": "Aficiones",
+      "maritalStatus": "Estado civil",
+      "nationality": "Nacionalidad",
+      "languages": "Idiomas"
+    },
+    "tabsLabel": "Secciones de la persona",
+    "filter": {
+      "placeholder": {
+        "timeline": "Filtrar la cronología…",
+        "relations": "Filtrar las relaciones…",
+        "notes": "Filtrar las notas…",
+        "media": "Filtrar los archivos…"
+      },
+      "noMatches": "Sin resultados para «{{query}}»."
+    }
+  },
+  "gender": {
+    "MALE": "Hombre",
+    "FEMALE": "Mujer",
+    "UNKNOWN": "No especificado"
+  },
+  "maritalStatus": {
+    "SINGLE": "Soltero/a",
+    "MARRIED": "Casado/a",
+    "DIVORCED": "Divorciado/a",
+    "WIDOWED": "Viudo/a",
+    "CIVIL_PARTNERSHIP": "Unión civil"
+  },
+  "common": {
+    "back": "Volver",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "retry": "Reintentar",
+    "clear": "Borrar campo",
+    "loading": "Cargando…",
+    "error": "Se ha producido un error.",
+    "delete": "Eliminar",
+    "close": "Cerrar"
+  },
+  "form": {
+    "createTitle": "Crear nueva persona",
+    "editTitle": "Editar persona",
+    "create": "Crear",
+    "noSelection": "Sin selección",
+    "precision": "Precisión",
+    "errors": {
+      "required": "Este campo es obligatorio",
+      "tooLong": "Máximo 100 caracteres",
+      "invalidName": "Solo se permiten letras, espacios, guion, apóstrofo y punto",
+      "invalidDate": "Formato de fecha desconocido (p. ej. 04.01.1980, 01.1980, 1980, hacia 1980, 1980-1985)",
+      "futureDate": "La fecha no puede estar en el futuro",
+      "rangeOrder": "El final del intervalo es anterior a su inicio",
+      "deathBeforeBirth": "La fecha de fallecimiento es anterior a la de nacimiento",
+      "lifespanTooLong": "Una duración de vida de más de 125 años es inverosímil",
+      "invalidEmail": "Dirección de correo electrónico no válida",
+      "invalidPhone": "Número de teléfono no válido",
+      "checkInput": "Revisa los campos marcados.",
+      "saveFailed": "No se pudo guardar.",
+      "relationsFailed": "La persona se guardó, pero no se pudieron crear las siguientes relaciones: {{names}}",
+      "profilePictureFailed": "La persona se guardó, pero no se pudo subir la foto de perfil: {{reason}}"
+    },
+    "datePlaceholder": "p. ej. 04.01.1980, 01.1980, hacia 1980",
+    "openCalendar": "Abrir calendario",
+    "detectedPrecision": "Detectado: {{precision}}",
+    "addLanguage": "Idioma",
+    "selectLanguage": "Seleccionar idioma…",
+    "removeLanguage": "Quitar {{language}}",
+    "dateHelp": "Formatos de fecha: 04.01.1980 (exacta), 01.1980 (mes), 1980 (año), \"hacia 1980\", \"después de 1980\", \"antes de 1980\" o intervalo \"1980-1985\" (aproximada).",
+    "relationsEditHint": "Aquí puedes añadir relaciones nuevas. Las relaciones existentes se gestionan en la pestaña \"Relaciones\".",
+    "titlePlaceholder": "Dr., Prof.",
+    "similar": {
+      "title": "¿Ya existe esta persona?",
+      "hint": "Se han encontrado entradas similares. Aun así, puedes guardar.",
+      "open": "Abrir {{name}} (nueva pestaña)"
+    },
+    "profilePicture": "Foto de perfil",
+    "chooseProfilePicture": "Elegir imagen",
+    "changeProfilePicture": "Elegir otra imagen",
+    "discardProfilePicture": "Descartar selección",
+    "profilePictureHint": "Opcional. Al guardar, la imagen se almacena con los archivos de la persona.",
+    "profilePictureSelected": "«{{name}}» se subirá al guardar.",
+    "firstNameUnknown": "Nombre desconocido"
+  },
+  "precision": {
+    "EXACT": "Exacta (día, mes, año)",
+    "MONTH": "Mes y año",
+    "YEAR": "Solo el año",
+    "APPROXIMATE": "Aproximada"
+  },
+  "relations": {
+    "title": "Relaciones",
+    "add": "Añadir relación",
+    "empty": "No se encontraron relaciones.",
+    "loading": "Cargando relaciones…",
+    "error": "Error al cargar las relaciones.",
+    "deleteConfirm": "¿Realmente quieres eliminar la relación con {{name}}?",
+    "roles": {
+      "PARENT": "Padres",
+      "CHILD": "Hijos",
+      "PARTNER": "Parejas",
+      "SIBLING": "Hermanos",
+      "OTHER": "Otros"
+    },
+    "types": {
+      "MOTHER": "Madre",
+      "FATHER": "Padre",
+      "CHILD": "Hijo/a",
+      "SIBLING": "Hermano/a",
+      "HUSBAND": "Marido",
+      "WIFE": "Esposa",
+      "LIFE_PARTNER": "Compañero/a de vida",
+      "PARTNER": "Pareja",
+      "OTHER": "Otro",
+      "PARENT": "Progenitor",
+      "SPOUSE": "Cónyuge"
+    },
+    "form": {
+      "title": "Añadir nueva relación",
+      "searchPerson": "Buscar persona",
+      "searchPlaceholder": "Introduce un nombre...",
+      "personSelect": "Persona",
+      "personSource": "Elegir o crear una persona",
+      "existingPerson": "Persona existente",
+      "newPerson": "Persona nueva",
+      "newPersonHint": "Más adelante podrás añadir más datos en la página de la nueva persona.",
+      "createAndSave": "Crear persona y guardar",
+      "type": "Tipo de relación",
+      "label": "Etiqueta (opcional)",
+      "labelPlaceholder": "p. ej. hijo adoptivo, padrastro",
+      "note": "Nota (opcional)",
+      "startDate": "Desde",
+      "endDate": "Hasta",
+      "startFromBirth": "Tomada de la fecha de nacimiento del hijo/a; se puede cambiar",
+      "typeHint": "La persona seleccionada es el/la … de la persona actual.",
+      "dateOrderError": "La fecha final no puede ser anterior a la fecha inicial.",
+      "noPersons": "No hay personas disponibles",
+      "createNew": "Crear nueva relación",
+      "addToList": "Añadir",
+      "removePending": "Quitar la relación con {{name}}",
+      "typeHintNew": "La persona seleccionada es el/la … de la nueva persona.",
+      "errors": {
+        "personRequired": "Selecciona una persona.",
+        "duplicate": "Esta relación ya está en la lista."
+      },
+      "moreResults_one": "{{count, number}} coincidencia más: afina la búsqueda",
+      "moreResults_other": "{{count, number}} coincidencias más: afina la búsqueda"
+    },
+    "ongoing": "actualidad",
+    "deleteLabel": "Eliminar la relación con {{name}}",
+    "graph": {
+      "button": "Gráfico",
+      "label": "Gráfico de relaciones de {{name}}",
+      "hint": "Haz clic en una persona para abrirla. Una persona sin línea de conexión tiene otro tipo de relación (por ejemplo, padrino): consulta la lista."
+    }
+  },
+  "timeline": {
+    "title": "Cronología",
+    "add": "Añadir acontecimiento",
+    "empty": "No se encontraron acontecimientos.",
+    "loading": "Cargando cronología…",
+    "error": "Error al cargar la cronología.",
+    "deleteConfirm": "¿Realmente quieres eliminar el acontecimiento «{{title}}»?",
+    "categories": {
+      "BIRTH": "Nacimiento",
+      "BAPTISM": "Bautismo",
+      "SCHOOL_START": "Inicio escolar",
+      "WEDDING": "Boda",
+      "OCCUPATION": "Profesión",
+      "MOVE": "Mudanza",
+      "DEATH": "Fallecimiento",
+      "OTHER": "Otro"
+    },
+    "form": {
+      "createTitle": "Añadir acontecimiento",
+      "editTitle": "Editar acontecimiento",
+      "title": "Título",
+      "category": "Categoría",
+      "date": "Fecha",
+      "precision": "Precisión de la fecha",
+      "location": "Lugar",
+      "description": "Descripción"
+    },
+    "view": {
+      "label": "Vista",
+      "timeline": "Cronología",
+      "table": "Tabla"
+    },
+    "order": {
+      "label": "Orden",
+      "oldest": "Más antiguos primero",
+      "newest": "Más recientes primero"
+    },
+    "table": {
+      "date": "Fecha",
+      "event": "Suceso",
+      "category": "Categoría",
+      "place": "Lugar",
+      "description": "Descripción",
+      "files": "Archivos",
+      "actions": "Acciones"
+    },
+    "editLabel": "Editar «{{title}}»",
+    "deleteLabel": "Eliminar «{{title}}»",
+    "media": {
+      "title": "Archivos",
+      "none": "Aún no hay archivos vinculados.",
+      "upload": "Subir archivo",
+      "pickExisting": "Vincular existente",
+      "source": "Origen del archivo",
+      "ownMedia": "Archivos de esta persona",
+      "otherMedia": "Archivos de otras personas",
+      "choosePerson": "Elegir persona",
+      "mediaOf": "Archivos de {{name}}",
+      "changePerson": "Elegir otra persona",
+      "noMedia": "No hay archivos disponibles.",
+      "from": "de {{name}}",
+      "unlink": "Desvincular «{{name}}»",
+      "removeFile": "No subir «{{name}}»",
+      "uploadOnSave": "Se sube al guardar",
+      "tooLarge": "Demasiado grande (máx. 50 MB): {{names}}",
+      "uploadFailed": "El acontecimiento se guardó, pero no se pudieron subir los siguientes archivos: {{names}}"
+    }
+  },
+  "notes": {
+    "title": "Notas",
+    "add": "Añadir nota",
+    "empty": "No se encontraron notas.",
+    "loading": "Cargando notas…",
+    "error": "Error al cargar las notas.",
+    "placeholder": "Escribe aquí una nota nueva...",
+    "save": "Guardar",
+    "deleteConfirm": "¿Realmente quieres eliminar esta nota?",
+    "editLabel": "Editar nota",
+    "deleteLabel": "Eliminar nota",
+    "length": "{{used}} de {{max}} caracteres"
+  },
+  "media": {
+    "title": "Archivos",
+    "uploadButton": "Subir archivo",
+    "downloadButton": "Descargar",
+    "uploading": "Subiendo...",
+    "empty": "No se encontraron archivos. Sube una imagen o un documento.",
+    "fileTooLarge": "El archivo es demasiado grande (máx. 50 MB)",
+    "uploadError": "Error al subir el archivo",
+    "confirmDelete": "¿Realmente quieres eliminar este archivo?",
+    "profilePicture": "Foto de perfil",
+    "setProfilePicture": "Usar como foto de perfil",
+    "removeProfilePicture": "Quitar foto de perfil",
+    "uploadProfilePicture": "Subir foto de perfil",
+    "imageRequired": "Selecciona un archivo de imagen.",
+    "linkedWith": "Vinculado con: {{events}}",
+    "linkedTitle": "Archivos vinculados de otras personas",
+    "linkedHint": "Estos archivos pertenecen a otras personas y están vinculados a acontecimientos de la cronología.",
+    "confirmDeleteLinked_one": "El archivo está vinculado a un acontecimiento. ¿Realmente quieres eliminarlo?",
+    "confirmDeleteLinked_other": "El archivo está vinculado a {{count}} acontecimientos. ¿Realmente quieres eliminarlo?",
+    "view": {
+      "label": "Vista",
+      "grid": "Mosaico",
+      "list": "Lista"
+    }
+  },
+  "tree": {
+    "subtitle": "Visualización de las relaciones familiares",
+    "toolbar": "Ajustes del árbol genealógico",
+    "view": "Vista",
+    "views": {
+      "tree": "Árbol genealógico",
+      "ancestors": "Gráfico de ascendientes",
+      "descendants": "Gráfico de descendientes",
+      "network": "Red de relaciones"
+    },
+    "focus": {
+      "label": "Persona central",
+      "none": "— ninguna —",
+      "set": "Establecer como persona central",
+      "setFor": "Establecer a {{name}} como persona central"
+    },
+    "depth": {
+      "label": "Generaciones",
+      "all": "Todas",
+      "needsFocus": "Elige primero una persona central"
+    },
+    "needsFocus": "Elige una persona central para mostrar el {{view}}.",
+    "empty": "Aún no hay personas registradas.",
+    "export": {
+      "label": "Exportar",
+      "png": "PNG",
+      "svg": "SVG",
+      "pdf": "Imprimir / PDF",
+      "failed": "La exportación ha fallado.",
+      "visibleOnly": "Solo el área visible"
+    },
+    "legend": {
+      "label": "Color del borde:"
+    },
+    "tooMany": "Esta vista contiene {{count, number}} personas. Para que el árbol siga siendo claro y rápido, no se dibuja automáticamente a partir de {{limit, number}} personas: elige arriba una persona central y limita las generaciones.",
+    "showAll": "Mostrar de todos modos las {{count, number}} (puede tardar)",
+    "background": {
+      "label": "Fondo",
+      "none": "Ninguno",
+      "dots": "Puntos",
+      "grid": "Cuadrícula"
+    }
+  },
+  "dashboard": {
+    "intro": "Gestiona tu árbol genealógico, documenta las relaciones familiares y explora tus orígenes.",
+    "totalPersons": "Total de personas",
+    "totalPersonsHint": "Familiares registrados en la base de datos",
+    "genderDistribution": "Distribución por sexo",
+    "quickAccess": "Acceso rápido",
+    "openPersonList": "Abrir lista de personas",
+    "recentlyAdded": "Añadidas recientemente",
+    "noPersons": "Aún no hay personas registradas.",
+    "noLifeDates": "Sin fechas de vida",
+    "tips": {
+      "title": "Consejos y trucos",
+      "treeTitle": "Visualiza el árbol genealógico:",
+      "treeText": "Añade conexiones entre padres e hijos mediante relaciones. El árbol genealógico organizará entonces a tus familiares de forma jerárquica.",
+      "searchTitle": "Usa la búsqueda:",
+      "searchText": "Filtra personas por nombre o apellido con el campo de búsqueda de la barra superior.",
+      "datesTitle": "Fechas inciertas:",
+      "datesText": "Introduce las fechas históricas tal como las conoces, p. ej. \"1880\", \"05.1880\", \"hacia 1880\" o \"1880-1885\". La precisión se detecta automáticamente."
+    }
+  },
+  "apiErrors": {
+    "UNKNOWN": "Se ha producido un error inesperado.",
+    "NETWORK": "No se puede acceder al servidor. Inténtalo de nuevo más tarde.",
+    "PERSON_NOT_FOUND": "La persona no existe (o ya no existe).",
+    "PERSONS_REQUIRED": "Indica ambas personas.",
+    "SELF_RELATION": "Una persona no puede estar relacionada consigo misma.",
+    "INVALID_RELATION_TYPE": "Tipo de relación no válido.",
+    "INVALID_DATE": "Fecha no válida.",
+    "DATE_ORDER": "La fecha final no puede ser anterior a la fecha inicial.",
+    "DUPLICATE": "Esta relación ya existe.",
+    "CYCLE": "Una persona no puede ser su propio antepasado.",
+    "INVALID_LIMIT": "El límite de tamaño debe ser un número entero de megabytes (de 64 MB a 1 TB).",
+    "INVALID_CATEGORY": "Categoría no válida.",
+    "TITLE_REQUIRED": "Introduce un título.",
+    "NOTE_TEXT_REQUIRED": "El texto de la nota no puede estar vacío.",
+    "MEDIA_NOT_FOUND": "No se encontró el archivo.",
+    "MEDIA_DELETE_FAILED": "No se pudo eliminar el archivo.",
+    "NO_FILE": "No se ha subido ningún archivo.",
+    "UPLOAD_FAILED": "Error al subir el archivo.",
+    "PERSON_NOT_DELETED": "Solo se pueden eliminar definitivamente las personas que están en la papelera.",
+    "INVALID_PROFILE_PICTURE": "Solo se pueden usar como foto de perfil imágenes de esta persona.",
+    "EVENT_NOT_FOUND": "El acontecimiento ya no existe.",
+    "DOWNLOAD_FAILED": "No se pudo descargar el archivo.",
+    "TREE_NOT_FOUND": "El árbol genealógico no existe (o ya no existe).",
+    "TREE_NAME_REQUIRED": "Introduce un nombre para el árbol genealógico.",
+    "TREE_NAME_TOO_LONG": "El nombre no puede tener más de 100 caracteres.",
+    "TREE_NOT_DELETED": "Solo se pueden eliminar definitivamente los árboles genealógicos que están en la papelera.",
+    "RELATION_NOT_FOUND": "La relación no existe (o ya no existe).",
+    "NOTE_NOT_FOUND": "La nota no existe (o ya no existe).",
+    "NOTE_TOO_LONG": "Una nota puede tener como máximo 10.000 caracteres.",
+    "INVALID_GENDER": "Sexo no válido.",
+    "INVALID_DATE_PRECISION": "Precisión de fecha no válida.",
+    "PERSON_IN_TRASH": "La persona está en la papelera: restáurela primero para añadir archivos."
+  },
+  "trash": {
+    "title": "Papelera",
+    "description": "Aquí puedes restaurar o eliminar definitivamente las personas eliminadas del árbol genealógico abierto y los árboles genealógicos eliminados. La eliminación definitiva también borra relaciones, acontecimientos, notas y archivos.",
+    "restore": "Restaurar",
+    "deleteForever": "Eliminar definitivamente",
+    "deleteForeverConfirm": "¿Eliminar definitivamente a {{name}}? También se eliminarán las relaciones, la cronología, las notas y los archivos. Esta acción no se puede deshacer.",
+    "movedToTrash": "{{name}} se ha movido a la papelera.",
+    "undo": "Deshacer",
+    "inTrash": "Esta persona está en la papelera.",
+    "deletedOn": "Esta persona se eliminó el {{date}} y está en la papelera.",
+    "deletedAt": "eliminada el {{date}}",
+    "personsTitle": "Personas de «{{name}}»",
+    "emptyPersons": "No hay personas eliminadas en este árbol genealógico."
+  },
+  "importExport": {
+    "subtitle": "Haz copias de seguridad de los datos, llévalos a otro ordenador o intercámbialos con otros programas de genealogía",
+    "export": {
+      "title": "Exportar",
+      "description": "Todas las personas, incluida la papelera, relaciones, cronología y notas.",
+      "zipTitle": "Copia de seguridad completa (ZIP)",
+      "withMedia": "Incluir archivos (imágenes y documentos)",
+      "zipButton": "Descargar ZIP",
+      "gedcomTitle": "GEDCOM",
+      "gedcomHint": "Formato de intercambio para programas como Gramps, Ancestry o MyHeritage, sin la papelera.",
+      "gedcomVersion": "Versión",
+      "gedcomButton": "Descargar GEDCOM",
+      "saveLocation": "Tu navegador decide dónde se guarda el archivo; en los ajustes del navegador puedes configurarlo para que pregunte cada vez.",
+      "done": "Se ha descargado {{filename}}.",
+      "missingMedia_one": "Faltaba {{count}} archivo en el servidor y se omitió.",
+      "missingMedia_other": "Faltaban {{count}} archivos en el servidor y se omitieron.",
+      "gedcomWithMedia": "Incluir imágenes y documentos (archivo ZIP; GEDZIP para 7.0)",
+      "tree": "Exportando el árbol genealógico «{{name}}»."
+    },
+    "import": {
+      "title": "Importar",
+      "description": "Exportación ZIP de esta aplicación o archivo GEDCOM (5.5.1 / 7.0, también como ZIP/GEDZIP con archivos). Antes de importar verás qué cambiará.",
+      "file": "Elegir archivo",
+      "checking": "Comprobando archivo…",
+      "fileZip": "Exportación de {{source}} del {{date}}",
+      "fileGedcom": "Archivo {{source}} del {{date}}",
+      "counts": "{{imported}} personas en el archivo, {{existing}} personas existentes",
+      "missingFiles_one": "Falta {{count}} archivo en el ZIP y se omitirá.",
+      "missingFiles_other": "Faltan {{count}} archivos en el ZIP y se omitirán.",
+      "backupHint": "Hay datos existentes. Descarga una copia de seguridad antes de importar para poder restaurarlos si es necesario.",
+      "backupButton": "Descargar copia de seguridad",
+      "backupDone": "Copia de seguridad descargada",
+      "strategy": "Cómo tratar los datos existentes",
+      "summaryTitle": "Cambios previstos",
+      "run": "Ejecutar importación",
+      "overwriteConfirm_one": "Se eliminarán todos los datos del árbol genealógico «{{tree}}» ({{count}} persona) y se sustituirán por el archivo de importación. Los demás árboles genealógicos no cambian. ¿Continuar?",
+      "overwriteConfirm_other": "Se eliminarán todos los datos del árbol genealógico «{{tree}}» ({{count}} personas) y se sustituirán por el archivo de importación. Los demás árboles genealógicos no cambian. ¿Continuar?",
+      "success": "Importación completada.",
+      "recognized_one": "{{count}} persona del archivo ya existe y no se duplicará ({{byName}} reconocidas por nombre y año de nacimiento).",
+      "recognized_other": "{{count}} personas del archivo ya existen y no se duplicarán ({{byName}} reconocidas por nombre y año de nacimiento).",
+      "previousImport": "Este archivo ya se importó el {{date}} ({{strategy}}).",
+      "target": "Importar en",
+      "targetCurrent": "el árbol genealógico abierto «{{name}}»",
+      "targetNew": "un árbol genealógico nuevo",
+      "treeName": "Nombre del nuevo árbol genealógico",
+      "successNewTree": "Importación completada: el nuevo árbol genealógico «{{name}}» está abierto."
+    },
+    "strategies": {
+      "OVERWRITE": {
+        "label": "Sobrescribir",
+        "description": "Todos los datos del árbol genealógico abierto se eliminan y se sustituyen por el archivo de importación."
+      },
+      "MERGE_NEWER": {
+        "label": "Combinar: gana lo más reciente",
+        "description": "Se añaden las personas nuevas. Donde los datos difieren, se conserva la versión más reciente."
+      },
+      "MERGE_MANUAL": {
+        "label": "Combinar: decidir manualmente",
+        "description": "Se añaden las personas nuevas. Donde los datos difieren, decides tú por cada persona."
+      }
+    },
+    "summary": {
+      "newPersons": "Personas nuevas",
+      "updatedPersons": "Personas actualizadas",
+      "keptPersons": "Conflictos: se conservan los datos existentes",
+      "unchangedPersons": "Sin cambios",
+      "removedPersons": "Personas eliminadas",
+      "conflicts": "Personas con diferencias",
+      "newRelations": "Relaciones nuevas",
+      "newEvents": "Entradas nuevas de la cronología",
+      "newNotes": "Notas nuevas",
+      "newMedia": "Archivos nuevos"
+    },
+    "conflicts": {
+      "title_one": "{{count}} persona con diferencias",
+      "title_other": "{{count}} personas con diferencias",
+      "allImport": "Tomar todo del archivo",
+      "allKeep": "Conservar todo",
+      "field": "Campo",
+      "existing": "Existente",
+      "imported": "Archivo de importación",
+      "importNewer": "El archivo de importación es más reciente",
+      "existingNewer": "Los datos existentes son más recientes",
+      "keep": "Conservar existente",
+      "take": "Tomar del archivo",
+      "decision": "Decisión para {{name}}"
+    },
+    "errors": {
+      "UNKNOWN": "Se ha producido un error inesperado durante la importación/exportación. Consulta el registro del servidor para más detalles.",
+      "NETWORK": "No se puede acceder al servidor. Inténtalo de nuevo más tarde.",
+      "NO_FILE": "No se ha seleccionado ningún archivo.",
+      "TOO_LARGE": "El archivo es demasiado grande (límite: {{limit}}).",
+      "UNPACKED_TOO_LARGE": "El archivo es demasiado grande una vez descomprimido (límite: {{limit}}).",
+      "EXPORT_TOO_LARGE": "Los archivos de este árbol genealógico son demasiado grandes para un solo archivo (unos {{size}}, límite: {{limit}}). Es mejor exportar sin archivos.",
+      "UNSUPPORTED_FILE": "El archivo no es una exportación de esta aplicación (ZIP) ni un archivo GEDCOM (.ged).",
+      "INVALID_ZIP": "El archivo ZIP está dañado y no se puede extraer.",
+      "MISSING_PERSONS_JSON": "El archivo ZIP no contiene persons.json: ¿es una exportación de esta aplicación?",
+      "INVALID_JSON": "El archivo persons.json no es un JSON válido.",
+      "INVALID_SCHEMA": "El archivo persons.json no tiene el formato esperado.",
+      "UNSUPPORTED_VERSION": "El archivo procede de una versión más reciente de la aplicación y no se puede importar.",
+      "INTEGRITY": "Los datos están incompletos o son incoherentes (p. ej. referencias a personas inexistentes).",
+      "INVALID_GEDCOM": "El archivo GEDCOM está mal formado.",
+      "UNSUPPORTED_ENCODING": "La codificación de caracteres del archivo GEDCOM (ANSEL) no es compatible. Exporta en UTF-8.",
+      "INVALID_STRATEGY": "Estrategia de importación desconocida.",
+      "INVALID_DECISIONS": "Las decisiones sobre los conflictos no son válidas.",
+      "IMPORT_FAILED": "La importación ha fallado. No se ha modificado ningún dato.",
+      "EXPORT_FAILED": "La exportación ha fallado.",
+      "details": "Detalles técnicos",
+      "TREE_NOT_FOUND": "El árbol genealógico abierto no existe (o ya no existe). Elige otro.",
+      "TREE_NAME_REQUIRED": "Introduce un nombre para el nuevo árbol genealógico.",
+      "BACKUP_INVALID": "El archivo no es una copia de seguridad válida de Cognatio.",
+      "BACKUP_IS_EXPORT": "Esto es la exportación de un solo árbol genealógico, no una copia de seguridad. Impórtala en «Importar/Exportar».",
+      "BACKUP_TOO_NEW": "La copia de seguridad procede de una versión más reciente de la aplicación y no se puede restaurar.",
+      "BACKUP_CHECKSUM": "La copia de seguridad está dañada o se ha modificado (la suma de verificación no coincide).",
+      "RESTORE_NOT_CONFIRMED": "No se confirmó la restauración.",
+      "SAFETY_BACKUP_FAILED": "No se pudo guardar el estado actual, por lo que no se restauró nada. ¿La carpeta de copias de seguridad tiene permiso de escritura?",
+      "BACKUP_FAILED": "La copia de seguridad ha fallado.",
+      "RESTORE_FAILED": "La restauración ha fallado. No se ha modificado ningún dato.",
+      "MEDIA_TOO_LARGE": "Un archivo de la importación supera {{limit}} y no se puede incorporar.",
+      "DOWNLOAD_CANCELLED": "La copia de seguridad no se guardó; la restauración no se inició.",
+      "OPERATION_IN_PROGRESS": "Hay otra importación, exportación o copia de seguridad en curso. Espere a que termine e inténtelo de nuevo."
+    },
+    "history": {
+      "title": "Importaciones anteriores",
+      "empty": "Aún no hay importaciones.",
+      "date": "Importado el",
+      "file": "Archivo",
+      "fileDate": "Fecha del archivo",
+      "strategy": "Método",
+      "result": "Resultado",
+      "created_one": "{{count}} persona nueva",
+      "created_other": "{{count}} personas nuevas",
+      "updated_one": "{{count}} actualizada",
+      "updated_other": "{{count}} actualizadas",
+      "removed_one": "{{count}} eliminada",
+      "removed_other": "{{count}} eliminadas",
+      "media_one": "{{count}} archivo",
+      "media_other": "{{count}} archivos"
+    }
+  },
+  "statistics": {
+    "subtitle": "Análisis de todas las personas registradas (sin la papelera)",
+    "empty": "Aún no hay personas registradas: los análisis aparecerán aquí cuando se añadan personas.",
+    "noData": "No hay datos disponibles.",
+    "barAria": "{{label}}: {{value}} ({{share}})",
+    "years_one": "{{count, number}} año",
+    "years_other": "{{count, number}} años",
+    "kpi": {
+      "persons": "Personas",
+      "gender": "{{male, number}} hombres · {{female, number}} mujeres · {{unknown, number}} no especificado",
+      "relations": "Relaciones",
+      "families": "Grupos familiares",
+      "unconnected_one": "{{count, number}} persona sin relaciones",
+      "unconnected_other": "{{count, number}} personas sin relaciones",
+      "lifespan": "Duración media de vida",
+      "lifespanHint": "Personas fallecidas con año de nacimiento y de fallecimiento",
+      "oldest": "Año de nacimiento más antiguo",
+      "deceasedLabel": "Fallecidas",
+      "withoutDeath_one": "{{count, number}} persona sin datos de fallecimiento",
+      "withoutDeath_other": "{{count, number}} personas sin datos de fallecimiento"
+    },
+    "ages": {
+      "title": "Distribución por edades",
+      "description": "En grupos de diez años; en las fechas aproximadas cuenta el año más temprano posible.",
+      "living": "Personas vivas: edad actual",
+      "deceased": "Fallecidas: edad alcanzada",
+      "range": "{{from}}–{{to}}",
+      "plus": "{{from}}+",
+      "withoutAge_one": "{{count, number}} persona sin año de nacimiento o de fallecimiento no está incluida.",
+      "withoutAge_other": "{{count, number}} personas sin año de nacimiento o de fallecimiento no están incluidas.",
+      "probablyDeceased_one": "{{count, number}} persona tendría más de {{max, number}} años pero no tiene fecha de fallecimiento: probablemente fallecida, no incluida.",
+      "probablyDeceased_other": "{{count, number}} personas tendrían más de {{max, number}} años pero no tienen fecha de fallecimiento: probablemente fallecidas, no incluidas."
+    },
+    "surnames": {
+      "title": "Apellidos más frecuentes",
+      "description_one": "{{count, number}} apellido distinto",
+      "description_other": "{{count, number}} apellidos distintos"
+    },
+    "places": {
+      "title": "Lugares de origen",
+      "description_one": "Lugares de nacimiento más frecuentes: {{count, number}} persona con lugar de nacimiento, {{places, number}} lugares distintos",
+      "description_other": "Lugares de nacimiento más frecuentes: {{count, number}} personas con lugar de nacimiento, {{places, number}} lugares distintos"
+    },
+    "generations": {
+      "title": "Resumen de generaciones",
+      "description": "La generación 1 es la generación registrada más antigua de un grupo familiar; las parejas cuentan como la misma generación.",
+      "generation": "Generación",
+      "persons": "Personas",
+      "births": "Años de nacimiento",
+      "footnote": "{{families, number}} grupos familiares, {{unconnected, number}} personas sin relaciones (cada una en la generación 1)."
+    }
+  },
+  "search": {
+    "foundVia": "Encontrada por: {{list}}",
+    "match": {
+      "NAME": "nombre",
+      "PHONETIC": "grafía similar",
+      "DETAILS": "datos personales",
+      "EVENT": "cronología",
+      "NOTE": "notas"
+    }
+  },
+  "settings": {
+    "subtitle": "La visualización y el árbol genealógico se aplican a este dispositivo; la copia de seguridad y el sistema, a toda la aplicación.",
+    "deviceHint": "Guardado en este navegador.",
+    "display": {
+      "title": "Visualización",
+      "theme": "Esquema de colores",
+      "themes": {
+        "system": "Igual que el sistema operativo",
+        "light": "Claro",
+        "dark": "Oscuro"
+      }
+    },
+    "tree": {
+      "title": "Árbol genealógico",
+      "view": "Vista al abrir",
+      "depth": "Generaciones al abrir",
+      "hint": "El árbol genealógico se abre tal como lo dejaste por última vez; los cambios que hagas allí se reflejan aquí. Un enlace con una persona central (p. ej. «Mostrar árbol») tiene prioridad. Se guarda en este navegador.",
+      "focus": "Persona central al abrir"
+    },
+    "limits": {
+      "title": "Límites de tamaño",
+      "hint": "Archivo más grande para exportar e importar y para la copia de seguridad y la restauración. Se procesan en memoria, por eso los 2 GB predeterminados sirven para la mayoría de los equipos. Súbalo solo en un equipo con mucha memoria libre.",
+      "import": "Archivo de exportación e importación más grande",
+      "backup": "Archivo de copia de seguridad más grande",
+      "unit": "GB",
+      "save": "Guardar",
+      "reset": "Restablecer valores predeterminados",
+      "saved": "Guardado. Los nuevos límites se aplican de inmediato.",
+      "memoryWarning": "Por encima de 4 GB: para exportar, importar o restaurar debe haber libre como mínimo el doble del tamaño del archivo en memoria (RAM). Con menos, la aplicación puede volverse muy lenta o cerrarse."
+    },
+    "backup": {
+      "title": "Copia de seguridad",
+      "last": "Última copia de seguridad automática",
+      "none": "no se encontró ninguna",
+      "count": "Copias de seguridad disponibles",
+      "folder": "Ubicación (servidor)",
+      "lastImport": "Última importación",
+      "outdated": "La última copia de seguridad automática tiene más de {{days}} días. ¿Está funcionando la copia de seguridad automática?",
+      "missing": "No se encontró ninguna copia de seguridad automática. ¿Está funcionando la copia de seguridad automática y la ubicación está bien configurada?",
+      "manualTitle": "Copia de seguridad de todos los árboles genealógicos",
+      "manualHint": "Un único archivo con todos los árboles genealógicos, archivos, la papelera y el historial de importaciones. Al restaurarlo se sustituyen todos los datos.",
+      "download": "Descargar copia de seguridad",
+      "restoreButton": "Restaurar copia de seguridad…",
+      "downloaded": "Guardado como {{file}}.",
+      "missingMedia_one": "Faltaba {{count}} archivo en el servidor y no está incluido.",
+      "missingMedia_other": "Faltaban {{count}} archivos en el servidor y no están incluidos.",
+      "overLimit": "La copia de seguridad (unos {{size}}) supera el límite de {{limit}}: se ha guardado, pero esta aplicación no puede restaurarla. Conviene guardar además los árboles por separado mediante «Importar/Exportar».",
+      "singleTreeHint": "Exportar o importar un solo árbol genealógico:",
+      "restore": {
+        "title": "Restaurar copia de seguridad",
+        "intro": "Elige un archivo de copia de seguridad (cognatio_backup_….zip). Primero se comprueba; todavía no se cambia nada.",
+        "file": "Archivo de copia de seguridad",
+        "checking": "Comprobando archivo …",
+        "backupFrom": "Copia de seguridad del {{date}} (versión {{version}})",
+        "compare": "Datos actuales y contenido de la copia de seguridad",
+        "current": "Ahora",
+        "inBackup": "En la copia",
+        "rows": {
+          "trees": "Árboles genealógicos",
+          "persons": "Personas",
+          "relations": "Relaciones",
+          "events": "Acontecimientos",
+          "notes": "Notas",
+          "media": "Archivos",
+          "trash": "En la papelera"
+        },
+        "trees": "Árboles genealógicos de la copia de seguridad (personas):",
+        "missingFiles_one": "Falta {{count}} archivo en la copia de seguridad: se conserva la entrada, pero no el archivo.",
+        "missingFiles_other": "Faltan {{count}} archivos en la copia de seguridad: se conservan las entradas, pero no los archivos.",
+        "warning": "Se eliminarán todos los datos actuales (todos los árboles genealógicos, personas, archivos, la papelera y el historial de importaciones) y se sustituirán por la copia de seguridad.",
+        "autoBackup": "Antes, el estado actual se guarda automáticamente en la carpeta de copias de seguridad del servidor; se conservan las tres últimas de estas copias.",
+        "downloadFirst": "Descargar también el estado actual",
+        "confirmWord": "ELIMINAR",
+        "typeToConfirm": "Escribe «{{word}}» para confirmar",
+        "submit": "Restaurar",
+        "downloading": "Descargando el estado actual …",
+        "restoring": "Restaurando … No cierres la página.",
+        "done_one": "Se restauró la copia de seguridad: {{trees}} árbol(es) genealógico(s), {{count}} persona.",
+        "done_other": "Se restauró la copia de seguridad: {{trees}} árbol(es) genealógico(s), {{count}} personas.",
+        "safetyBackup": "El estado anterior se guardó como {{file}} (carpeta {{dir}}). Con este archivo se puede deshacer la restauración."
+      }
+    },
+    "system": {
+      "title": "Sistema",
+      "languageSystem": "Igual que el sistema operativo",
+      "version": "Versión",
+      "server": "Servidor",
+      "database": "Base de datos",
+      "reachable": "accesible",
+      "unreachable": "no accesible",
+      "serverUnreachable": "No se puede acceder al servidor.",
+      "persons": "Personas",
+      "personsValue_one": "{{count}} (más {{deleted}} en la papelera)",
+      "personsValue_other": "{{count, number}} (más {{deleted}} en la papelera)",
+      "media": "Archivos",
+      "mediaValue_one": "{{count}} archivo, {{size}} MB",
+      "mediaValue_other": "{{count, number}} archivos, {{size}} MB",
+      "logLevel": "Nivel de registro",
+      "trees": "Árboles genealógicos",
+      "status": "Estado",
+      "data": "Datos en la base de datos",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "licenceNote": "Cognatio es software libre bajo la GNU GPL (versión 3 o posterior).",
+      "licenceLink": "Licencias de código abierto"
+    },
+    "appearance": {
+      "title": "Apariencia",
+      "hint": "Se guarda en este navegador. Los cambios se aplican al instante.",
+      "reset": "Restablecer valores",
+      "preview": "Vista previa",
+      "px": "{{value}} px",
+      "groups": {
+        "font": "Tipografía",
+        "lines": "Líneas del árbol genealógico",
+        "cards": "Tarjetas",
+        "colors": "Colores"
+      },
+      "fields": {
+        "font": "Fuente",
+        "treeFont": "Fuente en el árbol",
+        "fontSize": "Tamaño de fuente",
+        "accent": "Color de acento",
+        "lineStyle": "Estilo de línea",
+        "lineWidth": "Grosor de línea",
+        "partnerLine": "Línea de pareja",
+        "lineColor": "Color de línea",
+        "density": "Tamaño de tarjeta",
+        "corner": "Esquinas",
+        "border": "Grosor del borde",
+        "showPhoto": "Mostrar foto",
+        "showDates": "Mostrar fechas de vida",
+        "showRibbon": "Mostrar lazo de luto en personas fallecidas",
+        "male": "Borde: masculino",
+        "female": "Borde: femenino",
+        "unknown": "Borde: sin especificar"
+      },
+      "fonts": {
+        "inter": "Inter",
+        "serif": "Serif",
+        "readable": "Muy legible",
+        "system": "Fuente del sistema",
+        "mono": "Monoespaciada",
+        "app": "Como la app"
+      },
+      "sizes": {
+        "small": "Pequeño",
+        "normal": "Normal",
+        "large": "Grande"
+      },
+      "lineStyles": {
+        "step": "En ángulo recto",
+        "straight": "Recta",
+        "curved": "Curva"
+      },
+      "partnerLines": {
+        "dashed": "Discontinua",
+        "dotted": "Punteada",
+        "solid": "Continua"
+      },
+      "lineColors": {
+        "neutral": "Neutro",
+        "accent": "Color de acento"
+      },
+      "densities": {
+        "compact": "Compacta",
+        "normal": "Normal",
+        "comfortable": "Amplia"
+      },
+      "corners": {
+        "square": "Cuadradas",
+        "rounded": "Redondeadas",
+        "round": "Muy redondas"
+      },
+      "colors": {
+        "green": "Verde",
+        "blue": "Azul",
+        "purple": "Morado",
+        "orange": "Naranja",
+        "rose": "Rosa",
+        "sky": "Celeste",
+        "teal": "Turquesa",
+        "pink": "Rosa claro"
+      }
+    },
+    "sections": {
+      "fontColors": "Fuente y colores",
+      "treeAppearance": "Árbol: apariencia",
+      "treeBehaviour": "Árbol: comportamiento",
+      "data": "Datos y copias de seguridad",
+      "expandAll": "Expandir todo",
+      "collapseAll": "Contraer todo"
+    },
+    "logs": {
+      "view": "Ver registros",
+      "export": "Exportar registros",
+      "title": "Registros",
+      "refresh": "Actualizar",
+      "empty": "Sin entradas.",
+      "noFile": "El servidor no escribe archivo de registro (LOG_FILE está vacío).",
+      "filter": "Mostrar",
+      "allLevels": "Todos los niveles",
+      "warnUp": "Advertencias y errores",
+      "errorsOnly": "Solo errores",
+      "hint": "La exportación contiene los archivos de registro del servidor y de esta sesión del navegador, pero ni personas ni archivos multimedia. Las entradas pueden contener detalles técnicos como direcciones de páginas y nombres de archivo; revísalas antes de enviarlas.",
+      "exportPartial": "No se pudo incluir el registro del servidor; el archivo solo contiene el registro del navegador.",
+      "clear": "Borrar registros",
+      "confirmClear": "¿Borrar todos los registros del servidor y de este navegador? No se puede deshacer.",
+      "cleared": "Registros borrados."
+    },
+    "search": {
+      "label": "Buscar ajustes",
+      "placeholder": "Buscar ajustes…",
+      "none": "No se encontró ningún ajuste."
+    },
+    "updates": {
+      "title": "Actualizaciones del programa",
+      "intro": "Cognatio busca una versión nueva una vez al día. Solo se envía la petición del archivo de versión: ningún dato sobre usted ni sobre sus árboles genealógicos.",
+      "check": "Buscar actualizaciones automáticamente",
+      "checkNow": "Comprobar ahora",
+      "checking": "Buscando actualizaciones …",
+      "upToDate": "Cognatio está actualizado.",
+      "downloading": "Descargando la versión {{version}} …",
+      "ready": "La versión {{version}} está lista y se instalará al reiniciar.",
+      "restartNow": "Reiniciar e instalar",
+      "channel": "Versiones",
+      "channelStable": "Solo versiones publicadas (recomendado)",
+      "channelBeta": "También versiones de prueba (beta)",
+      "betaHint": "Las versiones de prueba llegan antes de la publicación y pueden contener errores. Cognatio guarda sus datos antes de cada actualización, pero una base de datos modificada por una versión de prueba no puede abrirse con una versión anterior. Volver a las versiones publicadas solo surte efecto con la siguiente publicación.",
+      "error": "Error al buscar actualizaciones: {{message}}"
+    }
+  },
+  "familyTrees": {
+    "title": "Árboles genealógicos",
+    "subtitle": "Cada árbol genealógico tiene sus propias personas, relaciones, cronologías, notas y archivos. Todas las páginas muestran el que está abierto en ese momento.",
+    "active": "Árbol genealógico abierto",
+    "activeBadge": "Abierto",
+    "create": "Nuevo árbol genealógico",
+    "open": "Abrir",
+    "rename": "Renombrar",
+    "deleteLabel": "Eliminar {{name}}",
+    "deleteConfirm_one": "¿Mover a la papelera el árbol genealógico «{{name}}» con {{count}} persona? Allí se puede restaurar.",
+    "deleteConfirm_other": "¿Mover a la papelera el árbol genealógico «{{name}}» con {{count}} personas? Allí se puede restaurar.",
+    "persons_one": "{{count}} persona",
+    "persons_other": "{{count, number}} personas",
+    "createdAt": "creado el {{date}}",
+    "trashHint": "Los árboles genealógicos eliminados se pueden restaurar:",
+    "loadError": "No se pudieron cargar los árboles genealógicos. ¿Se puede acceder al servidor?",
+    "form": {
+      "createTitle": "Nuevo árbol genealógico",
+      "editTitle": "Renombrar árbol genealógico",
+      "name": "Nombre",
+      "namePlaceholder": "p. ej. Familia García",
+      "description": "Descripción",
+      "createHint": "El nuevo árbol genealógico está vacío y se abre enseguida. Añade personas o impórtalas (Importar/Exportar).",
+      "create": "Crear y abrir",
+      "nameRequired": "Introduce un nombre."
+    },
+    "trash": {
+      "title": "Árboles genealógicos eliminados",
+      "restoreLabel": "Restaurar {{name}}",
+      "deleteForeverLabel": "Eliminar definitivamente {{name}}",
+      "deleteForeverConfirm_one": "¿Eliminar definitivamente el árbol genealógico «{{name}}» con {{count}} persona y todas las relaciones, cronologías, notas y archivos? Esta acción no se puede deshacer.",
+      "deleteForeverConfirm_other": "¿Eliminar definitivamente el árbol genealógico «{{name}}» con {{count}} personas y todas las relaciones, cronologías, notas y archivos? Esta acción no se puede deshacer."
+    },
+    "none": {
+      "title": "No hay ningún árbol genealógico",
+      "text": "Crea un árbol genealógico nuevo, importa un archivo (ZIP de Cognatio o GEDCOM) o recupera un árbol eliminado de la papelera.",
+      "import": "Importar archivo",
+      "trash": "Recuperar de la papelera",
+      "option": "– ningún árbol –"
+    }
+  },
+  "help": {
+    "title": "Ayuda",
+    "subtitle": "Explicaciones breves de todas las áreas de Cognatio.",
+    "contents": "Contenido",
+    "search": "Buscar en la ayuda",
+    "noResults": "No se encontraron secciones que coincidan.",
+    "results_one": "{{count}} sección encontrada",
+    "results_other": "{{count}} secciones encontradas",
+    "notTranslated": "La ayuda aún no está disponible en este idioma y se muestra en inglés.",
+    "showOriginal": "Mostrar original (inglés)",
+    "showTranslation": "Mostrar traducción",
+    "version": "Versión {{version}}"
+  },
+  "dateWords": {
+    "about": "hacia|aprox.|aprox|aproximadamente|circa|ca.|ca",
+    "after": "después de|despues de|tras|desp.",
+    "before": "antes de|ant."
+  },
+  "errorPage": {
+    "title": "Algo ha salido mal",
+    "text": "No se pudo mostrar esta página. Recargar suele ayudar; los datos guardados no se ven afectados. Los detalles están en el registro (Ajustes → Sistema).",
+    "reload": "Recargar"
+  }
+}
