@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
+import { pruneOldClusters, upgradeIfNeeded } from './majorUpgrade.js';
 import { run as defaultRun, type Run } from './run.js';
 
 /** Superuser and database of the bundled server */
@@ -113,6 +114,8 @@ export interface StartOptions {
   dataDir: string;
   log: Log;
   run?: Run;
+  /** Folder of the server of an earlier major version for the upgrade (default: `upgrade/<major>` in pgDir) */
+  findOldServer?: (major: number) => string;
 }
 
 /**
@@ -136,24 +139,39 @@ export function rotateServerLog(file: string, maxBytes = 5 * 1024 * 1024, keep =
  * Starts the bundled PostgreSQL: creates the cluster on first start, listens on 127.0.0.1 on a free port
  * (no firewall prompt, not reachable from the network), runs as the current user (no service, no admin rights).
  */
-export async function startBundledPostgres({ pgDir, dataDir, log, run = defaultRun }: StartOptions): Promise<BundledPostgres> {
+export async function startBundledPostgres({ pgDir, dataDir, log, run = defaultRun, findOldServer }: StartOptions): Promise<BundledPostgres> {
   const binDir = path.join(pgDir, 'bin');
   if (!fs.existsSync(exe(binDir, 'pg_ctl'))) {
     throw new Error(`COGNATIO_PG_DIR ${pgDir} does not contain bin/pg_ctl – PostgreSQL is missing`);
   }
   const pgdata = path.join(dataDir, 'pgdata');
-  const initialised = fs.existsSync(path.join(pgdata, 'PG_VERSION'));
-  const password = ensurePassword(dataDir, initialised);
-  if (!initialised) {
+  const logDir = path.join(dataDir, 'logs');
+  fs.mkdirSync(logDir, { recursive: true });
+  const serverLog = path.join(logDir, 'postgres.log');
+  rotateServerLog(serverLog);
+
+  // An upgrade interrupted after its first rename has no pgdata yet, but its data
+  const hasData = fs.existsSync(path.join(pgdata, 'PG_VERSION')) || fs.existsSync(`${pgdata}.upgrade.done`);
+  const password = ensurePassword(dataDir, hasData);
+  await upgradeIfNeeded({
+    pgDir,
+    pgdata,
+    password,
+    dumpDir: path.join(dataDir, 'backups', 'db'),
+    serverLog,
+    log,
+    port: freePort,
+    initCluster: (folder) => initCluster(binDir, folder, dataDir, password, run, log),
+    findOldServer,
+    run,
+  });
+  pruneOldClusters(dataDir, log);
+  if (!fs.existsSync(path.join(pgdata, 'PG_VERSION'))) {
     await initCluster(binDir, pgdata, dataDir, password, run, log);
   }
   await clearEarlierRun(binDir, pgdata, run, log);
 
   const port = await freePort();
-  const logDir = path.join(dataDir, 'logs');
-  fs.mkdirSync(logDir, { recursive: true });
-  const serverLog = path.join(logDir, 'postgres.log');
-  rotateServerLog(serverLog);
   // quiet: the server stays behind as a background process and would keep the output pipes open
   const started = await run(
     exe(binDir, 'pg_ctl'),

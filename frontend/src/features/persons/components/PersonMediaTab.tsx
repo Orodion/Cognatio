@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { MediaThumbnail } from '@/features/persons/components/MediaThumbnail';
 import { MediaDownloadLink } from '@/features/persons/components/MediaDownloadLink';
+import { MediaOpenLink } from '@/features/persons/components/MediaOpenLink';
 import { mediaUrl } from '@/features/persons/types/media';
 import { formatShortName } from '@/features/persons/lib/personUtils';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -66,7 +67,7 @@ export function PersonMediaTab({ person, filter = '' }: PersonMediaTabProps) {
     setIsUploading(false);
 
     if (!result.ok) {
-      setActionError(result.reason === 'FILE_TOO_LARGE' ? t('media.fileTooLarge') : t(`apiErrors.${result.reason}`, { defaultValue: t('media.uploadError') }));
+      setActionError(t(`apiErrors.${result.reason}`, { ...result.values, defaultValue: t('media.uploadError') }));
       return;
     }
     await refetch();
@@ -206,19 +207,14 @@ export function PersonMediaTab({ person, filter = '' }: PersonMediaTabProps) {
             if (view === 'list') {
               return (
                 <div key={media.id} role="listitem" className="flex items-center gap-3 p-2">
-                  <a
-                    href={fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted"
-                  >
+                  <MediaOpenLink media={media} className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted">
                     {isImage ? (
                       <img src={fileUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                     ) : (
                       <FileIcon className="h-6 w-6 text-muted-foreground" />
                     )}
                     <span className="sr-only">{media.originalFileName}</span>
-                  </a>
+                  </MediaOpenLink>
                   <div className="min-w-0 flex-1">{details}</div>
                   {isProfile && <Badge>{t('media.profilePicture')}</Badge>}
                   <div className="flex shrink-0 items-center gap-1">{actions}</div>
@@ -228,7 +224,7 @@ export function PersonMediaTab({ person, filter = '' }: PersonMediaTabProps) {
 
             return (
               <Card key={media.id} className="relative overflow-hidden">
-                <a href={fileUrl} target="_blank" rel="noreferrer" className="flex aspect-square items-center justify-center bg-muted p-2">
+                <MediaOpenLink media={media} className="flex aspect-square items-center justify-center bg-muted p-2">
                   {isImage ? (
                     <img src={fileUrl} alt={media.originalFileName} className="h-full w-full rounded-sm object-cover" loading="lazy" />
                   ) : (
@@ -237,7 +233,7 @@ export function PersonMediaTab({ person, filter = '' }: PersonMediaTabProps) {
                       <span className="w-full truncate px-2 text-xs">{media.originalFileName}</span>
                     </div>
                   )}
-                </a>
+                </MediaOpenLink>
                 {isProfile && <Badge className="absolute left-2 top-2">{t('media.profilePicture')}</Badge>}
                 <div className="flex items-center gap-1 border-t p-2">
                   <div className="min-w-0 flex-1">{details}</div>
@@ -276,10 +272,10 @@ export function PersonMediaTab({ person, filter = '' }: PersonMediaTabProps) {
               if (view === 'list') {
                 return (
                   <div key={media.id} role="listitem" className="flex items-center gap-3 p-2">
-                    <a href={mediaUrl(media)} target="_blank" rel="noreferrer" className="block h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-muted">
+                    <MediaOpenLink media={media} className="block h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-muted">
                       <MediaThumbnail media={media} className="h-full w-full" />
                       <span className="sr-only">{media.originalFileName}</span>
-                    </a>
+                    </MediaOpenLink>
                     <div className="min-w-0 flex-1">{details}</div>
                     <MediaDownloadLink media={media} />
                   </div>
@@ -287,10 +283,10 @@ export function PersonMediaTab({ person, filter = '' }: PersonMediaTabProps) {
               }
               return (
                 <Card key={media.id} className="overflow-hidden">
-                  <a href={mediaUrl(media)} target="_blank" rel="noreferrer" className="block bg-muted p-2">
+                  <MediaOpenLink media={media} className="block bg-muted p-2">
                     <MediaThumbnail media={media} className="aspect-square w-full" />
                     <span className="sr-only">{media.originalFileName}</span>
-                  </a>
+                  </MediaOpenLink>
                   <div className="flex items-center gap-1 border-t p-2">
                     <div className="min-w-0 flex-1">{details}</div>
                     <MediaDownloadLink media={media} />

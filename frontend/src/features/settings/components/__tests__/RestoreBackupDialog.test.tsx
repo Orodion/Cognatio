@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { RestoreBackupDialog } from '../RestoreBackupDialog';
+import { LARGE_SAFETY_BACKUP_BYTES, RestoreBackupDialog } from '../RestoreBackupDialog';
 import { downloadBackup, previewBackup, restoreBackup, type BackupCounts } from '@/features/settings/lib/backup';
 import { TransferApiError } from '@/features/transfer/lib/transfer';
+import { useRestoreSession } from '@/features/settings/lib/restoreSession';
+import { useActivityStore } from '@/stores/activityStore';
 
+const reloadAllData = vi.fn(async () => undefined);
 vi.mock('@/features/settings/lib/backup', () => ({ downloadBackup: vi.fn(), previewBackup: vi.fn(), restoreBackup: vi.fn() }));
+vi.mock('@/features/family-trees/lib/useFamilyTrees', () => ({ useReloadAllData: () => reloadAllData }));
 
 // Tests run in cimode: the confirmation word is the key itself
 const WORD = 'settings.backup.restore.confirmWord';
@@ -33,7 +37,9 @@ const preview = {
     { name: 'Alt', persons: 0, isDeleted: true },
   ],
   missingFiles: 0,
+  cycleTrees: [] as string[],
   current: counts({ trees: 3, persons: 412 }),
+  currentMediaBytes: 1024,
 };
 
 const result = {
@@ -57,9 +63,12 @@ const chooseFile = () =>
 const submit = () => screen.getByRole('button', { name: 'settings.backup.restore.submit' });
 
 beforeEach(() => {
+  useRestoreSession.setState(useRestoreSession.getInitialState(), true);
+  useActivityStore.setState({ activities: [] });
+  reloadAllData.mockClear();
   vi.mocked(previewBackup).mockReset().mockResolvedValue(preview);
   vi.mocked(restoreBackup).mockReset().mockResolvedValue(result);
-  vi.mocked(downloadBackup).mockReset().mockResolvedValue({ filename: 'x.zip', saved: true, missingMedia: 0, overLimit: null });
+  vi.mocked(downloadBackup).mockReset().mockResolvedValue({ filename: 'x.zip', size: 3, saved: true, missingMedia: 0, overLimit: null });
 });
 
 describe('RestoreBackupDialog', () => {
@@ -76,6 +85,15 @@ describe('RestoreBackupDialog', () => {
     expect(screen.getByText(/Mustermann \(280\), Müller \(20\)$/)).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('settings.backup.restore.warning');
     expect(restoreBackup).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('restore-cycles')).not.toBeInTheDocument();
+  });
+
+  it('warns about family trees in which someone is their own ancestor, but still restores', async () => {
+    vi.mocked(previewBackup).mockResolvedValue({ ...preview, cycleTrees: ['Müller'] });
+    setup();
+    chooseFile();
+    expect(await screen.findByTestId('restore-cycles')).toHaveTextContent('settings.backup.restore.cycleTrees');
+    expect(screen.getByLabelText(/settings.backup.restore.typeToConfirm/)).toBeEnabled();
   });
 
   it('enables restoring only after typing the confirmation word', async () => {
@@ -103,8 +121,16 @@ describe('RestoreBackupDialog', () => {
     expect(downloadBackup).toHaveBeenCalledTimes(1);
     expect(vi.mocked(downloadBackup).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(restoreBackup).mock.invocationCallOrder[0]);
     expect(screen.getByText('settings.backup.restore.safetyBackup')).toBeInTheDocument();
+    // All data was replaced: reloaded at once, also without closing the dialog
+    expect(reloadAllData).toHaveBeenCalled();
+    // Every step shows under "Activity", newest first
+    expect(useActivityStore.getState().activities.map((a) => [a.kind, a.state])).toEqual([
+      ['restore', 'done'],
+      ['backup', 'done'],
+      ['restoreCheck', 'done'],
+    ]);
     fireEvent.click(screen.getByRole('button', { name: 'common.close' }));
-    expect(onClose).toHaveBeenCalledWith(true);
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('skips the download when unchecked', async () => {
@@ -130,7 +156,7 @@ describe('RestoreBackupDialog', () => {
   });
 
   it('does not restore when the "Save as" dialog for the current state is cancelled', async () => {
-    vi.mocked(downloadBackup).mockResolvedValue({ filename: 'x.zip', saved: false, missingMedia: 0, overLimit: null });
+    vi.mocked(downloadBackup).mockResolvedValue({ filename: 'x.zip', size: 3, saved: false, missingMedia: 0, overLimit: null });
     setup();
     chooseFile();
     await screen.findByRole('table');
@@ -140,6 +166,38 @@ describe('RestoreBackupDialog', () => {
     expect(restoreBackup).not.toHaveBeenCalled();
   });
 
+  it('says that the backup of large current data needs space and time', async () => {
+    vi.mocked(previewBackup).mockResolvedValue({ ...preview, currentMediaBytes: LARGE_SAFETY_BACKUP_BYTES + 1 });
+    setup();
+    chooseFile();
+    expect(await screen.findByTestId('restore-large')).toHaveTextContent('settings.backup.restore.largeSafetyBackup');
+  });
+
+  it('shows the progress of the restore and can cancel it', async () => {
+    const stop = vi.fn();
+    let finish: (value: never) => void = () => undefined;
+    vi.mocked(restoreBackup).mockImplementation(async (_file, control) => {
+      control?.cancellable(stop);
+      control?.progress({ phase: 'safetyBackup', done: 512, total: 1024 });
+      return new Promise((_, reject) => (finish = reject as never));
+    });
+    setup();
+    chooseFile();
+    await screen.findByRole('table');
+    fireEvent.click(screen.getByLabelText('settings.backup.restore.downloadFirst'));
+    fireEvent.change(screen.getByLabelText('settings.backup.restore.typeToConfirm'), { target: { value: WORD } });
+    fireEvent.click(submit());
+
+    const bar = await screen.findByRole('progressbar', { name: 'transferProgress.phases.safetyBackup' });
+    expect(bar).toHaveAttribute('aria-valuenow', '50');
+    fireEvent.click(screen.getByRole('button', { name: 'transferProgress.cancel' }));
+    expect(stop).toHaveBeenCalled();
+    // The restore also shows under "Activity"
+    expect(useActivityStore.getState().activities[0]).toMatchObject({ kind: 'restore', state: 'running', cancelling: true });
+    finish(new TransferApiError('CANCELLED') as never);
+    expect(await screen.findByText('importExport.errors.CANCELLED')).toBeInTheDocument();
+  });
+
   it('shows why a file is rejected', async () => {
     vi.mocked(previewBackup).mockRejectedValue(new TransferApiError('BACKUP_IS_EXPORT'));
     const { onClose } = setup();
@@ -147,6 +205,6 @@ describe('RestoreBackupDialog', () => {
     expect(await screen.findByText('importExport.errors.BACKUP_IS_EXPORT')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
-    expect(onClose).toHaveBeenCalledWith(false);
+    expect(onClose).toHaveBeenCalled();
   });
 });

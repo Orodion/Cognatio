@@ -15,18 +15,7 @@ export function ensureUploadDir(dir = uploadDir) {
   }
 }
 
-/** Stores an uploaded file under the given name (the upload folder must exist, see `ensureUploadDir`). */
-export function writeUploadedFile(fileName: string, content: Uint8Array, dir = uploadDir) {
-  fs.writeFileSync(path.join(dir, path.basename(fileName)), content);
-}
-
-/** Content of an uploaded file, or null if it does not exist. */
-export function readUploadedFile(fileName: string, dir = uploadDir): Buffer | null {
-  const filePath = path.join(dir, path.basename(fileName));
-  return fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
-}
-
-/** Path of an uploaded file for sending it, or null if it does not exist. */
+/** Path of an uploaded file for sending or packing it, or null if it does not exist. */
 export function uploadedFilePath(fileName: string, dir = uploadDir): string | null {
   const filePath = path.join(dir, path.basename(fileName));
   return fs.existsSync(filePath) ? filePath : null;

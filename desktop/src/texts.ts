@@ -24,7 +24,7 @@ export const TEXTS: Record<string, Texts> = {
     openLogs: 'Protokoll öffnen',
     quit: 'Beenden',
     updateReady: (version) => `Cognatio ${version} ist bereit.`,
-    updateDetail: 'Das Update wird beim Neustart installiert. Ihre Daten bleiben erhalten.',
+    updateDetail: 'Das Update wird beim Neustart installiert. Deine Daten bleiben erhalten.',
     restartNow: 'Jetzt neu starten',
     later: 'Später',
   },

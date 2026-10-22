@@ -22,23 +22,24 @@ afterEach(() => {
 });
 
 describe('limits', () => {
-  it('allows 2 GB per file for export, import, backup and restore, and twice as much unpacked', () => {
-    expect(importMaxBytes()).toBe(2048 * MB);
-    expect(backupMaxBytes()).toBe(2048 * MB);
-    expect(importMaxUnpackedBytes()).toBe(4096 * MB);
-    expect(backupMaxUnpackedBytes()).toBe(4096 * MB);
+  it('has no limit by default: only the free disk space counts', () => {
+    expect(importMaxBytes()).toBe(Infinity);
+    expect(backupMaxBytes()).toBe(Infinity);
+    expect(importMaxUnpackedBytes()).toBe(Infinity);
+    expect(backupMaxUnpackedBytes()).toBe(Infinity);
+    expect(currentLimits()).toEqual({ importMb: null, backupMb: null, minMb: 64, maxMb: 16 * 1024 * 1024 });
   });
 
-  it('can be changed by environment variables (megabytes); invalid values fall back to the default', () => {
+  it('can be set by environment variables (megabytes); invalid values count as not set', () => {
     process.env.IMPORT_MAX_MB = '100';
     process.env.BACKUP_MAX_MB = 'viel';
     process.env.IMPORT_MAX_UNPACKED_MB = '0';
     process.env.BACKUP_MAX_UNPACKED_MB = '-5';
     expect(importMaxBytes()).toBe(100 * MB);
-    expect(backupMaxBytes()).toBe(2048 * MB);
+    expect(backupMaxBytes()).toBe(Infinity);
     // not given (or invalid): twice the limit of the file
     expect(importMaxUnpackedBytes()).toBe(200 * MB);
-    expect(backupMaxUnpackedBytes()).toBe(4096 * MB);
+    expect(backupMaxUnpackedBytes()).toBe(Infinity);
     process.env.IMPORT_MAX_UNPACKED_MB = '300';
     expect(importMaxUnpackedBytes()).toBe(300 * MB);
   });
@@ -50,14 +51,14 @@ describe('limits', () => {
     expect(backupMaxBytes()).toBe(4096 * MB);
     expect(importMaxUnpackedBytes()).toBe(16384 * MB);
     expect(backupMaxUnpackedBytes()).toBe(8192 * MB);
-    expect(currentLimits()).toEqual({ importMb: 8192, backupMb: 4096, defaultMb: 2048, minMb: 64, maxMb: 1048576 });
+    expect(currentLimits()).toEqual({ importMb: 8192, backupMb: 4096, minMb: 64, maxMb: 16 * 1024 * 1024 });
   });
 
   it('ignores a damaged settings file', () => {
     fs.writeFileSync(process.env.SETTINGS_FILE as string, '{ kaputt');
-    expect(importMaxBytes()).toBe(2048 * MB);
+    expect(importMaxBytes()).toBe(Infinity);
     writeAppSettings({ limits: { importMb: -1, backupMb: 'viel' } });
-    expect(currentLimits()).toMatchObject({ importMb: 2048, backupMb: 2048 });
+    expect(currentLimits()).toMatchObject({ importMb: null, backupMb: null });
   });
 
   it('rounds megabytes up', () => {

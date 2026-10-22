@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within, waitFor } from '@testing-library/rea
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { MemoryRouter } from 'react-router-dom';
 import { SET_LOG_LEVEL, SYSTEM_INFO } from '@/features/settings/graphql/systemQueries';
+import { MCP_SETTINGS } from '@/features/settings/graphql/mcpQueries';
 import { getClientLog, logClient } from '@/lib/clientLog';
 import { GET_PERSONS } from '@/features/persons/graphql/personQueries';
 import { makePerson } from '@/test/fixtures';
@@ -36,6 +37,13 @@ const info = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+/** Section "MCP" switched off */
+const mcpOff: MockedResponse = {
+  request: { query: MCP_SETTINGS },
+  result: { data: { mcpSettings: { enabled: false, address: null, portChanged: false, permissions: [], excludedTrees: [] } } },
+  maxUsageCount: Infinity,
+};
+
 function setup(result: MockedResponse['result'] = { data: { systemInfo: info() } }, error?: Error) {
   const mocks: MockedResponse[] = [
     { request: { query: SYSTEM_INFO }, ...(error ? { error } : { result }) },
@@ -44,6 +52,7 @@ function setup(result: MockedResponse['result'] = { data: { systemInfo: info() }
       result: { data: { getPersons: [makePerson({ id: 'p1', firstName: 'Anton' }), makePerson({ id: 'p2', firstName: 'Berta' })] } },
       maxUsageCount: Infinity,
     },
+    mcpOff,
   ];
   render(
     <MockedProvider mocks={mocks}>
@@ -216,9 +225,9 @@ describe('SettingsPage', () => {
     it('opens and closes all blocks at once, but never the system block', () => {
       setup();
       fireEvent.click(screen.getByRole('button', { name: 'settings.sections.expandAll' }));
-      // Four blocks plus the always visible block "system" (also a region)
-      expect(screen.getAllByRole('region')).toHaveLength(5);
-      expect(useSettingsStore.getState().openSections).toHaveLength(4);
+      // Five blocks plus the always visible block "system" (also a region)
+      expect(screen.getAllByRole('region')).toHaveLength(6);
+      expect(useSettingsStore.getState().openSections).toHaveLength(5);
 
       fireEvent.click(screen.getByRole('button', { name: 'settings.sections.collapseAll' }));
       expect(screen.getAllByRole('region')).toHaveLength(1);
@@ -227,7 +236,7 @@ describe('SettingsPage', () => {
 
     it('opens the block named in the link (/settings#data)', () => {
       render(
-        <MockedProvider mocks={[{ request: { query: SYSTEM_INFO }, result: { data: { systemInfo: info() } } }]}>
+        <MockedProvider mocks={[{ request: { query: SYSTEM_INFO }, result: { data: { systemInfo: info() } } }, mcpOff]}>
           <MemoryRouter initialEntries={['/settings#data']}>
             <SettingsPage />
           </MemoryRouter>

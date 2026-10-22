@@ -9,6 +9,8 @@
     "persons": "Personen",
     "tree": "Stamboom",
     "statistics": "Statistieken",
+    "plausibility": "Mogelijke fouten",
+    "plausibilityOpen": "Open mogelijke fouten: {{count}}",
     "importExport": "Importeren/Exporteren",
     "settings": "Instellingen",
     "familyTrees": "Stambomen",
@@ -16,7 +18,18 @@
     "trashCount_one": "{{count}} item",
     "trashCount_other": "{{count}} items",
     "help": "Help",
-    "quit": "Afsluiten"
+    "quit": "Afsluiten",
+    "activity": "Activiteit",
+    "activityFailed": "Een bewerking is mislukt",
+    "activityRunning_one": "{{count}} bezig",
+    "activityRunning_other": "{{count}} bezig",
+    "sources": "Bronnen",
+    "reports": "Rapporten",
+    "groups": {
+      "record": "Vastleggen",
+      "evaluate": "Analyseren",
+      "manage": "Beheren"
+    }
   },
   "header": {
     "searchPlaceholder": "Personen zoeken…",
@@ -47,19 +60,21 @@
     "showMore_other": "Meer tonen (nog {{count, number}})"
   },
   "personDetail": {
+    "report": "Rapport",
     "notFound": "Persoon niet gevonden.",
     "loading": "Persoon laden…",
     "edit": "Bewerken",
     "delete": "Verwijderen",
     "showTree": "Stamboom tonen",
-    "deleteConfirm": "Wilt u {{name}} echt verwijderen?",
+    "deleteConfirm": "Wil je {{name}} echt verwijderen?",
     "deleteSuccess": "De persoon is verwijderd.",
     "tabs": {
       "overview": "Overzicht",
       "timeline": "Tijdlijn",
       "relations": "Relaties",
       "notes": "Notities",
-      "media": "Bestanden"
+      "media": "Bestanden",
+      "sources": "Bronnen"
     },
     "sections": {
       "personal": "Persoonsgegevens",
@@ -85,7 +100,9 @@
       "hobbies": "Hobby’s",
       "maritalStatus": "Burgerlijke staat",
       "nationality": "Nationaliteit",
-      "languages": "Talen"
+      "languages": "Talen",
+      "citations": "Bronvermeldingen",
+      "citationIds": "Bronvermeldingen"
     },
     "tabsLabel": "Onderdelen van de persoon",
     "filter": {
@@ -93,10 +110,14 @@
         "timeline": "Levensloop filteren…",
         "relations": "Relaties filteren…",
         "notes": "Notities filteren…",
-        "media": "Media filteren…"
+        "media": "Media filteren…",
+        "sources": "Bronnen filteren…"
       },
       "noMatches": "Geen treffers voor “{{query}}”."
-    }
+    },
+    "homePerson": "Hoofdpersoon",
+    "homePersonSet": "Als hoofdpersoon van de stamboom instellen – statistieken, rapporten en stamboom beginnen dan bij deze persoon",
+    "homePersonRemove": "Hoofdpersoon van de stamboom – een klik heft dat op"
   },
   "gender": {
     "MALE": "Man",
@@ -150,11 +171,11 @@
     "selectLanguage": "Taal selecteren…",
     "removeLanguage": "{{language}} verwijderen",
     "dateHelp": "Datumformaten: 04.01.1980 (exact), 01.1980 (maand), 1980 (jaar), \"circa 1980\", \"na 1980\", \"voor 1980\" of periode \"1980-1985\" (bij benadering).",
-    "relationsEditHint": "Hier kunt u nieuwe relaties toevoegen. Bestaande relaties beheert u op het tabblad \"Relaties\".",
+    "relationsEditHint": "Hier kun je nieuwe relaties toevoegen. Bestaande relaties beheer je op het tabblad \"Relaties\".",
     "titlePlaceholder": "Dr., Prof.",
     "similar": {
       "title": "Bestaat deze persoon al?",
-      "hint": "Er zijn vergelijkbare vermeldingen gevonden. U kunt toch opslaan.",
+      "hint": "Er zijn vergelijkbare vermeldingen gevonden. Je kunt toch opslaan.",
       "open": "{{name}} openen (nieuw tabblad)"
     },
     "profilePicture": "Profielfoto",
@@ -177,7 +198,7 @@
     "empty": "Geen relaties gevonden.",
     "loading": "Relaties laden…",
     "error": "Fout bij het laden van de relaties.",
-    "deleteConfirm": "Wilt u de relatie met {{name}} echt verwijderen?",
+    "deleteConfirm": "Wil je de relatie met {{name}} echt verwijderen?",
     "roles": {
       "PARENT": "Ouders",
       "CHILD": "Kinderen",
@@ -206,7 +227,7 @@
       "personSource": "Een persoon kiezen of aanmaken",
       "existingPerson": "Bestaande persoon",
       "newPerson": "Nieuwe persoon",
-      "newPersonHint": "U kunt later meer gegevens toevoegen op de pagina van de nieuwe persoon.",
+      "newPersonHint": "Je kunt later meer gegevens toevoegen op de pagina van de nieuwe persoon.",
       "createAndSave": "Persoon aanmaken en opslaan",
       "type": "Soort relatie",
       "label": "Label (optioneel)",
@@ -243,7 +264,7 @@
     "empty": "Geen gebeurtenissen gevonden.",
     "loading": "Tijdlijn laden…",
     "error": "Fout bij het laden van de tijdlijn.",
-    "deleteConfirm": "Wilt u de gebeurtenis “{{title}}” echt verwijderen?",
+    "deleteConfirm": "Wil je de gebeurtenis “{{title}}” echt verwijderen?",
     "categories": {
       "BIRTH": "Geboorte",
       "BAPTISM": "Doop",
@@ -301,7 +322,6 @@
       "unlink": "“{{name}}” ontkoppelen",
       "removeFile": "“{{name}}” niet uploaden",
       "uploadOnSave": "Wordt bij het opslaan geüpload",
-      "tooLarge": "Te groot (max. 50 MB): {{names}}",
       "uploadFailed": "De gebeurtenis is opgeslagen, maar de volgende bestanden konden niet worden geüpload: {{names}}"
     }
   },
@@ -313,7 +333,7 @@
     "error": "Fout bij het laden van de notities.",
     "placeholder": "Schrijf hier een nieuwe notitie...",
     "save": "Opslaan",
-    "deleteConfirm": "Wilt u deze notitie echt verwijderen?",
+    "deleteConfirm": "Wil je deze notitie echt verwijderen?",
     "editLabel": "Notitie bewerken",
     "deleteLabel": "Notitie verwijderen",
     "length": "{{used}} van {{max}} tekens"
@@ -324,9 +344,8 @@
     "downloadButton": "Downloaden",
     "uploading": "Uploaden...",
     "empty": "Geen bestanden gevonden. Upload een afbeelding of document.",
-    "fileTooLarge": "Het bestand is te groot (max. 50 MB)",
     "uploadError": "Fout bij het uploaden van het bestand",
-    "confirmDelete": "Wilt u dit bestand echt verwijderen?",
+    "confirmDelete": "Wil je dit bestand echt verwijderen?",
     "profilePicture": "Profielfoto",
     "setProfilePicture": "Instellen als profielfoto",
     "removeProfilePicture": "Profielfoto verwijderen",
@@ -335,8 +354,8 @@
     "linkedWith": "Gekoppeld aan: {{events}}",
     "linkedTitle": "Gekoppelde bestanden van andere personen",
     "linkedHint": "Deze bestanden horen bij andere personen en zijn gekoppeld aan gebeurtenissen op de tijdlijn.",
-    "confirmDeleteLinked_one": "Het bestand is gekoppeld aan één gebeurtenis. Wilt u het echt verwijderen?",
-    "confirmDeleteLinked_other": "Het bestand is gekoppeld aan {{count}} gebeurtenissen. Wilt u het echt verwijderen?",
+    "confirmDeleteLinked_one": "Het bestand is gekoppeld aan één gebeurtenis. Wil je het echt verwijderen?",
+    "confirmDeleteLinked_other": "Het bestand is gekoppeld aan {{count}} gebeurtenissen. Wil je het echt verwijderen?",
     "view": {
       "label": "Weergave",
       "grid": "Tegels",
@@ -387,7 +406,7 @@
     }
   },
   "dashboard": {
-    "intro": "Beheer uw stamboom, leg familierelaties vast en ontdek uw afkomst.",
+    "intro": "Beheer je stamboom, leg familierelaties vast en ontdek je afkomst.",
     "totalPersons": "Totaal aantal personen",
     "totalPersonsHint": "Familieleden vastgelegd in de database",
     "genderDistribution": "Verdeling naar geslacht",
@@ -399,11 +418,32 @@
     "tips": {
       "title": "Tips en trucs",
       "treeTitle": "Geef de stamboom weer:",
-      "treeText": "Voeg verbindingen tussen ouders en kinderen toe via relaties. De stamboom ordent uw familieleden dan hiërarchisch.",
+      "treeText": "Voeg verbindingen tussen ouders en kinderen toe via relaties. De stamboom ordent je familieleden dan hiërarchisch.",
       "searchTitle": "Gebruik het zoekveld:",
       "searchText": "Filter personen op voor- of achternaam met het zoekveld in de bovenbalk.",
       "datesTitle": "Onzekere data:",
-      "datesText": "Voer historische data in zoals u ze kent – bijv. \"1880\", \"05.1880\", \"circa 1880\" of \"1880-1885\". De nauwkeurigheid wordt automatisch herkend."
+      "datesText": "Voer historische data in zoals je ze kent – bijv. \"1880\", \"05.1880\", \"circa 1880\" of \"1880-1885\". De nauwkeurigheid wordt automatisch herkend."
+    },
+    "anniversaries": {
+      "title": "Gedenkdagen",
+      "hint_one": "Verjaardagen, sterfdagen en trouwdagen van de komende {{count}} dag",
+      "hint_other": "Verjaardagen, sterfdagen en trouwdagen van de komende {{count}} dagen",
+      "none_one": "Geen gedenkdagen in de komende {{count}} dag. Daarvoor is een exacte datum met dag, maand en jaar nodig.",
+      "none_other": "Geen gedenkdagen in de komende {{count}} dagen. Daarvoor is een exacte datum met dag, maand en jaar nodig.",
+      "today": "Vandaag",
+      "tomorrow": "Morgen",
+      "inDays_one": "Over {{count}} dag",
+      "inDays_other": "Over {{count}} dagen",
+      "BIRTHDAY_one": "Wordt {{count}}",
+      "BIRTHDAY_other": "Wordt {{count}}",
+      "BIRTH_one": "{{count}} jaar geleden geboren",
+      "BIRTH_other": "{{count}} jaar geleden geboren",
+      "DEATH_one": "{{count}} jaar geleden overleden",
+      "DEATH_other": "{{count}} jaar geleden overleden",
+      "WEDDING_one": "{{count}} jaar geleden getrouwd",
+      "WEDDING_other": "{{count}} jaar geleden getrouwd",
+      "more_one": "en nog {{count}} gedenkdag",
+      "more_other": "en nog {{count}} gedenkdagen"
     }
   },
   "apiErrors": {
@@ -417,7 +457,7 @@
     "DATE_ORDER": "De einddatum mag niet vóór de begindatum liggen.",
     "DUPLICATE": "Deze relatie bestaat al.",
     "CYCLE": "Een persoon kan niet zijn eigen voorouder zijn.",
-    "INVALID_LIMIT": "De maximale grootte moet een geheel aantal megabytes zijn (64 MB tot 1 TB).",
+    "INVALID_LIMIT": "De maximale grootte moet een geheel aantal megabytes zijn (64 MB tot 16 TB), of leeg voor geen grens.",
     "INVALID_CATEGORY": "Ongeldige categorie.",
     "TITLE_REQUIRED": "Voer een titel in.",
     "NOTE_TEXT_REQUIRED": "De tekst van de notitie mag niet leeg zijn.",
@@ -437,12 +477,34 @@
     "NOTE_NOT_FOUND": "De notitie bestaat niet (meer).",
     "NOTE_TOO_LONG": "Een notitie mag maximaal 10.000 tekens lang zijn.",
     "INVALID_GENDER": "Ongeldig geslacht.",
+    "INVALID_MARITAL_STATUS": "Ongeldige burgerlijke staat.",
     "INVALID_DATE_PRECISION": "Ongeldige datumnauwkeurigheid.",
-    "PERSON_IN_TRASH": "De persoon staat in de prullenbak – herstel deze eerst om bestanden toe te voegen."
+    "PERSON_IN_TRASH": "De persoon staat in de prullenbak – herstel deze eerst om bestanden toe te voegen.",
+    "FILE_CONTENT_MISMATCH": "Het bestand is niet wat de naam zegt – bijv. geen afbeelding, hoewel het op ‘.jpg’ eindigt.",
+    "IMPLAUSIBLE": "De relatie lijkt niet te kloppen en is niet opgeslagen.",
+    "ISSUE_NOT_FOUND": "Deze mogelijke fout bestaat niet meer.",
+    "NOT_ENOUGH_SPACE": "Niet genoeg vrije ruimte op het station: er is ongeveer {{needed}} nodig, {{free}} is vrij. Maak ruimte vrij en probeer het opnieuw.",
+    "SOURCE_NOT_FOUND": "De bron bestaat niet (meer).",
+    "SOURCE_TITLE_REQUIRED": "Voer een titel voor de bron in.",
+    "INVALID_SOURCE_TYPE": "Onbekend soort bron.",
+    "REPOSITORY_NOT_FOUND": "Het archief bestaat niet (meer).",
+    "REPOSITORY_NAME_REQUIRED": "Voer een naam voor het archief in.",
+    "CITATION_NOT_FOUND": "De bronvermelding bestaat niet (meer).",
+    "INVALID_QUALITY": "De betrouwbaarheid moet een van de vier niveaus zijn.",
+    "INVALID_FACT": "Onbekend feit van een persoon.",
+    "INVALID_CITATION_TARGET": "Een bronvermelding wordt telkens met precies één persoon, gebeurtenis of relatie gekoppeld.",
+    "TEXT_TOO_LONG": "Een tekst is te lang: titel, pagina en vergelijkbare velden nemen tot 1.000 tekens, transcripties en notities tot 20.000.",
+    "SOURCE_NOT_DELETED": "Alleen bronnen in de prullenbak kunnen definitief worden verwijderd.",
+    "REPOSITORY_NOT_DELETED": "Alleen archieven in de prullenbak kunnen definitief worden verwijderd.",
+    "INVALID_MEDIA_TARGET": "Een scan hoort bij één bron of één bronvermelding.",
+    "MCP_DISABLED": "AI-assistenten zijn uitgeschakeld.",
+    "MCP_SETTINGS_FORBIDDEN": "De instellingen voor AI-assistenten kunnen alleen in de app worden gewijzigd.",
+    "BAD_SCOPE": "Deze omvang van de statistieken kan niet worden gebruikt.",
+    "BAD_FILTER": "Deze selectie van de statistieken bestaat niet."
   },
   "trash": {
     "title": "Prullenbak",
-    "description": "Verwijderde personen van de geopende stamboom en verwijderde stambomen kunt u hier herstellen of definitief verwijderen. Definitief verwijderen wist ook relaties, gebeurtenissen, notities en bestanden.",
+    "description": "Verwijderde personen van de geopende stamboom en verwijderde stambomen kun je hier herstellen of definitief verwijderen. Definitief verwijderen wist ook relaties, gebeurtenissen, notities en bestanden.",
     "restore": "Herstellen",
     "deleteForever": "Definitief verwijderen",
     "deleteForeverConfirm": "{{name}} definitief verwijderen? Relaties, tijdlijn, notities en bestanden worden ook verwijderd. Dit kan niet ongedaan worden gemaakt.",
@@ -452,10 +514,20 @@
     "deletedOn": "Deze persoon is op {{date}} verwijderd en staat in de prullenbak.",
     "deletedAt": "verwijderd op {{date}}",
     "personsTitle": "Personen uit “{{name}}”",
-    "emptyPersons": "Geen verwijderde personen in deze stamboom."
+    "emptyPersons": "Geen verwijderde personen in deze stamboom.",
+    "library": {
+      "title": "Bronnen en archieven",
+      "description": "Ze horen bij alle stambomen. Een bron in de prullenbak neemt haar bronvermeldingen mee; bij het herstellen keren ze terug bij alle feiten.",
+      "sourceDetails": "Bron · bronvermeldingen: {{citations}}, onderbouwde feiten: {{links}}",
+      "repositoryDetails": "Archief · bronnen: {{count}}",
+      "restoreLabel": "{{name}} herstellen",
+      "deleteForeverLabel": "{{name}} definitief verwijderen",
+      "deleteSourceConfirm": "De bron “{{name}}” definitief verwijderen? Haar bronvermeldingen (bronvermeldingen: {{citations}}) en hun koppelingen met feiten (feiten: {{links}}) in alle stambomen worden ook verwijderd, net als scans die verder niets gebruikt. Dit kan niet ongedaan worden gemaakt.",
+      "deleteRepositoryConfirm": "Het archief “{{name}}” definitief verwijderen? De bronnen ervan blijven, zonder archief. Dit kan niet ongedaan worden gemaakt."
+    }
   },
   "importExport": {
-    "subtitle": "Maak back-ups van uw gegevens, neem ze mee naar een andere computer of wissel ze uit met andere genealogieprogramma’s",
+    "subtitle": "Maak back-ups van je gegevens, neem ze mee naar een andere computer of wissel ze uit met andere genealogieprogramma’s",
     "export": {
       "title": "Exporteren",
       "description": "Alle personen inclusief de prullenbak, relaties, tijdlijn en notities.",
@@ -466,7 +538,7 @@
       "gedcomHint": "Uitwisselingsformaat voor programma’s zoals Gramps, Ancestry of MyHeritage – zonder de prullenbak.",
       "gedcomVersion": "Versie",
       "gedcomButton": "GEDCOM downloaden",
-      "saveLocation": "Uw browser bepaalt waar het bestand wordt opgeslagen; in de browserinstellingen kunt u instellen dat er telkens wordt gevraagd.",
+      "saveLocation": "Je browser bepaalt waar het bestand wordt opgeslagen; in de browserinstellingen kun je instellen dat er telkens wordt gevraagd.",
       "done": "{{filename}} is gedownload.",
       "missingMedia_one": "{{count}} bestand ontbrak op de server en is overgeslagen.",
       "missingMedia_other": "{{count}} bestanden ontbraken op de server en zijn overgeslagen.",
@@ -475,15 +547,15 @@
     },
     "import": {
       "title": "Importeren",
-      "description": "ZIP-export van deze applicatie of GEDCOM-bestand (5.5.1 / 7.0, ook als ZIP/GEDZIP met bestanden). U ziet wat er verandert voordat u importeert.",
+      "description": "ZIP-export van deze applicatie of GEDCOM-bestand (5.5.1 / 7.0, ook als ZIP/GEDZIP met bestanden). Je ziet wat er verandert voordat je importeert.",
       "file": "Bestand kiezen",
-      "checking": "Bestand controleren…",
       "fileZip": "Export uit {{source}} van {{date}}",
       "fileGedcom": "{{source}}-bestand van {{date}}",
       "counts": "{{imported}} personen in het bestand, {{existing}} personen aanwezig",
       "missingFiles_one": "{{count}} bestand ontbreekt in het ZIP-bestand en wordt overgeslagen.",
       "missingFiles_other": "{{count}} bestanden ontbreken in het ZIP-bestand en worden overgeslagen.",
-      "backupHint": "Er zijn bestaande gegevens. Download een back-up voordat u importeert, zodat u ze zo nodig kunt herstellen.",
+      "cycles": "Kringloop in de ouder-kindrelaties: {{names}} – iemand zou zijn eigen voorouder zijn. De import wordt toch uitgevoerd; corrigeer de relaties daarna met de hand.",
+      "backupHint": "Er zijn bestaande gegevens. Download een back-up voordat je importeert, zodat je ze zo nodig kunt herstellen.",
       "backupButton": "Back-up downloaden",
       "backupDone": "Back-up gedownload",
       "strategy": "Omgang met bestaande gegevens",
@@ -499,7 +571,8 @@
       "targetCurrent": "de geopende stamboom “{{name}}”",
       "targetNew": "een nieuwe stamboom",
       "treeName": "Naam van de nieuwe stamboom",
-      "successNewTree": "Import voltooid – de nieuwe stamboom “{{name}}” is geopend."
+      "successNewTree": "Import voltooid – de nieuwe stamboom “{{name}}” is geopend.",
+      "chosenFile": "Gekozen bestand: {{name}}"
     },
     "strategies": {
       "OVERWRITE": {
@@ -512,7 +585,7 @@
       },
       "MERGE_MANUAL": {
         "label": "Samenvoegen – handmatig beslissen",
-        "description": "Nieuwe personen worden toegevoegd. Waar gegevens verschillen, beslist u per persoon."
+        "description": "Nieuwe personen worden toegevoegd. Waar gegevens verschillen, beslis je per persoon."
       }
     },
     "summary": {
@@ -525,7 +598,9 @@
       "newRelations": "Nieuwe relaties",
       "newEvents": "Nieuwe tijdlijnitems",
       "newNotes": "Nieuwe notities",
-      "newMedia": "Nieuwe bestanden"
+      "newMedia": "Nieuwe bestanden",
+      "newSources": "Nieuwe bronnen",
+      "newCitations": "Nieuwe bronvermeldingen"
     },
     "conflicts": {
       "title_one": "{{count}} persoon met verschillen",
@@ -547,7 +622,7 @@
       "NO_FILE": "Er is geen bestand geselecteerd.",
       "TOO_LARGE": "Het bestand is te groot (limiet: {{limit}}).",
       "UNPACKED_TOO_LARGE": "Het bestand is uitgepakt te groot (limiet: {{limit}}).",
-      "EXPORT_TOO_LARGE": "De bestanden van deze stamboom zijn te groot voor één bestand (ongeveer {{size}}, limiet: {{limit}}). Exporteer in plaats daarvan zonder bestanden.",
+      "EXPORT_TOO_LARGE": "De export (ongeveer {{size}}) is groter dan de grens in de instellingen ({{limit}}). Verhoog of verwijder de grens, of exporteer zonder bestanden.",
       "UNSUPPORTED_FILE": "Het bestand is geen export van deze applicatie (ZIP) en ook geen GEDCOM-bestand (.ged).",
       "INVALID_ZIP": "Het ZIP-bestand is beschadigd en kan niet worden uitgepakt.",
       "MISSING_PERSONS_JSON": "Het ZIP-bestand bevat geen persons.json – is het een export van deze applicatie?",
@@ -572,9 +647,14 @@
       "SAFETY_BACKUP_FAILED": "De huidige staat kon niet worden opgeslagen – daarom is er niets hersteld. Is de back-upmap beschrijfbaar?",
       "BACKUP_FAILED": "De back-up is mislukt.",
       "RESTORE_FAILED": "Het herstel is mislukt. Er zijn geen gegevens gewijzigd.",
-      "MEDIA_TOO_LARGE": "Een bestand in de import is groter dan {{limit}} en kan niet worden overgenomen.",
       "DOWNLOAD_CANCELLED": "De back-up is niet opgeslagen – het herstel is niet gestart.",
-      "OPERATION_IN_PROGRESS": "Er loopt al een andere import, export of back-up. Wacht tot die klaar is en probeer het dan opnieuw."
+      "OPERATION_IN_PROGRESS": "Er loopt al een andere import, export of back-up. Wacht tot die klaar is en probeer het dan opnieuw.",
+      "NOT_ENOUGH_SPACE": "Niet genoeg vrije ruimte op het station: er is ongeveer {{needed}} nodig, {{free}} is vrij. Maak ruimte vrij en probeer het opnieuw.",
+      "UPLOAD_NOT_FOUND": "Het gekozen bestand is niet meer op de server beschikbaar. Kies het opnieuw.",
+      "CANCELLED": "Afgebroken. Er zijn geen gegevens gewijzigd.",
+      "FILE_SYSTEM_LIMIT": "Het bestand (ongeveer {{size}}) is te groot voor het gekozen station. Stations met FAT32 (veel USB-sticks) nemen hooguit 4 GB per bestand op – kies een station met exFAT of NTFS.",
+      "DOWNLOAD_FAILED": "Het bestand kon niet worden opgeslagen.",
+      "JOB_NOT_FOUND": "De server kent de lopende bewerking niet meer (is hij opnieuw gestart?). Controleer de gegevens en probeer het opnieuw."
     },
     "history": {
       "title": "Eerdere imports",
@@ -595,7 +675,7 @@
     }
   },
   "statistics": {
-    "subtitle": "Analyses van alle vastgelegde personen (zonder de prullenbak)",
+    "subtitle": "Analyses van de geopende stamboom (zonder de prullenbak) – elk getal leidt naar de personen erachter",
     "empty": "Nog geen personen vastgelegd – de analyses verschijnen hier zodra er personen zijn toegevoegd.",
     "noData": "Geen gegevens beschikbaar.",
     "barAria": "{{label}}: {{value}} ({{share}})",
@@ -603,7 +683,9 @@
     "years_other": "{{count, number}} jaar",
     "kpi": {
       "persons": "Personen",
-      "gender": "{{male, number}} mannen · {{female, number}} vrouwen · {{unknown, number}} niet opgegeven",
+      "male": "{{count, number}} mannen",
+      "female": "{{count, number}} vrouwen",
+      "unknownGender": "{{count, number}} niet opgegeven",
       "relations": "Relaties",
       "families": "Familiegroepen",
       "unconnected_one": "{{count, number}} persoon zonder relaties",
@@ -644,6 +726,287 @@
       "persons": "Personen",
       "births": "Geboortejaren",
       "footnote": "{{families, number}} familiegroepen, {{unconnected, number}} personen zonder relaties (elk in generatie 1)."
+    },
+    "sources": {
+      "title": "Bronnen",
+      "description": "Gebruikte bronnen: {{sources}}, bronvermeldingen: {{citations}}. Personen met ten minste één bronvermelding: {{cited}} van {{persons}} ({{share}}).",
+      "mostCited": "Meest vermelde bronnen (onderbouwde feiten)",
+      "empty": "Nog geen feit van deze stamboom heeft een bronvermelding.",
+      "wholeTree": "De bronnen gelden altijd voor de hele stamboom, niet alleen voor de gekozen omvang."
+    },
+    "tabs": {
+      "label": "Onderdelen van de statistieken",
+      "overview": "Overzicht",
+      "lives": "Levens",
+      "names": "Namen en plaatsen",
+      "ancestors": "Voorouders",
+      "sources": "Bronnen"
+    },
+    "scope": {
+      "label": "Omvang",
+      "kind": {
+        "all": "Hele stamboom",
+        "ancestors": "Voorouders van een persoon",
+        "descendants": "Nakomelingen van een persoon",
+        "surname": "Achternaam"
+      },
+      "person": "Persoon",
+      "choosePerson": "Persoon kiezen",
+      "surname": "Achternaam",
+      "born": {
+        "label": "Geboren",
+        "fromLabel": "van (jaar)",
+        "toLabel": "tot (jaar)",
+        "range": "geboren {{from}}–{{to}}",
+        "from": "geboren vanaf {{from}}",
+        "to": "geboren tot {{to}}"
+      },
+      "apply": "Toepassen",
+      "reset": "Herstellen",
+      "invalid": "Deze omvang past niet bij de geopende stamboom – misschien staat de persoon er niet (meer) in.",
+      "empty": "Er zijn geen personen in deze omvang.",
+      "summary_one": "{{scope}}: {{count, number}} persoon",
+      "summary_other": "{{scope}}: {{count, number}} personen",
+      "of": {
+        "all": "Hele stamboom",
+        "ancestors": "Voorouders van {{name}}",
+        "descendants": "Nakomelingen van {{name}}",
+        "surname": "Achternaam {{name}}"
+      }
+    },
+    "filter": {
+      "from": "Uit de statistieken:",
+      "back": "Terug naar de statistieken",
+      "clear": "Filter verwijderen",
+      "empty": "Geen personen in deze selectie.",
+      "all": "Alle personen",
+      "gender": "Geslacht: {{gender}}",
+      "deceased": "Overleden",
+      "living": "Zonder overlijdensgegevens",
+      "lifespan": "Overleden, met geboorte- en sterfjaar",
+      "livingAge": "Levend, leeftijd {{ages}}",
+      "deathAge": "Overleden op de leeftijd van {{ages}}",
+      "withoutAge": "Zonder geboorte- of sterfjaar",
+      "probablyDeceased": "Waarschijnlijk overleden, zonder overlijdensdatum",
+      "surname": "Achternaam: {{value}}",
+      "birthplace": "Geboorteplaats: {{value}}",
+      "generation": "Generatie {{value}}",
+      "family": "In een familiegroep",
+      "unconnected": "Zonder relaties",
+      "missing": "Ontbreekt: {{fact}}",
+      "ancestors": "Voorouders van {{name}}, generatie {{generation}}",
+      "openEnds": "Open einden onder de voorouders van {{name}}, generatie {{generation}}",
+      "bornDecade": "Geboren {{decades}}",
+      "diedDecade": "Overleden {{decades}}",
+      "marriedDecade": "Getrouwd {{decades}}",
+      "noBirthYear": "Zonder geboortejaar",
+      "noDeathYear": "Overleden, zonder sterfjaar",
+      "lives": "{{measure}} – {{gender}}, {{centuries}}",
+      "children": "Paren met gemeenschappelijke kinderen: {{number}}",
+      "ageGap": "Paren: {{gap}}",
+      "firstName": "Voornaam {{name}} – {{gender}}{{centuries}}",
+      "stayed": {
+        "yes": "Overleden in de geboorteplaats",
+        "no": "Elders overleden"
+      },
+      "move": "Weg {{from}} → {{to}}",
+      "place": "Plaats: {{value}}"
+    },
+    "completeness": {
+      "title": "Wat ontbreekt er nog?",
+      "description": "Aandeel personen bij wie een gegeven is vastgelegd – een klik op de ontbrekende laat zien bij wie het nog ontbreekt.",
+      "score": "Stand van het onderzoek (gemiddelde van de rijen)",
+      "fact": "Gegeven",
+      "present": "Vastgelegd",
+      "missing": "Ontbreekt",
+      "missingCount_one": "{{count, number}} ontbreekt",
+      "missingCount_other": "{{count, number}} ontbreken",
+      "facts": {
+        "birthDate": "Geboortedatum",
+        "birthPlace": "Geboorteplaats",
+        "deathDate": "Overlijdensdatum (overledenen)",
+        "deathPlace": "Overlijdensplaats (overledenen)",
+        "father": "Vader bekend",
+        "mother": "Moeder bekend",
+        "partner": "Partner (overledenen vanaf 18)",
+        "photo": "Foto of bestand",
+        "source": "Minstens één bron"
+      }
+    },
+    "ancestors": {
+      "title": "Voorouders",
+      "description": "Gevonden voorouders per generatie vergeleken met de mogelijke (2, 4, 8 …). Elke plaats in de kwartierstaat telt – wie op twee plaatsen staat, telt twee keer.",
+      "of": "Voorouders van",
+      "homePerson": "hoofdpersoon",
+      "otherPerson": "Andere persoon",
+      "makeHome": "Als hoofdpersoon instellen",
+      "noHome": "Nog geen hoofdpersoon ingesteld – getoond wordt de persoon met de meeste voorouders.",
+      "possible": "Mogelijk",
+      "found": "Gevonden",
+      "repeated": "Dubbel",
+      "openEnds": "Open einden",
+      "collapse": "Kwartierverlies {{share}}: {{repeated, number}} van de {{found, number}} plaatsen worden ingenomen door personen die al op een andere plaats staan.",
+      "names": {
+        "1": "Persoon",
+        "2": "Ouders",
+        "3": "Grootouders",
+        "4": "Overgrootouders",
+        "5": "Betovergrootouders"
+      }
+    },
+    "timeline": {
+      "title": "Tijdlijn",
+      "description": "Per decennium; lege decennia blijven staan, zodat gaten zichtbaar worden. Huwelijken: begin van een huwelijk of de gebeurtenis ‘huwelijk’.",
+      "measure": "Tonen",
+      "chart": "Tijdlijn: {{measure}} per decennium",
+      "bar": "{{decades}} – {{measure}}: {{count, number}}",
+      "without": "Zonder jaar:",
+      "withoutBirths_one": "{{count, number}} geboorte",
+      "withoutBirths_other": "{{count, number}} geboorten",
+      "withoutDeaths_one": "{{count, number}} overlijden",
+      "withoutDeaths_other": "{{count, number}} overlijdens",
+      "measures": {
+        "births": "Geboorten",
+        "deaths": "Overlijdens",
+        "weddings": "Huwelijken"
+      }
+    },
+    "lives": {
+      "title": "Levens door de tijd",
+      "measure": "Kengetal",
+      "measures": {
+        "lifespan": "Levensduur",
+        "adultLifespan": "Levensduur vanaf 15",
+        "firstWedding": "Leeftijd bij eerste huwelijk",
+        "firstChild": "Leeftijd bij eerste kind"
+      },
+      "hints": {
+        "lifespan": "Gemiddelde leeftijd bij overlijden, per eeuw van geboorte.",
+        "adultLifespan": "Zoals de levensduur, maar alleen van wie minstens 15 werd – zo verbergt de kindersterfte het volwassen leven niet.",
+        "firstWedding": "Gemiddelde leeftijd bij het eerste huwelijk (begin van een huwelijk of de gebeurtenis ‘huwelijk’).",
+        "firstChild": "Gemiddelde leeftijd bij de geboorte van het eerste kind."
+      },
+      "footnote": "Tussen haakjes het aantal personen; een gemiddelde van minder dan 5 personen wordt niet getoond.",
+      "century": "Geboren",
+      "allCenturies": "Alle eeuwen",
+      "genders": {
+        "male": "Mannen",
+        "female": "Vrouwen",
+        "all": "Allen"
+      },
+      "children": {
+        "title": "Kinderen per paar",
+        "description": "Paren – partners of gemeenschappelijke ouders – naar het aantal gemeenschappelijke kinderen; gemiddeld {{mean}}."
+      },
+      "ageGap": {
+        "title": "Leeftijdsverschil van partners",
+        "manOlderMean": "Paren van een man en een vrouw met beide geboortejaren; gemiddeld is de man {{years}} jaar ouder.",
+        "womanOlderMean": "Paren van een man en een vrouw met beide geboortejaren; gemiddeld is de vrouw {{years}} jaar ouder.",
+        "manOlder": "Man ouder",
+        "sameAge": "Even oud (±1 jaar)",
+        "womanOlder": "Vrouw ouder"
+      },
+      "couples": "Paren"
+    },
+    "firstNames": {
+      "title": "Voornamen",
+      "description": "Elke voornaam telt – ‘Johann Georg’ voor Johann en voor Georg; spellingen worden samengevoegd.",
+      "male": "Meest voorkomende voornamen – mannen",
+      "female": "Meest voorkomende voornamen – vrouwen",
+      "fashion": "Naammode per eeuw"
+    },
+    "migration": {
+      "title": "Migratie",
+      "description": "Wegen van geboorteplaats via verhuizingen naar overlijdensplaats, in volgorde van tijd; plaatsen met alle gegevens die daar spelen.",
+      "stayedIntro": "{{share}} van de overledenen met geboorte- en overlijdensplaats stierf waar die geboren was:",
+      "moves": "Meest voorkomende wegen",
+      "places": "Plaatsen",
+      "place": "Plaats",
+      "years": "Periode",
+      "stayed_one": "{{count, number}} in de geboorteplaats",
+      "stayed_other": "{{count, number}} in de geboorteplaats",
+      "moved_one": "{{count, number}} elders",
+      "moved_other": "{{count, number}} elders",
+      "morePlaces_one": "… en nog {{count, number}} plaats",
+      "morePlaces_other": "… en nog {{count, number}} plaatsen"
+    },
+    "records": {
+      "title": "Records",
+      "description": "Alleen overledenen. Een record dat ook een mogelijke fout is, wordt gemarkeerd – vaak zit er een tikfout achter.",
+      "possibleError": "mogelijke fout",
+      "ties_one": "en nog {{count, number}}",
+      "ties_other": "en nog {{count, number}}",
+      "kinds": {
+        "longestLife": "Langste leven",
+        "longestMarriage": "Langste huwelijk",
+        "mostChildren": "Meeste kinderen",
+        "mostCommonChildren": "Meeste gemeenschappelijke kinderen van een paar",
+        "mostPartners": "Meeste partners",
+        "mostDescendants": "Meeste nakomelingen",
+        "youngestMother": "Jongste moeder",
+        "oldestMother": "Oudste moeder",
+        "youngestFather": "Jongste vader",
+        "oldestFather": "Oudste vader",
+        "largestAgeGap": "Grootste leeftijdsverschil van een paar"
+      }
+    },
+    "print": "Afdrukken of als pdf opslaan",
+    "csv": {
+      "copy": "Kopiëren als CSV",
+      "copied": "Gekopieerd",
+      "failed": "Kopiëren mislukt"
+    }
+  },
+  "plausibility": {
+    "title": "Mogelijke fouten",
+    "intro": "Gegevens die toegestaan zijn maar zelden kloppen – vaak een tikfout. Corrigeer ze bij de persoon of markeer ze als juist als ze kloppen.",
+    "none": "Geen mogelijke fouten gevonden.",
+    "allChecked": "Alle mogelijke fouten zijn als juist gemarkeerd.",
+    "showChecked": "Ook de als juist gemarkeerde tonen ({{count}})",
+    "markRight": "Klopt",
+    "showAgain": "Weer tonen",
+    "confirmSave": "Deze relatie lijkt niet te kloppen:\n\n{{issues}}\n\nToch opslaan?",
+    "groups": {
+      "relations": "Relaties",
+      "dates": "Levensdata en gebeurtenissen",
+      "duplicates": "Dubbelen en kringen"
+    },
+    "roles": {
+      "MOTHER": "moeder",
+      "FATHER": "vader",
+      "HUSBAND": "echtgenoot",
+      "WIFE": "echtgenote"
+    },
+    "genders": {
+      "MALE": "man",
+      "FEMALE": "vrouw"
+    },
+    "kinship": {
+      "PARENT": "ouder en kind",
+      "ANCESTOR": "voorouder en nakomeling",
+      "SIBLING": "broers en zussen"
+    },
+    "issues": {
+      "ROLE_GENDER": "{{a}} staat als {{role}} van {{b}} ingevoerd, maar is een {{gender}}.",
+      "PARTNER_IS_RELATIVE": "{{a}} en {{b}} zijn partners, maar ook {{kinship}}.",
+      "TOO_MANY_PARENTS": "{{a}} heeft {{count}} ouders.",
+      "CHILD_BORN_BEFORE_PARENT": "{{b}} is vóór de ouder {{a}} geboren.",
+      "PARENT_TOO_YOUNG": "{{a}} was bij de geboorte van {{b}} pas {{age}} jaar oud.",
+      "PARENT_TOO_YOUNG_inexact": "{{a}} was bij de geboorte van {{b}} hoogstens {{age}} jaar oud.",
+      "MOTHER_TOO_OLD": "{{a}} was bij de geboorte van {{b}} {{age}} jaar oud.",
+      "MOTHER_TOO_OLD_inexact": "{{a}} was bij de geboorte van {{b}} minstens {{age}} jaar oud.",
+      "PARENT_DIED_BEFORE_BIRTH": "{{a}} is vóór de geboorte van {{b}} overleden.",
+      "PARTNERSHIP_BEFORE_BIRTH": "Het partnerschap van {{a}} en {{b}} begint vóór de geboorte van {{a}}.",
+      "PARTNERSHIP_AFTER_DEATH": "Het partnerschap van {{a}} en {{b}} begint na het overlijden van {{a}}.",
+      "DEATH_BEFORE_BIRTH": "{{a}} is vóór de geboorte overleden.",
+      "LIFESPAN_TOO_LONG": "{{a}} is {{age}} jaar oud geworden.",
+      "LIFESPAN_TOO_LONG_inexact": "{{a}} is minstens {{age}} jaar oud geworden.",
+      "LIVING_TOO_OLD": "{{a}} zou nu {{age}} jaar oud zijn – ontbreekt de overlijdensdatum?",
+      "LIVING_TOO_OLD_inexact": "{{a}} zou nu minstens {{age}} jaar oud zijn – ontbreekt de overlijdensdatum?",
+      "EVENT_BEFORE_BIRTH": "‘{{event}}’ van {{a}} ligt vóór de geboorte.",
+      "EVENT_AFTER_DEATH": "‘{{event}}’ van {{a}} ligt na het overlijden.",
+      "POSSIBLE_DUPLICATE": "{{a}} en {{b}} zouden dezelfde persoon kunnen zijn.",
+      "ANCESTOR_CYCLE": "{{names}} zijn hun eigen voorouders."
     }
   },
   "search": {
@@ -672,19 +1035,19 @@
       "title": "Stamboom",
       "view": "Weergave bij openen",
       "depth": "Generaties bij openen",
-      "hint": "De stamboom opent zoals u hem het laatst heeft achtergelaten – wijzigingen daar worden hier overgenomen. Een link met een hoofdpersoon (bijv. “Stamboom tonen”) heeft voorrang. Opgeslagen in deze browser.",
+      "hint": "De stamboom opent zoals je hem het laatst hebt achtergelaten – wijzigingen daar worden hier overgenomen. Een link met een hoofdpersoon (bijv. “Stamboom tonen”) heeft voorrang. Opgeslagen in deze browser.",
       "focus": "Hoofdpersoon bij openen"
     },
     "limits": {
       "title": "Maximale grootte",
-      "hint": "Grootste bestand voor exporteren en importeren en voor back-up en herstel. Deze worden in het geheugen verwerkt, daarom volstaat de standaard van 2 GB voor de meeste computers. Verhoog dit alleen op een computer met veel vrij geheugen.",
+      "hint": "Optionele bovengrenzen voor de bestanden van export en import en van back-up en herstel. Bestanden worden stuk voor stuk gelezen en geschreven, daarom is er standaard geen grens – alleen de vrije ruimte op het station telt. Laat een veld leeg voor geen grens.",
       "import": "Grootste export- en importbestand",
       "backup": "Grootste back-upbestand",
       "unit": "GB",
       "save": "Opslaan",
-      "reset": "Standaard herstellen",
+      "reset": "Grenzen verwijderen",
       "saved": "Opgeslagen. De nieuwe limieten gelden direct.",
-      "memoryWarning": "Boven 4 GB: voor exporteren, importeren of herstellen moet minstens twee keer de bestandsgrootte aan werkgeheugen (RAM) vrij zijn. Met minder kan de app erg traag worden of stoppen."
+      "none": "Geen grens"
     },
     "backup": {
       "title": "Back-up",
@@ -702,13 +1065,12 @@
       "downloaded": "Opgeslagen als {{file}}.",
       "missingMedia_one": "{{count}} bestand ontbrak op de server en is niet opgenomen.",
       "missingMedia_other": "{{count}} bestanden ontbraken op de server en zijn niet opgenomen.",
-      "overLimit": "De back-up (ongeveer {{size}}) is groter dan de limiet van {{limit}}: hij is opgeslagen, maar kan niet met deze app worden hersteld. Bewaar daarom ook afzonderlijke stambomen via “Importeren/Exporteren”.",
+      "overLimit": "De back-up (ongeveer {{size}}) is groter dan de grens van {{limit}} onder “Maximale grootte”: hij wordt opgeslagen, maar kan pas na het verhogen of verwijderen van de grens worden hersteld.",
       "singleTreeHint": "Eén enkele stamboom exporteren of importeren:",
       "restore": {
         "title": "Back-up herstellen",
         "intro": "Kies een back-upbestand (cognatio_backup_….zip). Het wordt eerst gecontroleerd – er wordt nog niets gewijzigd.",
         "file": "Back-upbestand",
-        "checking": "Bestand controleren …",
         "backupFrom": "Back-up van {{date}} (versie {{version}})",
         "compare": "Huidige gegevens en inhoud van de back-up",
         "current": "Nu",
@@ -720,11 +1082,14 @@
           "events": "Levensgebeurtenissen",
           "notes": "Notities",
           "media": "Bestanden",
-          "trash": "In de prullenbak"
+          "trash": "In de prullenbak",
+          "sources": "Bronnen",
+          "citations": "Bronvermeldingen"
         },
         "trees": "Stambomen in de back-up (personen):",
         "missingFiles_one": "{{count}} bestand ontbreekt in de back-up – de vermelding blijft behouden, het bestand niet.",
         "missingFiles_other": "{{count}} bestanden ontbreken in de back-up – de vermeldingen blijven behouden, de bestanden niet.",
+        "cycleTrees": "In {{trees}} is iemand zijn eigen voorouder (kringloop in de ouder-kindrelaties). De back-up wordt toch ongewijzigd teruggezet; je kunt de relaties daarna corrigeren.",
         "warning": "Alle huidige gegevens worden verwijderd – alle stambomen, personen, bestanden, de prullenbak en de importgeschiedenis – en vervangen door de back-up.",
         "autoBackup": "Daarvoor wordt de huidige staat automatisch opgeslagen in de back-upmap op de server; de laatste drie van deze back-ups blijven bewaard.",
         "downloadFirst": "Ook de huidige staat downloaden",
@@ -732,10 +1097,10 @@
         "typeToConfirm": "Typ “{{word}}” om te bevestigen",
         "submit": "Herstellen",
         "downloading": "Huidige staat downloaden …",
-        "restoring": "Herstellen … Sluit de pagina niet.",
         "done_one": "De back-up is hersteld: {{trees}} stamboom/stambomen, {{count}} persoon.",
         "done_other": "De back-up is hersteld: {{trees}} stamboom/stambomen, {{count}} personen.",
-        "safetyBackup": "De vorige staat is opgeslagen als {{file}} (map {{dir}}). Met dit bestand kunt u het herstel ongedaan maken."
+        "safetyBackup": "De vorige staat is opgeslagen als {{file}} (map {{dir}}). Met dit bestand kun je het herstel ongedaan maken.",
+        "largeSafetyBackup": "De huidige gegevens zijn groot ({{size}} aan bestanden): de volledige back-up van de huidige stand, die eerst wordt geschreven, heeft ongeveer zoveel vrije ruimte nodig en duurt even."
       }
     },
     "system": {
@@ -847,7 +1212,8 @@
       "treeBehaviour": "Stamboom: gedrag",
       "data": "Gegevens en back-up",
       "expandAll": "Alles uitklappen",
-      "collapseAll": "Alles inklappen"
+      "collapseAll": "Alles inklappen",
+      "mcp": "AI-assistenten (MCP)"
     },
     "logs": {
       "view": "Logs tonen",
@@ -864,7 +1230,8 @@
       "exportPartial": "Het serverlog kon niet worden opgenomen; het bestand bevat alleen het browserlog.",
       "clear": "Logs wissen",
       "confirmClear": "Alle logs van de server en van deze browser wissen? Dit kan niet ongedaan worden gemaakt.",
-      "cleared": "Logs gewist."
+      "cleared": "Logs gewist.",
+      "mcpOnly": "Alleen AI-assistenten (MCP)"
     },
     "search": {
       "label": "Instellingen zoeken",
@@ -873,7 +1240,7 @@
     },
     "updates": {
       "title": "Programma-updates",
-      "intro": "Cognatio zoekt eenmaal per dag naar een nieuwe versie. Er wordt alleen de aanvraag van het versiebestand verzonden – geen gegevens over u of uw stambomen.",
+      "intro": "Cognatio zoekt eenmaal per dag naar een nieuwe versie. Er wordt alleen de aanvraag van het versiebestand verzonden – geen gegevens over jou of je stambomen.",
       "check": "Automatisch naar updates zoeken",
       "checkNow": "Nu controleren",
       "checking": "Zoeken naar updates …",
@@ -884,8 +1251,111 @@
       "channel": "Versies",
       "channelStable": "Alleen vrijgegeven versies (aanbevolen)",
       "channelBeta": "Ook testversies (bèta)",
-      "betaHint": "Testversies verschijnen vóór de vrijgave en kunnen fouten bevatten. Cognatio bewaart uw gegevens vóór elke update, maar een database die door een testversie is gewijzigd, kan niet door een eerdere versie worden geopend. Terug naar vrijgegeven versies werkt pas met de volgende vrijgave.",
+      "betaHint": "Testversies verschijnen vóór de vrijgave en kunnen fouten bevatten. Cognatio bewaart je gegevens vóór elke update, maar een database die door een testversie is gewijzigd, kan niet door een eerdere versie worden geopend. Terug naar vrijgegeven versies werkt pas met de volgende vrijgave.",
       "error": "Controleren op updates mislukt: {{message}}"
+    },
+    "mcp": {
+      "intro": "AI-assistenten zoals Claude kunnen via het Model Context Protocol (MCP) met je stambomen werken: personen opzoeken, vragen beantwoorden en – als je dat toestaat – gegevens invoeren. Ze verbinden alleen met deze computer.",
+      "enable": "AI-assistenten toestaan",
+      "privacy": "Wat de assistent leest, gaat naar de aanbieder van het AI-model dat je gebruikt (bij Claude: Anthropic).",
+      "summary": {
+        "off": "Uit",
+        "nothing": "Aan – niets toegestaan",
+        "readOnly": "Aan – alleen lezen",
+        "readWrite": "Aan – lezen en schrijven",
+        "withDelete": "Aan – ook verwijderen toegestaan",
+        "everything": "Aan – alles toegestaan"
+      },
+      "portChanged": "De app moest bij deze start een andere poort gebruiken. Assistenten die eerder zijn ingesteld, hebben het nieuwe adres hieronder nodig.",
+      "connect": "Een assistent verbinden",
+      "address": "Adres",
+      "token": "Token",
+      "tokenOnce": "Het token wordt alleen nu getoond. Kopieer het naar je assistent; Cognatio bewaart er alleen een vingerafdruk van.",
+      "tokenHidden": "Het token is getoond toen het werd gemaakt en wordt niet bewaard. Heb je het niet meer, maak dan een nieuw – het oude werkt dan niet meer.",
+      "renew": "Nieuw token",
+      "claudeCode": "Opdracht voor Claude Code",
+      "json": "Configuratiebestand van andere programma’s (mcpServers)",
+      "copy": "{{what}} kopiëren",
+      "copyShort": "Kopiëren",
+      "copied": "Gekopieerd",
+      "copyFailed": "Kopiëren is hier niet mogelijk. De tekst is geselecteerd – kopieer hem met Ctrl+C.",
+      "permissions": "Wat assistenten mogen",
+      "permissionsHint": "Per onderdeel in te stellen; een wijziging geldt meteen. De instellingen voor AI-assistenten kan een assistent nooit wijzigen.",
+      "noAccess": "Geen toegang.",
+      "areas": {
+        "persons": {
+          "name": "Personen, levensgebeurtenissen, notities, relaties",
+          "read": "Personen, families, voorouders en nakomelingen opzoeken en zoeken.",
+          "write": "Ook aanmaken en wijzigen; personen en relaties naar de prullenbak verplaatsen.",
+          "delete": "Ook levensgebeurtenissen en notities definitief verwijderen."
+        },
+        "sources": {
+          "name": "Bronnen en bronvermeldingen",
+          "read": "Bronnen, archieven en bronvermeldingen opzoeken en zoeken.",
+          "write": "Ook aanmaken, wijzigen, citeren en naar de prullenbak verplaatsen.",
+          "delete": "Ook bronvermeldingen definitief verwijderen."
+        },
+        "media": {
+          "name": "Media",
+          "read": "Namen en gegevens van de bestanden.",
+          "write": "Ook bestanden van deze computer toevoegen en profielfoto’s instellen.",
+          "delete": "Ook bestanden definitief verwijderen."
+        },
+        "familyTrees": {
+          "name": "Stambomen",
+          "read": "De stambomen opsommen.",
+          "write": "Ook aanmaken, hernoemen en naar de prullenbak verplaatsen.",
+          "delete": "Ook stambomen in de prullenbak definitief verwijderen (samen met ‘Prullenbak: Verwijderen’)."
+        },
+        "recycleBin": {
+          "name": "Prullenbak",
+          "read": "Zien wat in de prullenbak ligt.",
+          "write": "Ook terugzetten.",
+          "delete": "Ook definitief verwijderen."
+        },
+        "transfer": {
+          "name": "Import en export",
+          "read": "Importgeschiedenis; export naar een map van deze computer.",
+          "write": "Ook een bestand importeren als nieuwe stamboom of samengevoegd.",
+          "delete": "Ook importeren met ‘overschrijven’, dat de personen van een stamboom vervangt."
+        },
+        "backup": {
+          "name": "Back-up",
+          "read": "Back-ups opsommen.",
+          "write": "Ook een back-up maken.",
+          "delete": "Ook een back-up terugzetten – die vervangt alle gegevens."
+        },
+        "settings": {
+          "name": "Instellingen",
+          "read": "Groottelimieten, logniveau en de toestand van de app lezen.",
+          "write": "Ook groottelimieten en logniveau wijzigen."
+        },
+        "statistics": {
+          "name": "Statistiek en log",
+          "read": "Cijfers van een stamboom en het log van de app."
+        }
+      },
+      "trees": "Stambomen voor assistenten",
+      "treesHint": "Assistenten zien alleen de aangevinkte stambomen. Nieuwe stambomen zijn zichtbaar.",
+      "allTrees": "Alle stambomen",
+      "warning": {
+        "write": {
+          "title": "Wijzigingen in ‘{{area}}’ toestaan?",
+          "text": "De assistent kan je gegevens dan zelf wijzigen, zonder eerst te vragen. Wijzigingen kun je in de app ongedaan maken; wat hij verwijdert, gaat naar de prullenbak."
+        },
+        "delete": {
+          "title": "Verwijderen in ‘{{area}}’ toestaan?",
+          "text": "De assistent kan dan gegevens definitief verwijderen of alle gegevens vervangen. Dit kan niet ongedaan worden gemaakt. Sta het alleen toe als je de assistent vertrouwt en een actuele back-up hebt."
+        },
+        "confirm": "Toestaan"
+      },
+      "area": "Onderdeel",
+      "allAreas": "Alle onderdelen",
+      "columns": {
+        "read": "Lezen",
+        "write": "Schrijven",
+        "delete": "Verwijderen"
+      }
     }
   },
   "familyTrees": {
@@ -951,5 +1421,362 @@
     "title": "Er is iets misgegaan",
     "text": "Deze pagina kon niet worden weergegeven. Opnieuw laden helpt meestal; opgeslagen gegevens zijn niet getroffen. Details staan in het logboek (Instellingen → Systeem).",
     "reload": "Opnieuw laden"
+  },
+  "transferProgress": {
+    "phases": {
+      "upload": "Bestand wordt geüpload",
+      "waiting": "Wachten tot de lopende bewerking (bijv. een download) klaar is",
+      "check": "Bestand wordt gecontroleerd",
+      "safetyBackup": "Huidige stand wordt opgeslagen",
+      "media": "Bestanden worden gekopieerd",
+      "database": "Gegevens worden opgeslagen – sluit de app niet",
+      "download": "Wordt gedownload"
+    },
+    "bytes": "{{done}} van {{total}}",
+    "cancel": "Afbreken",
+    "cancelling": "Wordt afgebroken …"
+  },
+  "activity": {
+    "subtitle": "Langere bewerkingen van deze sessie: uploaden, controleren, importeren, herstellen, exporteren en back-up. Ze lopen door als je een andere pagina opent. Afgeronde blijven staan tot je ze verwijdert of de app sluit.",
+    "empty": "Nog geen bewerkingen in deze sessie.",
+    "running": "Bezig",
+    "finished": "Afgerond",
+    "clearFinished": "Afgeronde verwijderen",
+    "open": "Naar de pagina",
+    "show": "Tonen",
+    "remove": "{{title}} verwijderen",
+    "cancelled": "Afgebroken, er zijn geen gegevens gewijzigd.",
+    "title": "{{kind}}: {{label}}",
+    "kinds": {
+      "importCheck": "Importbestand controleren",
+      "import": "Import",
+      "restoreCheck": "Back-up controleren",
+      "restore": "Herstel",
+      "export": "Export",
+      "backup": "Back-up",
+      "media": "Bestand uploaden",
+      "mcp": "AI-assistent"
+    },
+    "results": {
+      "importCheck": "Personen in het bestand: {{persons}} – het voorbeeld staat op de importpagina.",
+      "import": "Nieuw: {{created}}, bijgewerkt: {{updated}}, verwijderd: {{removed}}.",
+      "restoreCheck": "Personen in de back-up: {{persons}} – de vergelijking staat in het venster.",
+      "restore": "Hersteld – stambomen: {{trees}}, personen: {{persons}}.",
+      "export": "Opgeslagen als {{file}} ({{size}}).",
+      "backup": "Opgeslagen als {{file}} ({{size}}).",
+      "media": "Geüpload ({{size}}).",
+      "mcp": "{{client}}: {{action}}.",
+      "mcpFailed": "{{client}}: {{action}} – geweigerd ({{reason}})."
+    },
+    "states": {
+      "done": "Afgerond",
+      "failed": "Mislukt",
+      "cancelled": "Afgebroken"
+    },
+    "notice": {
+      "done": "{{title}} is afgerond.",
+      "failed": "{{title}} is mislukt.",
+      "cancelled": "{{title}} is afgebroken."
+    },
+    "missingMedia_one": "{{count}} bestand ontbrak.",
+    "missingMedia_other": "{{count}} bestanden ontbraken.",
+    "mcpClient": "AI-assistent",
+    "mcpTools": {
+      "create_person": "persoon aangemaakt",
+      "update_person": "persoon gewijzigd",
+      "add_event": "levensgebeurtenis toegevoegd",
+      "update_event": "levensgebeurtenis gewijzigd",
+      "delete_event": "levensgebeurtenis verwijderd",
+      "add_note": "notitie toegevoegd",
+      "update_note": "notitie gewijzigd",
+      "delete_note": "notitie verwijderd",
+      "create_relation": "relatie aangemaakt",
+      "update_relation": "relatie gewijzigd",
+      "move_to_recycle_bin": "naar de prullenbak verplaatst",
+      "create_repository": "archief aangemaakt",
+      "update_repository": "archief gewijzigd",
+      "create_source": "bron aangemaakt",
+      "update_source": "bron gewijzigd",
+      "add_citation": "bronvermelding toegevoegd",
+      "update_citation": "bronvermelding gewijzigd",
+      "link_citation": "bronvermelding gekoppeld",
+      "unlink_citation": "koppeling van een bronvermelding verwijderd",
+      "delete_citation": "bronvermelding verwijderd",
+      "move_source_to_recycle_bin": "bron naar de prullenbak verplaatst",
+      "add_media": "bestand toegevoegd",
+      "set_profile_picture": "profielfoto ingesteld",
+      "remove_media": "bestand verwijderd",
+      "create_family_tree": "stamboom aangemaakt",
+      "rename_family_tree": "stamboom hernoemd",
+      "delete_family_tree": "stamboom naar de prullenbak verplaatst",
+      "restore_from_recycle_bin": "uit de prullenbak teruggezet",
+      "delete_for_good": "definitief verwijderd",
+      "import_file": "import gestart",
+      "restore_backup": "herstel gestart",
+      "set_settings": "instellingen gewijzigd"
+    },
+    "mcpReasons": {
+      "NOT_ALLOWED": "niet toegestaan",
+      "BAD_INPUT": "ongeldige invoer",
+      "INTERNAL_ERROR": "fout in de app",
+      "PERSON_NOT_FOUND": "persoon niet gevonden",
+      "TREE_NOT_FOUND": "stamboom niet gevonden",
+      "PATH_NOT_ALLOWED": "map niet toegestaan",
+      "FILE_NOT_FOUND": "bestand niet gevonden"
+    }
+  },
+  "sources": {
+    "title": "Bronnen",
+    "subtitle": "Waar de gegevens vandaan komen: kerkboeken, registers, brieven, websites … Eén verzameling voor alle stambomen; een bronvermelding noemt de pagina of akte en onderbouwt willekeurig veel feiten.",
+    "areas": "Onderdelen van de bronnen",
+    "area": {
+      "sources": "Bronnen",
+      "repositories": "Archieven"
+    },
+    "types": {
+      "CHURCH_BOOK": "Kerkboek",
+      "CIVIL_REGISTER": "Burgerlijke stand",
+      "CENSUS": "Volkstelling",
+      "NEWSPAPER": "Krant",
+      "BOOK": "Boek",
+      "LETTER": "Brief",
+      "GRAVESTONE": "Grafsteen",
+      "WEBSITE": "Website",
+      "INTERVIEW": "Interview",
+      "DOCUMENT": "Document",
+      "OTHER": "Overig"
+    },
+    "facts": {
+      "GENERAL": "Persoon in het algemeen",
+      "NAME": "Naam",
+      "BIRTH": "Geboorte",
+      "DEATH": "Overlijden"
+    },
+    "quality": {
+      "none": "Niet beoordeeld",
+      "3": "Primaire bron – de oorspronkelijke akte",
+      "2": "Secundaire bron – later opgeschreven",
+      "1": "Twijfelachtig – bijv. mondelinge overlevering",
+      "0": "Onbetrouwbaar of geschat",
+      "hint": "Hoe betrouwbaar de akte voor het feit is (de niveaus van GEDCOM).",
+      "short": {
+        "3": "primair",
+        "2": "secundair",
+        "1": "twijfelachtig",
+        "0": "onbetrouwbaar"
+      }
+    },
+    "fields": {
+      "type": "Soort",
+      "title": "Titel",
+      "titlePlaceholder": "bijv. Doopboek Sint-Maarten 1820–1850",
+      "titleRequired": "Voer een titel in.",
+      "author": "Auteur of maker",
+      "abbreviation": "Korte titel",
+      "publication": "Publicatie",
+      "publicationPlaceholder": "Uitgever, plaats, jaar – of het webadres",
+      "repository": "Archief",
+      "noRepository": "Geen archief",
+      "newRepository": "Nieuw archief…",
+      "newRepositoryName": "Naam van het nieuwe archief",
+      "newRepositoryPlaceholder": "bijv. Gemeentearchief Nieuwstad",
+      "newRepositoryRequired": "Voer de naam van het nieuwe archief in.",
+      "repositoryInTrash": "(archief in de prullenbak)",
+      "callNumber": "Inventarisnummer",
+      "text": "Transcriptie",
+      "note": "Notitie"
+    },
+    "form": {
+      "createTitle": "Nieuwe bron",
+      "editTitle": "Bron bewerken"
+    },
+    "list": {
+      "filter": "Bronnen filteren…",
+      "allTypes": "Alle soorten",
+      "scope": "Welke bronnen",
+      "thisTree": "Deze stamboom",
+      "allTrees": "Alle stambomen",
+      "new": "Nieuwe bron",
+      "empty": "Deze stamboom heeft nog geen bronnen. Maak er hier een aan of vermeld er een op de pagina van een persoon (tabblad “Bronnen”).",
+      "emptyAll": "De verzameling heeft nog geen bronnen.",
+      "noMatches": "Geen bron past bij het filter.",
+      "citations": "Bronvermeldingen: {{count}}",
+      "unused": "niet gebruikt",
+      "otherTrees": "ook andere stambomen"
+    },
+    "detail": {
+      "notFound": "De bron bestaat niet (meer).",
+      "edit": "Bewerken",
+      "deleteConfirm": "De bron “{{title}}” naar de prullenbak verplaatsen? Haar bronvermeldingen (bronvermeldingen: {{citations}}) verdwijnen bij alle feiten die ze onderbouwen (feiten: {{links}}), ook in andere stambomen, tot ze wordt hersteld.",
+      "citations": "Bronvermeldingen",
+      "newCitation": "Nieuwe bronvermelding",
+      "noCitations": "Nog geen bronvermeldingen. Een bronvermelding noemt de pagina of akte en de feiten die ze onderbouwt.",
+      "supports": "Onderbouwt",
+      "unused": "Nog met geen enkel feit gekoppeld.",
+      "inTrash": "in de prullenbak",
+      "supportsCount": "Feiten: {{facts}} · Personen: {{persons}}",
+      "otherTree": "Hoort bij de stamboom ‘{{name}}’",
+      "factsOf": "Onderbouwde feiten van {{name}}",
+      "unlink": "Koppeling ‘{{fact}}’ van {{name}} verwijderen",
+      "unlinkConfirm": "‘{{fact}}’ van {{name}} niet meer aan deze bronvermelding koppelen?",
+      "showMore": "Meer personen tonen ({{count}})",
+      "showLess": "Minder tonen",
+      "linkFacts": "Feiten koppelen met {{entry}}",
+      "editCitation": "{{entry}} bewerken",
+      "deleteCitation": "{{entry}} verwijderen",
+      "deleteCitationConfirm": "Deze bronvermelding definitief verwijderen? Ze verdwijnt bij alle feiten die ze onderbouwt (feiten: {{count}}), ook in andere stambomen."
+    },
+    "citation": {
+      "page": "Pagina of akte",
+      "pagePlaceholder": "bijv. p. 12, nr. 117, fol. 3r",
+      "date": "Datum van de akte",
+      "quality": "Betrouwbaarheid",
+      "text": "Transcriptie",
+      "textPlaceholder": "De akte woord voor woord",
+      "note": "Notitie",
+      "createTitle": "Nieuwe bronvermelding",
+      "editTitle": "Bronvermelding bewerken",
+      "withoutPage": "Bronvermelding zonder pagina",
+      "supports": "Onderbouwde feiten: {{count}}"
+    },
+    "cite": {
+      "title": "Bron vermelden",
+      "fact": "Feit",
+      "source": "Bron",
+      "searchSource": "Bronnen doorzoeken…",
+      "newSource": "Nieuwe bron…",
+      "more": "Meer resultaten: {{count}} – verfijn de zoekopdracht.",
+      "entry": "Bronvermelding",
+      "newEntry": "Nieuwe bronvermelding",
+      "chooseSource": "Kies een bron of maak een nieuwe aan.",
+      "save": "Vermelden"
+    },
+    "linkFacts": {
+      "title": "Feiten koppelen",
+      "intro": "Kies een persoon uit de geopende stamboom en vink de feiten aan die de bronvermelding onderbouwt – de ene persoon na de andere, bijv. bruidegom, bruid, ouders en getuigen van een huwelijksakte.",
+      "choosePerson": "Persoon",
+      "factsOf": "Feiten van {{name}}",
+      "already": "al gekoppeld",
+      "link": "Koppelen ({{count}})",
+      "linked": "Gekoppeld: {{names}}",
+      "otherPerson": "Andere persoon kiezen"
+    },
+    "person": {
+      "title": "Bronnen",
+      "cite": "Bron vermelden",
+      "citeFor": "Een bron vermelden voor {{fact}}",
+      "intro": "Bronvermeldingen van de persoon, van diens gebeurtenissen en relaties. Het boek naast een feit laat zien hoeveel bronvermeldingen het heeft.",
+      "empty": "Nog geen bronvermeldingen. “Bron vermelden” koppelt een bron aan een feit van de persoon.",
+      "unlink": "Bronvermelding uit {{source}} verwijderen",
+      "unlinkConfirm": "De bronvermelding uit “{{source}}” bij {{fact}} verwijderen? De bronvermelding blijft in de bron."
+    },
+    "mark": {
+      "label": "{{fact}} – bronvermeldingen: {{count}}"
+    },
+    "repositories": {
+      "new": "Nieuw archief",
+      "empty": "Nog geen archieven. Een archief (burgerlijke stand, kerkarchief, bibliotheek, website) bewaart bronnen; het wordt één keer aangemaakt en bij elke bron gekozen.",
+      "createTitle": "Nieuw archief",
+      "editTitle": "Archief bewerken",
+      "nameRequired": "Voer een naam in.",
+      "fields": {
+        "name": "Naam",
+        "address": "Adres",
+        "url": "Webadres",
+        "email": "E-mail",
+        "phone": "Telefoon",
+        "note": "Notitie"
+      },
+      "sources": "Bronnen: {{count}}",
+      "edit": "{{name}} bewerken",
+      "delete": "{{name}} verwijderen",
+      "deleteConfirm": "Het archief “{{name}}” naar de prullenbak verplaatsen? De bronnen ervan blijven (bronnen: {{count}}) en tonen tot het herstel geen archief."
+    },
+    "scans": {
+      "title": "Scans",
+      "ofSource": "Scans van de bron",
+      "ofCitation": "Scans van {{entry}}",
+      "add": "Scan toevoegen",
+      "remove": "{{name}} verwijderen",
+      "removeConfirm": "“{{name}}” hier verwijderen? Het bestand wordt verwijderd zodra niets anders het gebruikt."
+    },
+    "search": {
+      "title": "Gevonden in bronnen: {{count}}"
+    }
+  },
+  "reports": {
+    "title": "Rapporten",
+    "intro": "Druk de gegevens van de stamboom af of sla ze op als pdf – een blad per persoon of gezin, kwartierstaat en parenteel.",
+    "report": "Rapport",
+    "start": "Startpersoon",
+    "choosePerson": "Kies een persoon…",
+    "choosePersonHint": "Kies een startpersoon voor het rapport.",
+    "allPersons": "Alle personen",
+    "generations": "Generaties",
+    "allGenerations": "Alle ({{max}})",
+    "contents": "Inhoud",
+    "options": {
+      "photos": "Foto’s",
+      "notes": "Notities",
+      "sources": "Bronnen",
+      "contact": "Contactgegevens",
+      "hideLiving": "Levende personen alleen met naam en geboortejaar"
+    },
+    "paper": "Papier",
+    "papers": {
+      "AUTO": "Automatisch",
+      "A4": "A4",
+      "LETTER": "Letter"
+    },
+    "print": "Afdrukken",
+    "savePdf": "Opslaan als pdf",
+    "pdfHint": "Kies in het afdrukvenster “Opslaan als pdf” als printer.",
+    "printFailed": "Het rapport kon niet worden afgedrukt.",
+    "empty": "De stamboom heeft nog geen personen.",
+    "types": {
+      "person": "Persoonsblad",
+      "family": "Gezinsblad",
+      "ancestors": "Kwartierstaat",
+      "descendants": "Parenteel",
+      "statistics": "Statistieken"
+    },
+    "born": "Geboren",
+    "died": "Overleden",
+    "age": "Leeftijd",
+    "ageAtDeath": "Leeftijd bij overlijden",
+    "years_one": "{{count}} jaar",
+    "years_other": "{{count}} jaar",
+    "bornIn": "Geboren in {{year}}",
+    "livingHidden": "Gegevens van levende personen worden niet getoond.",
+    "nameAndPerson": "Bronnen over de naam en de persoon",
+    "family": "Familie",
+    "father": "Vader",
+    "mother": "Moeder",
+    "partner": "Partner",
+    "children": "Kinderen",
+    "siblings": "Broers en zussen",
+    "marriedOn": "getrouwd op {{date}}",
+    "events": "Gebeurtenissen",
+    "notes": "Notities",
+    "photos": "Foto’s",
+    "sources": "Bronnen",
+    "citationPage": "p. {{page}}",
+    "wedding": "Huwelijk",
+    "unknown": "onbekend",
+    "until": "tot {{date}}",
+    "noChildren": "Geen kinderen vastgelegd.",
+    "name": "Naam",
+    "generationNames": {
+      "1": "Startpersoon",
+      "2": "Ouders",
+      "3": "Grootouders",
+      "4": "Overgrootouders",
+      "5": "Betovergrootouders"
+    },
+    "generation": "Generatie {{number}}",
+    "see": "zie {{number}}",
+    "noAncestors": "Geen ouders vastgelegd.",
+    "noDescendants": "Geen kinderen vastgelegd.",
+    "footer": "Gemaakt met Cognatio op {{date}}"
   }
 }

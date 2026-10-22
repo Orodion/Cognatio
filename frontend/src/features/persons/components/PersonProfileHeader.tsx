@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Camera, Loader2, Pencil, Trash2, GitFork, RotateCcw, X, AlertTriangle } from 'lucide-react';
+import { Camera, Loader2, Pencil, Trash2, GitFork, RotateCcw, X, AlertTriangle, Printer, Home } from 'lucide-react';
 import type { Person } from '@/features/persons/types/person';
 import { SET_PROFILE_PICTURE } from '@/features/persons/graphql/personQueries';
 import { Avatar } from '@/components/ui/Avatar';
@@ -14,6 +14,7 @@ import { formatPersonName, getInitials, calculateAge, formatLifeDates } from '@/
 import { uploadMedia } from '@/features/persons/lib/uploadMedia';
 import { apiErrorMessage } from '@/lib/apiErrors';
 import { formatDate } from '@/lib/formatDate';
+import { useHomePerson } from '@/features/family-trees/lib/useFamilyTrees';
 
 interface PersonProfileHeaderProps {
   person: Person;
@@ -28,6 +29,8 @@ interface PersonProfileHeaderProps {
 export function PersonProfileHeader({ person, onDelete, onEdit, onRestore, onHardDelete, onProfilePictureChange }: PersonProfileHeaderProps) {
   const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { homePerson, setHomePerson, saving, error: homePersonError } = useHomePerson();
+  const isHomePerson = homePerson?.id === person.id;
   const [uploading, setUploading] = useState(false);
   const [pictureError, setPictureError] = useState<string | null>(null);
   const [removePicture, { loading: removing }] = useMutation(SET_PROFILE_PICTURE, {
@@ -56,7 +59,7 @@ export function PersonProfileHeader({ person, onDelete, onEdit, onRestore, onHar
     const result = await uploadMedia(file, person.id, 'PROFILE_PICTURE');
     setUploading(false);
     if (!result.ok) {
-      setPictureError(result.reason === 'FILE_TOO_LARGE' ? t('media.fileTooLarge') : t(`apiErrors.${result.reason}`, { defaultValue: t('media.uploadError') }));
+      setPictureError(t(`apiErrors.${result.reason}`, { ...result.values, defaultValue: t('media.uploadError') }));
       return;
     }
     onProfilePictureChange();
@@ -142,6 +145,11 @@ export function PersonProfileHeader({ person, onDelete, onEdit, onRestore, onHar
                 {pictureError}
               </p>
             )}
+            {homePersonError && (
+              <p className="mt-2 text-sm text-destructive" role="alert">
+                {apiErrorMessage(homePersonError, t)}
+              </p>
+            )}
           </div>
 
           {!person.isDeleted && (
@@ -154,6 +162,21 @@ export function PersonProfileHeader({ person, onDelete, onEdit, onRestore, onHar
                 <GitFork className="h-4 w-4" />
                 {t('personDetail.showTree')}
               </Link>
+              <Link to={`/reports?person=${person.id}`} className={buttonVariants({ variant: 'outline' })}>
+                <Printer className="h-4 w-4" />
+                {t('personDetail.report')}
+              </Link>
+              {/* Pressed: this is the home person; a click makes it the home person or removes it */}
+              <Button
+                variant={isHomePerson ? 'default' : 'outline'}
+                aria-pressed={isHomePerson}
+                title={t(isHomePerson ? 'personDetail.homePersonRemove' : 'personDetail.homePersonSet')}
+                disabled={saving}
+                onClick={() => void setHomePerson(isHomePerson ? null : person.id)}
+              >
+                <Home className="h-4 w-4" />
+                {t('personDetail.homePerson')}
+              </Button>
               <Button variant="destructive" onClick={onDelete}>
                 <Trash2 className="h-4 w-4" />
                 {t('personDetail.delete')}

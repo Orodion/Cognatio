@@ -7,7 +7,8 @@ import { CREATE_PERSON, GET_PERSONS } from '@/features/persons/graphql/personQue
 import type { Person } from '@/features/persons/types/person';
 import { RELATION_TYPES } from '@/features/persons/lib/relationTypes';
 import { suggestedStartDate } from '@/features/persons/lib/relationDates';
-import { apiErrorMessage } from '@/lib/apiErrors';
+import { apiErrorMessage, apiErrorReason } from '@/lib/apiErrors';
+import { saveWithConfirmation } from '@/features/plausibility/lib/issues';
 import { emptyPersonForm, formToInput } from '@/features/persons/lib/personForm';
 import { validatePersonForm, type PersonFormErrors } from '@/features/persons/lib/personValidation';
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/Dialog';
@@ -17,7 +18,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { DateInput } from '@/components/ui/DateInput';
-import { UNKNOWN_GIVEN_NAME } from '@/features/persons/lib/personUtils';
+import { UNKNOWN_GIVEN_NAME, formatPersonName } from '@/features/persons/lib/personUtils';
 import { FirstNameUnknownCheckbox } from './FirstNameUnknownCheckbox';
 import { PersonPicker } from './PersonPicker';
 import { SimilarPersonsHint } from './SimilarPersonsHint';
@@ -164,19 +165,21 @@ export function RelationFormDialog({ open, onClose, currentPersonId, onSuccess }
       setMode('existing');
     }
 
-    await createRelation({
-      variables: {
-        data: {
-          personAId: currentPersonId,
-          personBId: targetId,
-          type,
-          label: label.trim() || undefined,
-          note: note.trim() || undefined,
-          startDate: effectiveStart.trim() || undefined,
-          endDate: endDate.trim() || undefined,
-        },
-      },
-    }).catch(() => undefined); // the error is shown via `error`
+    const data = {
+      personAId: currentPersonId,
+      personBId: targetId,
+      type,
+      label: label.trim() || undefined,
+      note: note.trim() || undefined,
+      startDate: effectiveStart.trim() || undefined,
+      endDate: endDate.trim() || undefined,
+    };
+    // A relation that looks wrong (e.g. a man as mother) is saved only after asking
+    const nameOf = (id: string) => {
+      const known = personsData?.getPersons.find((p) => p.id === id) ?? (id === targetId ? personB : null);
+      return known?.firstName ? formatPersonName(known) : newPerson.firstName || '?';
+    };
+    await saveWithConfirmation((confirmed) => createRelation({ variables: { data, confirmed } }), nameOf, t).catch(() => undefined); // other errors are shown via `error`
   };
 
   const fieldError = (key: keyof NewPerson) => (personErrors[key] ? t(`form.errors.${personErrors[key]}`) : null);
@@ -189,7 +192,7 @@ export function RelationFormDialog({ open, onClose, currentPersonId, onSuccess }
         </DialogHeader>
 
         <div className="space-y-4">
-          {(error || personError) && (
+          {((error && apiErrorReason(error) !== 'IMPLAUSIBLE') || personError) && (
             <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive" role="alert">
               {personError ?? apiErrorMessage(error, t)}
             </div>

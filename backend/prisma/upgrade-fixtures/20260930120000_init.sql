@@ -13,3 +13,6 @@ VALUES
 
 INSERT INTO "Relation" ("id", "personAId", "personBId", "type", "updatedAt")
 VALUES ('relation-1', 'person-1', 'person-2', 'PARTNER', now());
+
+INSERT INTO "Media" ("id", "familyTreeId", "personId", "fileName", "originalFileName", "mimeType", "sizeBytes", "type", "updatedAt")
+VALUES ('media-1', 'tree-1', 'person-1', 'a1b2c3.jpg', 'Hochzeit.jpg', 'image/jpeg', 2147483647, 'PHOTO', now());

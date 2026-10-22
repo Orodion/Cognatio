@@ -29,6 +29,27 @@ export type ReleaseNotes = Record<string, Record<string, ReleaseNote>>;
  */
 export const RELEASES: Release[] = [
   {
+    version: '1.1.0',
+    date: '2026-10-22',
+    changes: [
+      { id: 'sources', section: 'sources' },
+      { id: 'reports', section: 'reports' },
+      { id: 'checks', section: 'checks' },
+      { id: 'statistics', section: 'statistics' },
+      { id: 'files', section: 'persons' },
+      { id: 'activity', section: 'backup' },
+      { id: 'search', section: 'search' },
+      { id: 'places', section: 'persons' },
+      { id: 'dates', section: 'persons' },
+      { id: 'anniversaries', section: 'getting-started' },
+      { id: 'import-export', section: 'import-export' },
+      { id: 'relations', section: 'relations' },
+      { id: 'desktop-app', section: 'desktop-app' },
+      { id: 'settings', section: 'settings' },
+      { id: 'mcp', section: 'ai-assistants' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-10-12',
     changes: [

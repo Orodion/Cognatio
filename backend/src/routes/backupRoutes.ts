@@ -2,11 +2,15 @@ import express from 'express';
 import multer from 'multer';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
-import { backupDir } from '../lib/systemInfo.js';
 import { TransferError } from '../lib/transfer/format.js';
 import { backupMaxBytes, toMb } from '../lib/transfer/limits.js';
 import { oneAtATime } from '../lib/transfer/oneAtATime.js';
-import { backupFileName, createBackup, currentCounts, describeBackup, readBackup, restoreBackup, writeSafetyBackup } from '../lib/backup/backup.js';
+import type { JobAnswer } from '../lib/transfer/jobs.js';
+import { backupErrorAnswer as errorAnswer, startRestoreJob } from '../lib/backup/restoreRun.js';
+import { receiveFile, stageUpload, stagedUpload, stagingDir } from '../lib/files/stagedUploads.js';
+import { enoughSpaceFor } from '../lib/files/freeSpace.js';
+import { sendAsJob } from '../lib/transfer/downloadJob.js';
+import { backupFileName, createBackup, currentCounts, describeBackup, readBackup } from '../lib/backup/backup.js';
 
 /**
  * Backup of all family trees (Settings → Backup). Unlike export/import it does not apply
@@ -18,104 +22,102 @@ const log = logger.child({ component: 'backup' });
 /** Required field of the restore – prevents an accidental call from replacing all data */
 export const RESTORE_CONFIRMATION = 'DELETE_ALL';
 
-// Backups contain all media; the limit applies to restoring (a larger backup is still created, with a warning); adjustable in the settings or via BACKUP_MAX_MB
-const storage = multer.memoryStorage();
-const uploadFile: express.RequestHandler = (req, res, next) => multer({ storage, limits: { fileSize: backupMaxBytes() } }).single('file')(req, res, next);
+const EXPOSED = 'Content-Disposition, X-Missing-Media, X-Backup-Size-Mb, X-Backup-Limit-Mb';
 
-function sendError(res: express.Response, err: unknown, context: string) {
-  if (err instanceof TransferError) {
-    log.warn(`${context} rejected: ${err.reason}`, { reason: err.reason, details: err.details });
-    return res.status(err.reason.endsWith('TOO_LARGE') ? 413 : 400).json({ error: err.reason, reason: err.reason, details: err.details, params: err.params });
-  }
-  log.error(`${context} failed`, { err });
-  return res.status(500).json({ error: `${context} failed`, reason: context === 'Backup' ? 'BACKUP_FAILED' : 'RESTORE_FAILED' });
-}
+const send = (res: express.Response, answer: JobAnswer) => res.status(answer.status).json(answer.body);
 
-const requireFile = (file: Express.Multer.File | undefined) => {
-  if (!file) {
-    throw new TransferError('NO_FILE');
-  }
-  return file;
-};
-
+/**
+ * The backup as a download, written while it is sent. With `?check=1` only file name, size and the missing media
+ * are answered (JSON), so the page can warn before the download starts. A backup larger than the optional limit for
+ * restoring is delivered anyway; the page warns.
+ */
 router.get(
   '/backup',
-  oneAtATime('backup', async (_req, res) => {
+  oneAtATime('backup', async (req, res) => {
     try {
       const now = new Date();
-      const { buffer, manifest, missing } = await createBackup(prisma, now);
+      const { zip, manifest, missing } = await createBackup(prisma, now);
+      const size = await zip.size;
+      const limit = backupMaxBytes();
+      const overLimit = size > limit ? { sizeMb: toMb(size), limitMb: toMb(limit) } : null;
+      const filename = backupFileName(now);
+      if (req.query.check === '1') {
+        zip.stream.destroy();
+        res.json({ filename, size, missingMedia: missing.length, overLimit });
+        return;
+      }
       if (missing.length) {
         log.warn('Media files are missing and were skipped', { missing });
       }
-      log.info('Backup created', { counts: manifest.counts, missingFiles: missing.length, bytes: buffer.length });
-      res
-        .setHeader('Content-Disposition', `attachment; filename="${backupFileName(now)}"`)
-        .setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Missing-Media, X-Backup-Size-Mb, X-Backup-Limit-Mb')
-        .setHeader('X-Missing-Media', String(missing.length));
-      // Larger than a restore accepts: the backup is delivered anyway, the app warns
-      if (buffer.length > backupMaxBytes()) {
-        log.warn('Backup is larger than the limit for restoring it', { bytes: buffer.length, limitBytes: backupMaxBytes() });
-        res.setHeader('X-Backup-Size-Mb', String(toMb(buffer.length))).setHeader('X-Backup-Limit-Mb', String(toMb(backupMaxBytes())));
+      if (overLimit) {
+        log.warn('Backup is larger than the limit for restoring it', { bytes: size, limitBytes: limit });
+        res.setHeader('X-Backup-Size-Mb', String(overLimit.sizeMb)).setHeader('X-Backup-Limit-Mb', String(overLimit.limitMb));
       }
-      res.type('application/zip').send(buffer);
+      res.setHeader('Access-Control-Expose-Headers', EXPOSED).setHeader('X-Missing-Media', String(missing.length));
+      const sent = await sendAsJob(req, res, 'backup', filename, zip, {
+        result: { missingMedia: missing.length, overLimit },
+        failed: (error) => errorAnswer(error, 'Backup'),
+      });
+      if (sent) {
+        log.info('Backup sent', { counts: manifest.counts, missingFiles: missing.length, bytes: size });
+      }
     } catch (err) {
-      sendError(res, err, 'Backup');
+      send(res, errorAnswer(err, 'Backup'));
     }
   }),
+);
+
+/** Receives the backup file once; preview and restore refer to it by `uploadId` */
+router.post(
+  '/backup/upload',
+  enoughSpaceFor(stagingDir),
+  (req, res, next) => receiveFile('backup', backupMaxBytes())(req, res, next),
+  (req, res) => {
+    try {
+      const upload = stageUpload('backup', req.file);
+      log.info('Backup file received', { size: upload.size });
+      res.status(201).json({ uploadId: upload.id, size: upload.size });
+    } catch (err) {
+      send(res, errorAnswer(err, 'Upload'));
+    }
+  },
 );
 
 /** Checks the backup completely and compares it with the current data – without changing anything */
 router.post(
   '/backup/preview',
-  oneAtATime(
-    'backup check',
-    async (req, res) => {
+  express.json(),
+  oneAtATime('backup check', async (req, res) => {
+    try {
+      const backup = await readBackup(stagedUpload('backup', req.body?.uploadId).path);
       try {
-        const backup = readBackup(requireFile(req.file).buffer);
-        res.json({ ...describeBackup(backup), current: await currentCounts(prisma) });
-      } catch (err) {
-        sendError(res, err, 'Check');
+        // The backup before the restore copies the current media: the page names the size when it is large
+        const media = await prisma.media.aggregate({ _sum: { sizeBytes: true } });
+        res.json({ ...describeBackup(backup), current: await currentCounts(prisma), currentMediaBytes: Number(media._sum.sizeBytes ?? 0) });
+      } finally {
+        backup.close();
       }
-    },
-    uploadFile,
-  ),
+    } catch (err) {
+      send(res, errorAnswer(err, 'Check'));
+    }
+  }),
 );
 
-router.post(
-  '/backup/restore',
-  oneAtATime(
-    'restore',
-    async (req, res) => {
-      try {
-        if (req.body?.confirm !== RESTORE_CONFIRMATION) {
-          throw new TransferError('RESTORE_NOT_CONFIRMED');
-        }
-        // Check completely first – a faulty file must not touch the data
-        const backup = readBackup(requireFile(req.file).buffer);
-        const now = new Date();
-        // The current state is always saved; without this backup there is no restore
-        let safetyBackup: string;
-        try {
-          safetyBackup = await writeSafetyBackup(prisma, backupDir(), now);
-        } catch (err) {
-          log.error('Backup before the restore failed', { err, dir: backupDir() });
-          throw new TransferError('SAFETY_BACKUP_FAILED', [backupDir()]);
-        }
-        const counts = await restoreBackup(prisma, backup, now);
-        log.info('Backup restored', {
-          createdAt: backup.manifest.createdAt,
-          counts,
-          missingFiles: backup.missingFiles.length,
-          safetyBackup,
-        });
-        res.json({ counts, missingFiles: backup.missingFiles.length, safetyBackup, backupDir: backupDir() });
-      } catch (err) {
-        sendError(res, err, 'Restore');
-      }
-    },
-    uploadFile,
-  ),
-);
+/** Starts the restore and answers at once with the job (202); the page follows it under /jobs/:id. The job waits for a running operation. */
+router.post('/backup/restore', express.json(), async (req, res) => {
+  let job: { id: string; finished: Promise<void> };
+  try {
+    if (req.body?.confirm !== RESTORE_CONFIRMATION) {
+      throw new TransferError('RESTORE_NOT_CONFIRMED');
+    }
+    const upload = stagedUpload('backup', req.body?.uploadId);
+    job = startRestoreJob(upload);
+  } catch (err) {
+    send(res, errorAnswer(err, 'Restore'));
+    return;
+  }
+  res.status(202).json({ jobId: job.id });
+});
 
 router.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {

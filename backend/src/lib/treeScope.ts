@@ -13,6 +13,8 @@ type TreeDb = Pick<PrismaClient, 'familyTree'>;
 export interface GraphQLContext {
   prisma: PrismaClient;
   treeId: () => Promise<string>;
+  /** "mcp": the request comes from an AI assistant (it must not change the settings section "MCP") */
+  source?: 'mcp';
 }
 
 export const treeNotFound = () => new GraphQLError('Family tree does not exist.', { extensions: { code: 'NOT_FOUND', reason: 'TREE_NOT_FOUND' } });

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { unzipSync, strFromU8, zipSync, strToU8 } from 'fflate';
-import { PNG_1x1, createPerson, createRelation, gql, uid } from './helpers';
+import { PNG_1x1, createPerson, createRelation, gql, importViaApi, uid } from './helpers';
 
 // The tests replace or extend all data of the test database and therefore run one after another
 test.describe.configure({ mode: 'serial' });
@@ -9,7 +9,7 @@ test.describe.configure({ mode: 'serial' });
 // Export/import work with all data, and the GEDCOM test doubles it with every run.
 // So the database (used for tests only, protected by the name check) does not grow without limit,
 // it is reset to a single person beforehand via the app's own import.
-test.beforeAll(async ({ request }) => {
+async function resetData(request: APIRequestContext) {
   const now = new Date().toISOString();
   const data = {
     format: 'cognatio-export',
@@ -18,16 +18,9 @@ test.beforeAll(async ({ request }) => {
     persons: [{ id: 'e2e-startwert', firstName: 'Startwert', createdAt: now, updatedAt: now }],
     relations: [],
   };
-  const res = await request.post('/api/v1/import/execute', {
-    multipart: {
-      file: { name: 'start.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'persons.json': strToU8(JSON.stringify(data)) })) },
-      strategy: 'OVERWRITE',
-      decisions: '{}',
-    },
-    timeout: 120_000,
-  });
-  expect(res.ok(), await res.text()).toBeTruthy();
-});
+  await importViaApi(request, Buffer.from(zipSync({ 'persons.json': strToU8(JSON.stringify(data)) })), { strategy: 'OVERWRITE' });
+}
+test.beforeAll(({ request }) => resetData(request));
 
 interface ExportJson {
   exportedAt: string;
@@ -329,4 +322,68 @@ test('Merge (newer wins): adds new persons and relations, keeps newer existing d
     id: newId,
   });
   expect(getPersonRelations).toHaveLength(1);
+});
+
+test('A file in which someone is their own ancestor is imported with a warning', async ({ page, request }) => {
+  const id = uid();
+  // I1 is the father of I2 and I2 the father of I1
+  const ged = [
+    '0 HEAD',
+    '1 GEDC',
+    '2 VERS 5.5.1',
+    '1 CHAR UTF-8',
+    '0 @I1@ INDI',
+    `1 NAME Zyklus${id} /Kreis/`,
+    '0 @I2@ INDI',
+    `1 NAME Ring${id} /Kreis/`,
+    '0 @F1@ FAM',
+    '1 HUSB @I1@',
+    '1 CHIL @I2@',
+    '0 @F2@ FAM',
+    '1 HUSB @I2@',
+    '1 CHIL @I1@',
+    '0 TRLR',
+  ].join('\n');
+
+  await page.goto('/import-export');
+  await chooseFile(page, 'kreis.ged', Buffer.from(ged));
+  const warning = page.getByTestId('import-cycles');
+  await expect(warning).toContainText('Kreis in den Eltern-Kind-Beziehungen');
+  await expect(warning).toContainText(`Zyklus${id} Kreis`);
+  await expect(warning).toContainText(`Ring${id} Kreis`);
+  await page.getByRole('button', { name: 'Import ausführen' }).click();
+  await expect(page.getByText('Import abgeschlossen.')).toBeVisible();
+
+  // Other test files work in the same family tree: take the cycle out again
+  await resetData(request);
+});
+
+test('Activity: export and check keep their progress and result when the page is changed', async ({ page, request }) => {
+  await createFamily(request);
+  await page.goto('/import-export');
+
+  // An export: done once the backend has sent everything; listed under "Vorgänge"
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'ZIP herunterladen' }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^family_tree_.*\.zip$/);
+  await expect(page.getByText(/wurde heruntergeladen|Gespeichert als/).first()).toBeVisible();
+
+  // A check of an import file, then to another page and back: the preview is still there
+  await chooseFile(page, 'export.zip', await exportZip(request));
+  await page.getByRole('link', { name: 'Personen' }).click();
+  await expect(page.getByRole('heading', { name: 'Personen', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: 'Import/Export' }).click();
+  await expect(page.getByRole('heading', { name: 'Geplante Änderungen' })).toBeVisible();
+  await expect(page.getByText('Gewählte Datei: export.zip')).toBeVisible();
+
+  // Both in the list of this session; finished ones can be removed
+  await page.getByRole('link', { name: 'Vorgänge' }).click();
+  await expect(page.getByRole('heading', { name: 'Vorgänge', level: 1 })).toBeVisible();
+  const finished = page.getByTestId('activity-finished');
+  await expect(finished).toHaveCount(2);
+  await expect(finished.first()).toContainText('Importdatei prüfen: export.zip');
+  await expect(finished.nth(1)).toContainText(/Export: family_tree_.*\.zip/);
+  await expect(finished.nth(1)).toContainText('Gespeichert als');
+  await page.getByRole('button', { name: 'Abgeschlossene entfernen' }).click();
+  await expect(finished).toHaveCount(0);
+  await expect(page.getByText('In dieser Sitzung gab es noch keine Vorgänge.')).toBeVisible();
 });

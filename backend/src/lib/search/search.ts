@@ -203,3 +203,37 @@ export async function findSimilarPersons(db: PrismaClient, treeId: string, input
     })
     .slice(0, MAX_SIMILAR);
 }
+
+type SimilarCandidate = Pick<Person, 'id' | 'firstName' | 'middleName' | 'nickname' | 'lastName' | 'birthName' | 'birthDate'>;
+
+/**
+ * Pairs of persons of a family tree that could be the same person, by the rules of `findSimilarPersons`: the first
+ * name of one matches a given name of the other, a family name matches, and known birth years are at most 2 years
+ * apart. Persons are compared only within a family name, so large family trees stay fast.
+ */
+export function similarPairs(persons: SimilarCandidate[], hasGivenName: (person: SimilarCandidate) => boolean): Array<[string, string]> {
+  const byFamilyCode = new Map<string, SimilarCandidate[]>();
+  for (const person of persons.filter(hasGivenName)) {
+    for (const code of phoneticCodes(person.lastName, person.birthName)) {
+      byFamilyCode.set(code, [...(byFamilyCode.get(code) ?? []), person]);
+    }
+  }
+  const given = (p: SimilarCandidate) => phoneticCodes(p.firstName);
+  const allGiven = (p: SimilarCandidate) => phoneticCodes(p.firstName, p.middleName, p.nickname);
+  const overlaps = (codes: string[], other: string[]) => codes.some((c) => other.includes(c));
+  const pairs = new Map<string, [string, string]>();
+  for (const group of byFamilyCode.values()) {
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const [a, b] = [group[i], group[j]].sort((x, y) => x.id.localeCompare(y.id));
+        const yearA = birthYear(a.birthDate);
+        const yearB = birthYear(b.birthDate);
+        const sameName = overlaps(given(a), allGiven(b)) || overlaps(given(b), allGiven(a));
+        if (sameName && (yearA === null || yearB === null || Math.abs(yearA - yearB) <= MAX_YEAR_DIFFERENCE)) {
+          pairs.set(`${a.id}|${b.id}`, [a.id, b.id]);
+        }
+      }
+    }
+  }
+  return [...pairs.values()];
+}

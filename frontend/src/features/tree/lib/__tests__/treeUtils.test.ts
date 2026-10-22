@@ -117,6 +117,15 @@ describe('buildNetworkEdges', () => {
 });
 
 describe('assignGenerations', () => {
+  it('counts the generations of a very large family group', () => {
+    // More persons than Math.min(...values) can take
+    const many = Array.from({ length: 300_000 }, (_, i) => `p${i}`);
+    const relations = many.slice(1).map((id, i) => ({ id: `r${i}`, personAId: id, personBId: many[i], type: 'FATHER' }));
+    const all = new Set(many);
+    const gen = assignGenerations(buildFamilyIndex(relations, all), all, null);
+    expect([gen.get(many[0]), gen.get(many[many.length - 1])]).toEqual([0, many.length - 1]);
+  });
+
   it('numbers generations relative to the focus person; partners share a generation', () => {
     const gen = assignGenerations(index, all, 'karl');
     expect(Object.fromEntries(gen)).toMatchObject({ karl: 0, viktor: -1, maria: -1, otto: -2, olga: -2, udo: -1, emil: 1 });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
-import { useApolloClient, useQuery } from '@apollo/client';
+import { useApolloClient, useMutation, useQuery } from '@apollo/client';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GET_FAMILY_TREES } from '@/features/family-trees/graphql/familyTreeQueries';
+import { GET_FAMILY_TREES, SET_HOME_PERSON } from '@/features/family-trees/graphql/familyTreeQueries';
 import { useActiveTreeStore } from '@/stores/activeTreeStore';
 import type { FamilyTree } from '@/features/family-trees/types/familyTree';
 
@@ -30,6 +30,24 @@ export function useFamilyTrees() {
   }, [trees, active, treeId, setTreeId]);
 
   return { trees: trees ?? [], active, none: !!trees && !trees.length, loading: loading && !data, error };
+}
+
+/**
+ * Home person of the open family tree and a way to set it (null removes it). The statistics count the ancestors from it,
+ * so they are fetched again. A failure is not thrown but returned as `error`, for the page to show.
+ */
+export function useHomePerson() {
+  const { active } = useFamilyTrees();
+  const [mutate, { loading, error }] = useMutation(SET_HOME_PERSON, { refetchQueries: ['GetTreeStatistics'] });
+  const setHomePerson = useCallback(
+    (personId: string | null) =>
+      mutate({ variables: { personId } }).then(
+        () => undefined,
+        () => undefined,
+      ),
+    [mutate],
+  );
+  return { homePerson: active?.homePerson ?? null, setHomePerson, saving: loading, error };
 }
 
 /**

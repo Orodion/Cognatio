@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFlexibleDate, isoToDisplay, displayToIso, dateKey, dateSortKey } from '../dateParsing';
+import { parseFlexibleDate, isoToDisplay, displayToIso, dateKey, dateSortKey, numericDate } from '../dateParsing';
 
 const precisionOf = (input: string) => {
   const result = parseFlexibleDate(input);
@@ -56,5 +56,34 @@ describe('date helpers', () => {
     expect(dateSortKey('irgendwann')).toBeNull();
     expect(dateSortKey('')).toBeNull();
     expect(dateSortKey(null)).toBeNull();
+  });
+});
+
+describe('written-out dates', () => {
+  it.each([
+    ['2. Oktober 1951', '02.10.1951'],
+    ['October 2, 1951', '02.10.1951'],
+    ['2 de octubre de 1951', '02.10.1951'],
+    ['1er octobre 1951', '01.10.1951'],
+    ['2 października 1951', '02.10.1951'],
+    ['2 октября 1951 г.', '02.10.1951'],
+    ['2 жовтня 1951 р.', '02.10.1951'],
+    ['Mai 1951', '05.1951'],
+    ['um 2. Oktober 1951', 'um 02.10.1951'],
+    ['Mai 1951 – 3. Juni 1960', '05.1951-03.06.1960'],
+  ])('reads "%s" like %s', (written, numeric) => {
+    expect(numericDate(written)).toBe(numeric);
+    expect(parseFlexibleDate(written)).toEqual(parseFlexibleDate(numeric));
+    expect(parseFlexibleDate(written).ok).toBe(true);
+  });
+
+  it('gives the calendar the day of a written-out date', () => {
+    expect(displayToIso('2. Oktober 1951')).toBe('1951-10-02');
+  });
+
+  it('leaves numeric and unreadable input as it is', () => {
+    expect(numericDate('1980 – 1985')).toBe('1980 – 1985');
+    expect(numericDate('Sommer 1951')).toBe('Sommer 1951');
+    expect(parseFlexibleDate('31. Februar 1951')).toEqual({ ok: false, error: 'INVALID' });
   });
 });

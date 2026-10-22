@@ -7,26 +7,24 @@ export const SET_LOG_LEVEL = gql`
   }
 `;
 
-/** Size limits of export/import and backup files (megabytes) */
+/** Optional upper limits of export/import and backup files (megabytes; null: none) */
 export const SIZE_LIMITS = gql`
   query SizeLimits {
     sizeLimits {
       importMb
       backupMb
-      defaultMb
       minMb
       maxMb
     }
   }
 `;
 
-/** Changes the size limits; they apply at once */
+/** Changes the size limits (null removes one); they apply at once */
 export const SET_SIZE_LIMITS = gql`
-  mutation SetSizeLimits($importMb: Int!, $backupMb: Int!) {
+  mutation SetSizeLimits($importMb: Int, $backupMb: Int) {
     setSizeLimits(importMb: $importMb, backupMb: $backupMb) {
       importMb
       backupMb
-      defaultMb
       minMb
       maxMb
     }

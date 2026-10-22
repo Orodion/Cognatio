@@ -1,24 +1,29 @@
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { z } from 'zod';
 import type { PrismaClient } from '../../generated/prisma/client.js';
 import { MAX_MEDIA_BYTES, TransferError } from '../transfer/format.js';
 import { fileTimestamp } from '../transfer/exportData.js';
-import { backupMaxUnpackedBytes, toMb } from '../transfer/limits.js';
+import { ancestorCycles } from '../transfer/cycles.js';
+import { backupMaxUnpackedBytes } from '../transfer/limits.js';
+import { looksLikeZip, openArchive, type ArchiveFiles } from '../files/archive.js';
+import { assertFreeSpace, sameDrive } from '../files/freeSpace.js';
+import type { JobControl } from '../transfer/jobs.js';
+import { writeZip, writeZipFile, type ZipItem } from '../files/zipWriter.js';
 import { appVersion } from '../systemInfo.js';
-import { uploadDir } from '../files/uploads.js';
+import { uploadDir, uploadedFilePath } from '../files/uploads.js';
 
 /**
  * Complete backup of all family trees (Settings → Backup): a ZIP file with manifest.json
- * (format version, time, counts, checksum), data.json (all tables unchanged, including the
+ * (format version, time, counts, checksum), data.json (all tables unchanged, including the library of sources, the
  * recycle bin and import history) and the uploaded files under files/.
  * Unlike the export of a single family tree, a restore brings back exactly the saved state – with
  * the same ids. New fields are added as optional; incompatible changes increase BACKUP_VERSION.
  */
 export const BACKUP_FORMAT = 'cognatio-backup';
-export const BACKUP_VERSION = 1;
+// 2: with archives, sources, citations and their links (1.1.0); a backup of version 1 is restored without them
+export const BACKUP_VERSION = 2;
 
 const text = z.string().nullable();
 const date = z.iso.datetime({ offset: true }).transform((s) => new Date(s));
@@ -32,6 +37,10 @@ const treeRow = z.object({
   deletedAt: optionalDate,
   createdAt: date,
   updatedAt: date,
+  // Possible errors marked as right (missing in backups of 1.0.0)
+  checkedIssues: z.array(z.string()).default([]),
+  // Home person (missing in backups before 1.1.0)
+  homePersonId: z.string().nullable().default(null),
 });
 
 const personRow = z.object({
@@ -104,7 +113,8 @@ const noteRow = z.object({
 
 const mediaRow = z.object({
   id: z.string().min(1),
-  familyTreeId: z.string().min(1),
+  // Scans of the library have no family tree
+  familyTreeId: z.string().min(1).nullable(),
   personId: text,
   // Only a file name – a path could lead out of the upload folder
   fileName: z
@@ -120,6 +130,56 @@ const mediaRow = z.object({
 });
 
 const eventMediaRow = z.object({ eventId: z.string().min(1), mediaId: z.string().min(1), createdAt: date });
+
+const repositoryRow = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  address: text,
+  url: text,
+  email: text,
+  phone: text,
+  note: text,
+  isDeleted: z.boolean(),
+  deletedAt: optionalDate,
+  createdAt: date,
+  updatedAt: date,
+});
+
+const sourceRow = z.object({
+  id: z.string().min(1),
+  type: z.string(),
+  title: z.string(),
+  author: text,
+  publication: text,
+  abbreviation: text,
+  text,
+  repositoryId: text,
+  callNumber: text,
+  note: text,
+  isDeleted: z.boolean(),
+  deletedAt: optionalDate,
+  createdAt: date,
+  updatedAt: date,
+});
+
+const citationRow = z.object({
+  id: z.string().min(1),
+  sourceId: z.string().min(1),
+  page: text,
+  date: text,
+  datePrecision: text,
+  text,
+  quality: z.number().int().nullable(),
+  note: text,
+  createdAt: date,
+  updatedAt: date,
+});
+
+const sourceMediaRow = z.object({ sourceId: z.string().min(1), mediaId: z.string().min(1), createdAt: date });
+const citationMediaRow = z.object({ citationId: z.string().min(1), mediaId: z.string().min(1), createdAt: date });
+const personCitationRow = z.object({ personId: z.string().min(1), citationId: z.string().min(1), fact: z.string(), createdAt: date });
+const eventCitationRow = z.object({ eventId: z.string().min(1), citationId: z.string().min(1), createdAt: date });
+const relationCitationRow = z.object({ relationId: z.string().min(1), citationId: z.string().min(1), createdAt: date });
 
 const importRow = z.object({
   id: z.string().min(1),
@@ -151,6 +211,15 @@ const dataSchema = z.object({
   media: z.array(mediaRow),
   eventMedia: z.array(eventMediaRow),
   imports: z.array(importRow),
+  // Since version 2
+  repositories: z.array(repositoryRow).default([]),
+  sources: z.array(sourceRow).default([]),
+  citations: z.array(citationRow).default([]),
+  sourceMedia: z.array(sourceMediaRow).default([]),
+  citationMedia: z.array(citationMediaRow).default([]),
+  personCitations: z.array(personCitationRow).default([]),
+  eventCitations: z.array(eventCitationRow).default([]),
+  relationCitations: z.array(relationCitationRow).default([]),
 });
 
 export type BackupData = z.output<typeof dataSchema>;
@@ -165,6 +234,9 @@ export interface BackupCounts {
   notes: number;
   media: number;
   imports: number;
+  /** Sources without the recycle bin, and their citations */
+  sources: number;
+  citations: number;
 }
 
 const manifestSchema = z.object({
@@ -182,22 +254,82 @@ const manifestSchema = z.object({
 
 export type BackupManifest = z.infer<typeof manifestSchema>;
 
-type Db = Pick<PrismaClient, 'familyTree' | 'person' | 'relation' | 'event' | 'note' | 'media' | 'eventMedia' | 'importRecord'>;
+type Db = Pick<
+  PrismaClient,
+  | 'familyTree'
+  | 'person'
+  | 'relation'
+  | 'event'
+  | 'note'
+  | 'media'
+  | 'eventMedia'
+  | 'importRecord'
+  | 'repository'
+  | 'source'
+  | 'citation'
+  | 'sourceMedia'
+  | 'citationMedia'
+  | 'personCitation'
+  | 'eventCitation'
+  | 'relationCitation'
+>;
 
 /** All tables in a fixed order (sorted by id: the same data produces the same file) */
 async function readAll(db: Db) {
   const byId = { orderBy: { id: 'asc' as const } };
-  const [familyTrees, persons, relations, events, notes, media, eventMedia, imports] = await Promise.all([
+  const [
+    familyTrees,
+    persons,
+    relations,
+    events,
+    notes,
+    media,
+    eventMedia,
+    imports,
+    repositories,
+    sources,
+    citations,
+    sourceMedia,
+    citationMedia,
+    personCitations,
+    eventCitations,
+    relationCitations,
+  ] = await Promise.all([
     db.familyTree.findMany(byId),
     db.person.findMany(byId),
     db.relation.findMany(byId),
     db.event.findMany(byId),
     db.note.findMany(byId),
-    db.media.findMany(byId),
+    db.media.findMany(byId).then((rows) => rows.map((m) => ({ ...m, sizeBytes: Number(m.sizeBytes) }))),
     db.eventMedia.findMany({ orderBy: [{ eventId: 'asc' }, { mediaId: 'asc' }] }),
     db.importRecord.findMany(byId),
+    db.repository.findMany(byId),
+    db.source.findMany(byId),
+    db.citation.findMany(byId),
+    db.sourceMedia.findMany({ orderBy: [{ sourceId: 'asc' }, { mediaId: 'asc' }] }),
+    db.citationMedia.findMany({ orderBy: [{ citationId: 'asc' }, { mediaId: 'asc' }] }),
+    db.personCitation.findMany({ orderBy: [{ personId: 'asc' }, { citationId: 'asc' }, { fact: 'asc' }] }),
+    db.eventCitation.findMany({ orderBy: [{ eventId: 'asc' }, { citationId: 'asc' }] }),
+    db.relationCitation.findMany({ orderBy: [{ relationId: 'asc' }, { citationId: 'asc' }] }),
   ]);
-  return { familyTrees, persons, relations, events, notes, media, eventMedia, imports };
+  return {
+    familyTrees,
+    persons,
+    relations,
+    events,
+    notes,
+    media,
+    eventMedia,
+    imports,
+    repositories,
+    sources,
+    citations,
+    sourceMedia,
+    citationMedia,
+    personCitations,
+    eventCitations,
+    relationCitations,
+  };
 }
 
 type Rows = Awaited<ReturnType<typeof readAll>> | BackupData;
@@ -213,12 +345,14 @@ export function countRows(data: Rows): BackupCounts {
     notes: data.notes.length,
     media: data.media.length,
     imports: data.imports.length,
+    sources: data.sources.filter((s) => !s.isDeleted).length,
+    citations: data.citations.length,
   };
 }
 
 /** Current data in the database (for the comparison before a restore) */
 export async function currentCounts(db: Db): Promise<BackupCounts> {
-  const [trees, deletedTrees, persons, deletedPersons, relations, events, notes, media, imports] = await Promise.all([
+  const [trees, deletedTrees, persons, deletedPersons, relations, events, notes, media, imports, sources, citations] = await Promise.all([
     db.familyTree.count({ where: { isDeleted: false } }),
     db.familyTree.count({ where: { isDeleted: true } }),
     db.person.count({ where: { isDeleted: false } }),
@@ -228,8 +362,10 @@ export async function currentCounts(db: Db): Promise<BackupCounts> {
     db.note.count(),
     db.media.count(),
     db.importRecord.count(),
+    db.source.count({ where: { isDeleted: false } }),
+    db.citation.count(),
   ]);
-  return { trees, deletedTrees, persons, deletedPersons, relations, events, notes, media, imports };
+  return { trees, deletedTrees, persons, deletedPersons, relations, events, notes, media, imports, sources, citations };
 }
 
 const treeSummary = (data: Rows) =>
@@ -245,23 +381,23 @@ const treeSummary = (data: Rows) =>
 export const backupFileName = (now: Date, prefix = 'cognatio_backup') => `${prefix}_${fileTimestamp(now)}.zip`;
 
 /**
- * Creates the backup of all family trees. Files missing in the upload folder are skipped and
- * counted – the records are kept so the backup matches the data.
+ * Creates the backup of all family trees, written piece by piece (the media are read from disk while the archive is
+ * sent or saved). Files missing in the upload folder are skipped and counted – the records are kept so the backup
+ * matches the data.
  */
 export async function createBackup(db: Db, now = new Date()) {
   const data = await readAll(db);
-  const zip: Zippable = {};
+  const items: ZipItem[] = [];
   const missing: string[] = [];
   for (const m of data.media) {
-    const full = path.join(uploadDir, path.basename(m.fileName));
-    if (!fs.existsSync(full)) {
+    const file = uploadedFilePath(m.fileName, uploadDir);
+    if (!file) {
       missing.push(m.fileName);
       continue;
     }
-    // Images/documents are usually compressed already – store only
-    zip[`files/${path.basename(m.fileName)}`] = [fs.readFileSync(full), { level: 0 }];
+    items.push({ name: `files/${path.basename(m.fileName)}`, file });
   }
-  const json = strToU8(JSON.stringify(data, null, 2));
+  const json = Buffer.from(JSON.stringify(data, null, 2));
   const manifest: BackupManifest = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -272,66 +408,59 @@ export async function createBackup(db: Db, now = new Date()) {
     trees: treeSummary(data),
     missingFiles: missing.length,
   };
-  zip['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
-  zip['data.json'] = json;
-  return { buffer: Buffer.from(zipSync(zip)), manifest, missing };
+  // manifest.json and data.json first, the media after them
+  items.unshift({ name: 'manifest.json', buffer: Buffer.from(JSON.stringify(manifest, null, 2)) }, { name: 'data.json', buffer: json });
+  return { zip: writeZip(items, now), manifest, missing };
 }
 
 export interface BackupFile {
   manifest: BackupManifest;
   data: BackupData;
-  /** Content of the files, key = file name in the upload folder */
-  files: Map<string, Uint8Array>;
+  /** The files, key = file name in the upload folder; read from the backup only while restoring */
+  files: ArchiveFiles;
   /** Media without a file in the backup */
   missingFiles: string[];
+  /** Closes the backup file */
+  close: () => void;
 }
 
-const parseJson = (bytes: Uint8Array | undefined, name: string): unknown => {
-  if (!bytes) {
+async function readJson(files: ArchiveFiles, name: string): Promise<{ bytes: Buffer; value: unknown }> {
+  if (!files.has(name)) {
     throw new TransferError('BACKUP_INVALID', [`${name} is missing – not a Cognatio backup`]);
   }
+  const bytes = await files.read(name);
   try {
-    return JSON.parse(strFromU8(bytes).replace(/^\uFEFF/, ''));
+    return { bytes, value: JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, '')) };
   } catch (err) {
     throw new TransferError('BACKUP_INVALID', [`${name}: ${(err as Error).message}`]);
   }
-};
+}
 
 const issues = (error: z.ZodError, file: string) => error.issues.slice(0, 20).map((i) => `${file}: ${i.path.join('.') || '(root)'}: ${i.message}`);
 
 /**
- * Reads and checks a backup completely before anything is deleted: format and version,
- * checksum, structure of all records, duplicate ids and references between the tables.
+ * Reads and checks a backup file on disk before anything is deleted: format and version, checksum, structure of all
+ * records, duplicate ids and references between the tables. The records are read into memory, the media only listed.
  */
-export function readBackup(buffer: Buffer): BackupFile {
-  if (!(buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b)) {
+export async function readBackup(filePath: string): Promise<BackupFile> {
+  if (!looksLikeZip(filePath)) {
     throw new TransferError('BACKUP_INVALID', ['Not a ZIP file']);
   }
-  let entries: Record<string, Uint8Array>;
-  let unpacked = 0;
-  const limit = backupMaxUnpackedBytes();
+  const archive = await openArchive(filePath, 'BACKUP_INVALID', backupMaxUnpackedBytes());
   try {
-    entries = unzipSync(buffer, {
-      filter: (file) => {
-        unpacked += file.originalSize;
-        if (unpacked > limit) {
-          throw new TransferError('UNPACKED_TOO_LARGE', [`Unpacked larger than ${limit} bytes`], { limitMb: toMb(limit) });
-        }
-        return !file.name.endsWith('/');
-      },
-    });
+    return { ...(await checkBackup(archive.files)), close: archive.close };
   } catch (err) {
-    if (err instanceof TransferError) {
-      throw err;
-    }
-    throw new TransferError('BACKUP_INVALID', [(err as Error).message]);
+    archive.close();
+    throw err;
   }
+}
 
+async function checkBackup(entries: ArchiveFiles): Promise<Omit<BackupFile, 'close'>> {
   // An export of a single family tree belongs in "Import/Export" – a hint of its own instead of a format error
-  if (!entries['manifest.json'] && Object.keys(entries).some((name) => path.posix.basename(name) === 'persons.json')) {
+  if (!entries.has('manifest.json') && entries.names().some((name) => path.posix.basename(name) === 'persons.json')) {
     throw new TransferError('BACKUP_IS_EXPORT');
   }
-  const rawManifest = parseJson(entries['manifest.json'], 'manifest.json') as { format?: unknown; version?: unknown };
+  const rawManifest = (await readJson(entries, 'manifest.json')).value as { format?: unknown; version?: unknown };
   if (rawManifest?.format !== BACKUP_FORMAT) {
     throw new TransferError('BACKUP_INVALID', ['manifest.json: unknown format']);
   }
@@ -343,11 +472,11 @@ export function readBackup(buffer: Buffer): BackupFile {
     throw new TransferError('BACKUP_INVALID', issues(manifest.error, 'manifest.json'));
   }
 
-  const json = entries['data.json'];
-  if (json && createHash('sha256').update(json).digest('hex') !== manifest.data.sha256) {
+  const json = await readJson(entries, 'data.json');
+  if (createHash('sha256').update(json.bytes).digest('hex') !== manifest.data.sha256) {
     throw new TransferError('BACKUP_CHECKSUM', ['Checksum of data.json does not match – file damaged or modified']);
   }
-  const parsed = dataSchema.safeParse(parseJson(json, 'data.json'));
+  const parsed = dataSchema.safeParse(json.value);
   if (!parsed.success) {
     throw new TransferError('BACKUP_INVALID', issues(parsed.error, 'data.json'));
   }
@@ -358,12 +487,12 @@ export function readBackup(buffer: Buffer): BackupFile {
     throw new TransferError('INTEGRITY', problems.slice(0, 20));
   }
 
-  const files = new Map<string, Uint8Array>();
-  for (const [name, content] of Object.entries(entries)) {
-    if (name.startsWith('files/')) {
-      files.set(name.slice('files/'.length), content);
-    }
-  }
+  const files = entries.view(
+    entries
+      .names()
+      .filter((name) => name.startsWith('files/'))
+      .map((name) => [name.slice('files/'.length), name]),
+  );
   const missingFiles = data.media.filter((m) => !files.has(m.fileName)).map((m) => m.fileName);
   return { manifest: manifest.data, data, files, missingFiles };
 }
@@ -385,7 +514,10 @@ function integrityProblems(data: BackupData): string[] {
   const persons = ids('persons', data.persons);
   const events = ids('events', data.events);
   const media = ids('media', data.media);
-  ids('relations', data.relations);
+  const relations = ids('relations', data.relations);
+  const repositories = ids('repositories', data.repositories);
+  const sources = ids('sources', data.sources);
+  const citations = ids('citations', data.citations);
   ids('notes', data.notes);
   ids('imports', data.imports);
 
@@ -403,11 +535,32 @@ function integrityProblems(data: BackupData): string[] {
     expect(persons.has(n.personId), `Note ${n.id}: person ${n.personId} missing`);
   }
   for (const m of data.media) {
-    expect(trees.has(m.familyTreeId), `Medium ${m.id}: family tree ${m.familyTreeId} missing`);
+    expect(m.familyTreeId === null || trees.has(m.familyTreeId), `Medium ${m.id}: family tree ${m.familyTreeId} missing`);
     expect(!m.personId || persons.has(m.personId), `Medium ${m.id}: person ${m.personId} missing`);
   }
   for (const l of data.eventMedia) {
     expect(events.has(l.eventId) && media.has(l.mediaId), `Link ${l.eventId}/${l.mediaId}: event or medium missing`);
+  }
+  for (const s of data.sources) {
+    expect(!s.repositoryId || repositories.has(s.repositoryId), `Source ${s.id}: archive ${s.repositoryId} missing`);
+  }
+  for (const c of data.citations) {
+    expect(sources.has(c.sourceId), `Citation ${c.id}: source ${c.sourceId} missing`);
+  }
+  for (const l of data.sourceMedia) {
+    expect(sources.has(l.sourceId) && media.has(l.mediaId), `Link ${l.sourceId}/${l.mediaId}: source or medium missing`);
+  }
+  for (const l of data.citationMedia) {
+    expect(citations.has(l.citationId) && media.has(l.mediaId), `Link ${l.citationId}/${l.mediaId}: citation or medium missing`);
+  }
+  for (const l of data.personCitations) {
+    expect(persons.has(l.personId) && citations.has(l.citationId), `Link ${l.personId}/${l.citationId}: person or citation missing`);
+  }
+  for (const l of data.eventCitations) {
+    expect(events.has(l.eventId) && citations.has(l.citationId), `Link ${l.eventId}/${l.citationId}: event or citation missing`);
+  }
+  for (const l of data.relationCitations) {
+    expect(relations.has(l.relationId) && citations.has(l.citationId), `Link ${l.relationId}/${l.citationId}: relation or citation missing`);
   }
   for (const i of data.imports) {
     expect(trees.has(i.familyTreeId), `Import ${i.id}: family tree ${i.familyTreeId} missing`);
@@ -426,7 +579,15 @@ export const describeBackup = (backup: BackupFile) => ({
   counts: countRows(backup.data),
   trees: treeSummary(backup.data),
   missingFiles: backup.missingFiles.length,
+  cycleTrees: cycleTrees(backup.data),
 });
+
+/** Names of the family trees in which persons are their own ancestors – restored unchanged, only warned about */
+function cycleTrees(data: BackupData): string[] {
+  const treeOf = new Map(data.persons.map((p) => [p.id, p.familyTreeId]));
+  const treeIds = new Set(ancestorCycles(data.relations).map((ids) => treeOf.get(ids[0])));
+  return data.familyTrees.filter((t) => treeIds.has(t.id)).map((t) => t.name);
+}
 
 /** Write large tables in chunks – PostgreSQL allows at most 65535 parameters per statement */
 const CHUNK = 1000;
@@ -439,26 +600,41 @@ async function insertAll<T>(rows: T[], insert: (chunk: T[]) => Promise<unknown>)
 type RestoreDb = Pick<PrismaClient, '$transaction' | 'media'>;
 
 /**
- * Replaces all data with the backup – all or nothing: the files are first written to a
- * staging folder, deleting and inserting happens in one transaction. Only then are the
- * files taken over and the ones no longer used removed. If anything fails, the old state remains.
+ * Replaces all data with the backup – all or nothing: the files are first copied from the backup into a staging
+ * folder (piece by piece, after checking the free space), deleting and inserting happens in one transaction. Only
+ * then are the files taken over and the ones no longer used removed. If anything fails or the user cancels before
+ * the database step, the old state remains.
  */
-export async function restoreBackup(db: RestoreDb, backup: BackupFile, now = new Date()) {
+export async function restoreBackup(db: RestoreDb, backup: BackupFile, now = new Date(), job?: JobControl) {
   const { data } = backup;
+  const used = [...new Set(data.media.map((m) => m.fileName))].filter((name) => backup.files.has(name));
+  const bytes = restoreBytes(backup);
+  fs.mkdirSync(uploadDir, { recursive: true });
+  await assertFreeSpace(uploadDir, bytes);
   // Dot folders are not served under /uploads
   const staging = path.join(uploadDir, `.restore-${fileTimestamp(now)}-${process.pid}`);
   fs.mkdirSync(staging, { recursive: true });
   try {
-    for (const [name, content] of backup.files) {
-      if (data.media.some((m) => m.fileName === name)) {
-        fs.writeFileSync(path.join(staging, path.basename(name)), content);
-      }
+    job?.phase('media', bytes);
+    for (const name of used) {
+      job?.checkpoint();
+      await backup.files.copyTo(name, path.join(staging, path.basename(name)), job?.advance);
     }
+    job?.checkpoint(true);
+    job?.phase('database');
     const previousFiles = (await db.media.findMany({ select: { fileName: true } })).map((m) => m.fileName);
 
     await db.$transaction(
       async (tx) => {
         await tx.eventMedia.deleteMany();
+        await tx.sourceMedia.deleteMany();
+        await tx.citationMedia.deleteMany();
+        await tx.personCitation.deleteMany();
+        await tx.eventCitation.deleteMany();
+        await tx.relationCitation.deleteMany();
+        await tx.citation.deleteMany();
+        await tx.source.deleteMany();
+        await tx.repository.deleteMany();
         await tx.relation.deleteMany();
         await tx.note.deleteMany();
         await tx.event.deleteMany();
@@ -475,6 +651,14 @@ export async function restoreBackup(db: RestoreDb, backup: BackupFile, now = new
         await insertAll(data.relations, (rows) => tx.relation.createMany({ data: rows }));
         await insertAll(data.eventMedia, (rows) => tx.eventMedia.createMany({ data: rows }));
         await insertAll(data.imports, (rows) => tx.importRecord.createMany({ data: rows }));
+        await insertAll(data.repositories, (rows) => tx.repository.createMany({ data: rows }));
+        await insertAll(data.sources, (rows) => tx.source.createMany({ data: rows }));
+        await insertAll(data.citations, (rows) => tx.citation.createMany({ data: rows }));
+        await insertAll(data.sourceMedia, (rows) => tx.sourceMedia.createMany({ data: rows }));
+        await insertAll(data.citationMedia, (rows) => tx.citationMedia.createMany({ data: rows }));
+        await insertAll(data.personCitations, (rows) => tx.personCitation.createMany({ data: rows }));
+        await insertAll(data.eventCitations, (rows) => tx.eventCitation.createMany({ data: rows }));
+        await insertAll(data.relationCitations, (rows) => tx.relationCitation.createMany({ data: rows }));
       },
       { maxWait: 10_000, timeout: 600_000 },
     );
@@ -515,12 +699,32 @@ export function pruneSafetyBackups(dir: string, keep = KEEP_SAFETY_BACKUPS): str
   return old;
 }
 
-/** Stores a backup in the folder of the automatic backups (before a restore); only the newest few are kept */
-export async function writeSafetyBackup(db: Db, dir: string, now = new Date()) {
-  const { buffer } = await createBackup(db, now);
-  fs.mkdirSync(dir, { recursive: true });
-  const fileName = backupFileName(now, SAFETY_PREFIX);
-  fs.writeFileSync(path.join(dir, fileName), buffer);
-  pruneSafetyBackups(dir);
-  return fileName;
+/** Bytes a restore of `backup` copies into the upload folder (the media that the backup contains) */
+export const restoreBytes = (backup: BackupFile) =>
+  backup.files.totalSize([...new Set(backup.data.media.map((m) => m.fileName))].filter((name) => backup.files.has(name)));
+
+/**
+ * Stores a complete backup in the folder of the automatic backups (before a restore), written piece by piece after
+ * checking the free space; only the newest few are kept. `alsoNeeded`: bytes the restore writes into the upload folder
+ * afterwards – on the same drive they must fit as well, so a lack of space shows before the long backup. Cancelling
+ * stops the backup (CANCELLED).
+ */
+export async function writeSafetyBackup(db: Db, dir: string, now = new Date(), job?: JobControl, alsoNeeded = 0) {
+  const { zip } = await createBackup(db, now);
+  try {
+    const size = await zip.size;
+    fs.mkdirSync(dir, { recursive: true });
+    await assertFreeSpace(dir, size + (sameDrive(dir, uploadDir) ? alsoNeeded : 0));
+    job?.phase('safetyBackup', size);
+    const fileName = backupFileName(now, SAFETY_PREFIX);
+    await writeZipFile(zip, path.join(dir, fileName), (bytes) => {
+      job?.advance(bytes);
+      return job?.cancelled();
+    });
+    pruneSafetyBackups(dir);
+    return fileName;
+  } finally {
+    // After an error the files that were being read are closed
+    zip.stream.destroy();
+  }
 }

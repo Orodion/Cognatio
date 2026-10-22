@@ -5,9 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { GraphQLError } from 'graphql';
 import { SET_PROFILE_PICTURE } from '@/features/persons/graphql/personQueries';
 import { uploadMedia } from '@/features/persons/lib/uploadMedia';
-import { makePerson } from '@/test/fixtures';
+import { makePerson, makeTree, treesMock } from '@/test/fixtures';
+import { SET_HOME_PERSON } from '@/features/family-trees/graphql/familyTreeQueries';
+import { useActiveTreeStore } from '@/stores/activeTreeStore';
 import type { Person } from '@/features/persons/types/person';
 import { PersonProfileHeader } from '../PersonProfileHeader';
+import { factCitation, personCitationsMock } from '@/test/citations';
 import { PersonOverviewTab } from '../PersonOverviewTab';
 
 vi.mock('@/features/persons/lib/uploadMedia', () => ({ uploadMedia: vi.fn() }));
@@ -39,6 +42,35 @@ const fileInput = () => document.querySelector<HTMLInputElement>('input[type="fi
 const choose = (file: File) => fireEvent.change(fileInput(), { target: { files: [file] } });
 
 describe('PersonProfileHeader', () => {
+  it('makes the person the home person of the family tree, or no longer', async () => {
+    useActiveTreeStore.setState({ treeId: 't1' });
+    const setHome = vi.fn(() => ({ data: { setHomePerson: makeTree({ homePerson: null }) } }));
+    setup(makePerson({ id: 'p1' }), [
+      treesMock([
+        makeTree({
+          homePerson: { __typename: 'Person', id: 'p1', title: null, firstName: 'Anna', middleName: null, lastName: 'Muster', birthName: null } as never,
+        }),
+      ]),
+      { request: { query: SET_HOME_PERSON, variables: { personId: null } }, result: setHome },
+    ]);
+    const button = await screen.findByRole('button', { name: /personDetail.homePerson/, pressed: true });
+    fireEvent.click(button);
+    await waitFor(() => expect(setHome).toHaveBeenCalled());
+    useActiveTreeStore.setState({ treeId: null });
+  });
+
+  it('says why the home person could not be set', async () => {
+    useActiveTreeStore.setState({ treeId: 't1' });
+    const refused = new GraphQLError('The person is not in this family tree.', { extensions: { code: 'BAD_USER_INPUT', reason: 'PERSON_NOT_FOUND' } });
+    setup(makePerson({ id: 'p1' }), [
+      treesMock([makeTree()]),
+      { request: { query: SET_HOME_PERSON, variables: { personId: 'p1' } }, result: { errors: [refused] } },
+    ]);
+    fireEvent.click(await screen.findByRole('button', { name: /personDetail.homePerson/, pressed: false }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('apiErrors.PERSON_NOT_FOUND');
+    useActiveTreeStore.setState({ treeId: null });
+  });
+
   it('shows name, nickname, life dates, age and profession and offers the actions', () => {
     const handlers = setup(makePerson({ id: 'p1', firstName: 'Anna', lastName: 'Muster', nickname: 'Anni', birthDate: '1950', occupation: 'Lehrerin' }));
     expect(screen.getByRole('heading', { name: 'Anna Muster' })).toBeInTheDocument();
@@ -79,9 +111,9 @@ describe('PersonProfileHeader', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('media.imageRequired');
     expect(uploadMedia).not.toHaveBeenCalled();
 
-    vi.mocked(uploadMedia).mockResolvedValue({ ok: false, reason: 'FILE_TOO_LARGE' });
+    vi.mocked(uploadMedia).mockResolvedValue({ ok: false, reason: 'NOT_ENOUGH_SPACE', values: { needed: '6 GB', free: '1 GB' } });
     choose(new File(['x'], 'riesig.png', { type: 'image/png' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('media.fileTooLarge'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('apiErrors.NOT_ENOUGH_SPACE'));
   });
 
   it('removes the profile picture and reports errors', async () => {
@@ -105,17 +137,34 @@ describe('PersonProfileHeader', () => {
 });
 
 describe('PersonOverviewTab', () => {
+  it('marks name, birth and death that have citations; a click opens the sources', async () => {
+    const onShowSources = vi.fn();
+    render(
+      <MockedProvider mocks={[personCitationsMock('p1', [factCitation('PERSON', { fact: 'BIRTH' }), factCitation('PERSON', { fact: 'BIRTH' }, 'c2')])]}>
+        <PersonOverviewTab person={makePerson({ birthDate: '01.02.1900' })} onShowSources={onShowSources} />
+      </MockedProvider>,
+    );
+    const mark = await screen.findByRole('button', { name: 'sources.mark.label' });
+    expect(mark).toHaveTextContent('2');
+    // Only the birth has citations
+    expect(screen.getAllByRole('button', { name: 'sources.mark.label' })).toHaveLength(1);
+    fireEvent.click(mark);
+    expect(onShowSources).toHaveBeenCalled();
+  });
+
   it('lists all fields with translated values and placeholders for empty ones', () => {
     render(
-      <PersonOverviewTab
-        person={makePerson({
-          firstName: 'Anna',
-          gender: 'FEMALE',
-          maritalStatus: 'MARRIED',
-          languages: ['de', 'Plattdeutsch'],
-          occupation: null,
-        })}
-      />,
+      <MockedProvider mocks={[personCitationsMock('p1')]}>
+        <PersonOverviewTab
+          person={makePerson({
+            firstName: 'Anna',
+            gender: 'FEMALE',
+            maritalStatus: 'MARRIED',
+            languages: ['de', 'Plattdeutsch'],
+            occupation: null,
+          })}
+        />
+      </MockedProvider>,
     );
     const value = (label: string) => screen.getByText(label).nextElementSibling;
     expect(value('personDetail.fields.firstName')).toHaveTextContent('Anna');

@@ -8,8 +8,9 @@ import type { Person, PersonInput } from '@/features/persons/types/person';
 import { validatePersonForm, type PersonFormErrors } from '@/features/persons/lib/personValidation';
 import { GENDER_OPTIONS, emptyPersonForm as emptyForm, formToInput } from '@/features/persons/lib/personForm';
 import { UNKNOWN_GIVEN_NAME, formatPersonName, getInitials, isUnknownGivenName } from '@/features/persons/lib/personUtils';
-import { MAX_UPLOAD_BYTES, uploadMedia } from '@/features/persons/lib/uploadMedia';
+import { uploadMedia } from '@/features/persons/lib/uploadMedia';
 import { apiErrorMessage, apiErrorReason } from '@/lib/apiErrors';
+import { saveWithConfirmation } from '@/features/plausibility/lib/issues';
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { ClearableInput } from '@/components/ui/ClearableInput';
@@ -22,6 +23,7 @@ import { FirstNameUnknownCheckbox } from './FirstNameUnknownCheckbox';
 import { LanguagePicker } from './LanguagePicker';
 import { PendingRelationsSection, type PendingRelation } from './PendingRelationsSection';
 import { SimilarPersonsHint } from './SimilarPersonsHint';
+import { PlaceSuggestions, PLACE_LIST_ID } from './PlaceSuggestions';
 
 interface PersonFormDialogProps {
   open: boolean;
@@ -130,10 +132,6 @@ export function PersonFormDialog({ open, onClose, person, onSuccess }: PersonFor
       setProfileError(t('media.imageRequired'));
       return;
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setProfileError(t('media.fileTooLarge'));
-      return;
-    }
     setProfileError(null);
     setProfileFile(file);
   };
@@ -175,17 +173,12 @@ export function PersonFormDialog({ open, onClose, person, onSuccess }: PersonFor
     const failed: string[] = [];
     for (const rel of pendingRelations) {
       try {
-        await createRelation({
-          variables: {
-            data: {
-              personAId: personId,
-              personBId: rel.person.id,
-              type: rel.type,
-              startDate: rel.startDate,
-              endDate: rel.endDate,
-            },
-          },
-        });
+        const data = { personAId: personId, personBId: rel.person.id, type: rel.type, startDate: rel.startDate, endDate: rel.endDate };
+        // A relation that looks wrong (e.g. a man as mother) is saved only after asking
+        const nameOf = (id: string) =>
+          id === personId ? formatPersonName({ ...form, firstName: firstNameUnknown ? UNKNOWN_GIVEN_NAME : form.firstName }) : formatPersonName(rel.person);
+        // Declined: the user chose not to save it, no error
+        await saveWithConfirmation((confirmed) => createRelation({ variables: { data, confirmed } }), nameOf, t);
       } catch (err) {
         // Relations that already exist (e.g. derived automatically) are not an error
         if (apiErrorReason(err) !== 'DUPLICATE') {
@@ -245,7 +238,7 @@ export function PersonFormDialog({ open, onClose, person, onSuccess }: PersonFor
       if (result.ok) {
         await client.refetchQueries({ include: ['GetPerson', 'GetPersons', 'GetTreeData', 'GetPersonRelations', 'GetPersonMedia'] });
       } else {
-        profileFailure = t(`apiErrors.${result.reason}`, { defaultValue: t('media.uploadError') });
+        profileFailure = t(`apiErrors.${result.reason}`, { ...result.values, defaultValue: t('media.uploadError') });
       }
     }
     setSavingRelations(false);
@@ -263,6 +256,7 @@ export function PersonFormDialog({ open, onClose, person, onSuccess }: PersonFor
   return (
     <Dialog open={open} onClose={onClose}>
       <form onSubmit={handleSubmit} noValidate>
+        <PlaceSuggestions />
         <DialogHeader>
           <DialogTitle>{isEditMode ? t('form.editTitle') : t('form.createTitle')}</DialogTitle>
         </DialogHeader>
@@ -388,7 +382,7 @@ export function PersonFormDialog({ open, onClose, person, onSuccess }: PersonFor
               </FormField>
 
               <FormField label={t('personDetail.fields.birthPlace')} id="birthPlace">
-                <ClearableInput {...textField('birthPlace')} />
+                <ClearableInput {...textField('birthPlace')} list={PLACE_LIST_ID} autoComplete="off" />
               </FormField>
 
               <FormField label={t('personDetail.fields.deathDate')} id="deathDate" error={errorText('deathDate')}>
@@ -396,7 +390,7 @@ export function PersonFormDialog({ open, onClose, person, onSuccess }: PersonFor
               </FormField>
 
               <FormField label={t('personDetail.fields.deathPlace')} id="deathPlace">
-                <ClearableInput {...textField('deathPlace')} />
+                <ClearableInput {...textField('deathPlace')} list={PLACE_LIST_ID} autoComplete="off" />
               </FormField>
             </div>
             <p className="text-xs text-muted-foreground">{t('form.dateHelp')}</p>

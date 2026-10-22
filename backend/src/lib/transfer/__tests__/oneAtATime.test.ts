@@ -1,7 +1,7 @@
 import http from 'http';
 import express from 'express';
 import request from 'supertest';
-import { oneAtATime } from '../oneAtATime.js';
+import { exclusive, oneAtATime } from '../oneAtATime.js';
 
 /** A step the test ends itself: `started` resolves when it runs, `finish` lets it go on */
 function controlled() {
@@ -125,5 +125,37 @@ describe('oneAtATime', () => {
     expect(res.status).toBe(413);
     expect(res.body.error).toBe('too large');
     expect((await request(app).get('/fast')).status).toBe(200);
+  });
+});
+
+describe('exclusive', () => {
+  // A request behind the guard: 409 while it is taken
+  const status = async () => (await request(guardedApp().app).get('/fast')).status;
+
+  it('lets a job wait until the running operation has finished, then holds the guard', async () => {
+    const first = await exclusive('backup');
+    expect(await status()).toBe(409);
+    const onWait = jest.fn();
+    let second: (() => void) | undefined;
+    const waiting = exclusive('restore', onWait).then((release) => (second = release));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onWait).toHaveBeenCalledTimes(1);
+    expect(second).toBeUndefined();
+
+    first();
+    await waiting;
+    expect(await status()).toBe(409);
+    second!();
+    expect(await status()).toBe(200);
+  });
+
+  it('stops waiting when the job is cancelled', async () => {
+    const first = await exclusive('backup');
+    const cancelled = exclusive('import', undefined, () => {
+      throw new Error('CANCELLED');
+    });
+    await expect(cancelled).rejects.toThrow('CANCELLED');
+    first();
+    expect(await status()).toBe(200);
   });
 });

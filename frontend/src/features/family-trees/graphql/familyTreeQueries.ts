@@ -10,6 +10,24 @@ const FAMILY_TREE_FIELDS = gql`
     deletedAt
     createdAt
     updatedAt
+    homePerson {
+      id
+      title
+      firstName
+      middleName
+      lastName
+      birthName
+    }
+  }
+`;
+
+/** Home person of the open family tree (null removes it) */
+export const SET_HOME_PERSON = gql`
+  ${FAMILY_TREE_FIELDS}
+  mutation SetHomePerson($personId: ID) {
+    setHomePerson(personId: $personId) {
+      ...FamilyTreeFields
+    }
   }
 `;
 

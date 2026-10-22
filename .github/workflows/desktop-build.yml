@@ -93,6 +93,8 @@ jobs:
           path: tools/postgres
           key: postgres-linux-${{ hashFiles('scripts/fetch-postgres.mjs') }}
       - run: npm ci --prefer-offline --no-audit --no-fund --cache .npm
+      # PostgreSQL 18 source archives no longer contain the generated parser files: bison and flex are needed
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bison flex
       - run: npm run postgres:fetch
       - run: npm run dist:linux -w desktop
       - run: ls -l desktop/release

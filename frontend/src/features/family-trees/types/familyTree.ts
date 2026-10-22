@@ -9,4 +9,16 @@ export interface FamilyTree {
   deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Start of the ancestor figures, the reports and the family tree page; null without one */
+  homePerson?: HomePerson | null;
+}
+
+/** The name fields of the home person */
+export interface HomePerson {
+  id: string;
+  title?: string | null;
+  firstName: string;
+  middleName?: string | null;
+  lastName?: string | null;
+  birthName?: string | null;
 }

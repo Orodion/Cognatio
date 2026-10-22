@@ -6,16 +6,15 @@ import { gbToMb } from '@/features/settings/lib/sizeLimits';
 import { SizeLimits } from '../SizeLimits';
 
 // Tests run in cimode: texts are the keys themselves
-const limits = (importMb = 2048, backupMb = 2048) => ({
+const limits = (importMb: number | null = null, backupMb: number | null = null) => ({
   __typename: 'SizeLimits',
   importMb,
   backupMb,
-  defaultMb: 2048,
   minMb: 64,
-  maxMb: 1048576,
+  maxMb: 16 * 1024 * 1024,
 });
 
-const query = (importMb?: number, backupMb?: number): MockedResponse => ({
+const query = (importMb: number | null = null, backupMb: number | null = null): MockedResponse => ({
   request: { query: SIZE_LIMITS },
   result: { data: { sizeLimits: limits(importMb, backupMb) } },
   maxUsageCount: Infinity,
@@ -36,47 +35,47 @@ async function setup(mocks: MockedResponse[] = [query()]) {
 }
 
 describe('gbToMb', () => {
-  it('turns gigabytes into whole megabytes within the allowed range', () => {
+  it('turns gigabytes into whole megabytes within the allowed range; empty means no limit', () => {
     const range = { minMb: 64, maxMb: 1048576 };
     expect(gbToMb('2', range)).toBe(2048);
     expect(gbToMb('1,5', range)).toBe(1536);
     expect(gbToMb('0.0625', range)).toBe(64);
-    expect(gbToMb('0.05', range)).toBeNull();
-    expect(gbToMb('1025', range)).toBeNull();
+    expect(gbToMb('0.05', range)).toBeUndefined();
+    expect(gbToMb('1025', range)).toBeUndefined();
+    expect(gbToMb('viel', range)).toBeUndefined();
     expect(gbToMb('', range)).toBeNull();
-    expect(gbToMb('viel', range)).toBeNull();
+    expect(gbToMb('  ', range)).toBeNull();
   });
 });
 
 describe('SizeLimits', () => {
-  it('shows the limits in gigabytes without a warning', async () => {
+  it('shows no limit as empty fields', async () => {
+    const { importField, backupField, save, reset } = await setup();
+
+    expect(importField.value).toBe('');
+    expect(backupField.value).toBe('');
+    expect(importField).toHaveAttribute('placeholder', 'settings.limits.none');
+    expect(save).toBeDisabled();
+    expect(reset).toBeDisabled();
+  });
+
+  it('shows set limits in gigabytes', async () => {
     const { importField, backupField, save, reset } = await setup([query(2048, 3072)]);
 
     await waitFor(() => expect(backupField.value).toBe('3'));
     expect(importField.value).toBe('2');
-    expect(screen.queryByText('settings.limits.memoryWarning')).toBeNull();
-    // nothing changed, nothing to restore
+    // nothing changed; the limits can be removed
     expect(save).toBeDisabled();
     expect(reset).toBeEnabled();
   });
 
-  it('warns above 4 GB that twice the file size is needed as memory', async () => {
-    const { importField } = await setup();
-
-    fireEvent.change(importField, { target: { value: '4' } });
-    expect(screen.queryByText('settings.limits.memoryWarning')).toBeNull();
-
-    fireEvent.change(importField, { target: { value: '4.5' } });
-    expect(screen.getByText('settings.limits.memoryWarning')).toBeInTheDocument();
-  });
-
-  it('saves the new limits in megabytes and confirms', async () => {
-    const saved = limits(8192, 2048);
+  it('saves the new limits in megabytes and confirms; an empty field stays without a limit', async () => {
+    const saved = limits(8192, null);
     let called = false;
     const { importField, save } = await setup([
       query(),
       {
-        request: { query: SET_SIZE_LIMITS, variables: { importMb: 8192, backupMb: 2048 } },
+        request: { query: SET_SIZE_LIMITS, variables: { importMb: 8192, backupMb: null } },
         result: () => {
           called = true;
           return { data: { setSizeLimits: saved } };
@@ -99,14 +98,15 @@ describe('SizeLimits', () => {
     expect(importField).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('puts the default back into the fields', async () => {
-    const { importField, backupField, reset } = await setup([query(6144, 10240)]);
+  it('removes the limits from the fields', async () => {
+    const { importField, backupField, reset, save } = await setup([query(6144, 10240)]);
     await waitFor(() => expect(importField.value).toBe('6'));
 
     fireEvent.click(reset);
 
-    expect(importField.value).toBe('2');
-    expect(backupField.value).toBe('2');
+    expect(importField.value).toBe('');
+    expect(backupField.value).toBe('');
     expect(reset).toBeDisabled();
+    expect(save).toBeEnabled();
   });
 });

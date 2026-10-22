@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { SET_SIZE_LIMITS, SIZE_LIMITS } from '@/features/settings/graphql/systemQueries';
-import { MEMORY_WARNING_MB, gbToMb, mbToGb } from '@/features/settings/lib/sizeLimits';
+import { gbToMb, mbToGb } from '@/features/settings/lib/sizeLimits';
 import { apiErrorMessage } from '@/lib/apiErrors';
 
 interface Limits {
-  importMb: number;
-  backupMb: number;
-  defaultMb: number;
+  /** null: no limit */
+  importMb: number | null;
+  backupMb: number | null;
   minMb: number;
   maxMb: number;
 }
 
 /**
- * Largest file for export/import and for backup/restore. Both are processed in memory, so a computer with much
- * memory can allow more than the default; above 4 GB a warning names the memory that is needed.
+ * Optional upper limits of the files of export/import and of backup/restore. The files are read and written piece by
+ * piece, so by default there is none and only the free disk space counts; an empty field removes a limit.
  */
 export function SizeLimits() {
   const { t } = useTranslation();
@@ -43,13 +43,12 @@ export function SizeLimits() {
 
   const importMb = gbToMb(importGb, limits);
   const backupMb = gbToMb(backupGb, limits);
-  const valid = importMb !== null && backupMb !== null;
+  const valid = importMb !== undefined && backupMb !== undefined;
   const changed = importMb !== limits.importMb || backupMb !== limits.backupMb;
-  const needsMemory = (importMb ?? 0) > MEMORY_WARNING_MB || (backupMb ?? 0) > MEMORY_WARNING_MB;
-  const isDefault = importMb === limits.defaultMb && backupMb === limits.defaultMb;
+  const isDefault = importMb === null && backupMb === null;
 
   const submit = async () => {
-    if (importMb === null || backupMb === null) {
+    if (importMb === undefined || backupMb === undefined) {
       return;
     }
     setSaved(false);
@@ -61,7 +60,7 @@ export function SizeLimits() {
     }
   };
 
-  const field = (id: string, label: string, value: string, set: (value: string) => void, mb: number | null) => (
+  const field = (id: string, label: string, value: string, set: (value: string) => void, mb: number | null | undefined) => (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center gap-2">
@@ -72,9 +71,10 @@ export function SizeLimits() {
           min={limits.minMb / 1024}
           max={limits.maxMb / 1024}
           step={0.5}
-          className="w-28"
+          className="w-32"
           value={value}
-          aria-invalid={mb === null}
+          placeholder={t('settings.limits.none')}
+          aria-invalid={mb === undefined}
           onChange={(e) => {
             setSaved(false);
             set(e.target.value);
@@ -95,12 +95,6 @@ export function SizeLimits() {
         {field('settings-limit-import', t('settings.limits.import'), importGb, setImportGb, importMb)}
         {field('settings-limit-backup', t('settings.limits.backup'), backupGb, setBackupGb, backupMb)}
       </div>
-      {needsMemory && (
-        <p className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3" role="alert">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden="true" />
-          {t('settings.limits.memoryWarning')}
-        </p>
-      )}
       <div className="flex flex-wrap gap-2">
         <Button id="settings-limits-save" size="sm" onClick={() => void submit()} disabled={loading || !valid || !changed}>
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -113,8 +107,8 @@ export function SizeLimits() {
           disabled={loading || isDefault}
           onClick={() => {
             setSaved(false);
-            setImportGb(mbToGb(limits.defaultMb));
-            setBackupGb(mbToGb(limits.defaultMb));
+            setImportGb('');
+            setBackupGb('');
           }}
         >
           {t('settings.limits.reset')}

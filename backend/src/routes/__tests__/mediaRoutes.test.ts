@@ -10,7 +10,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cognatio-upload-'));
 jest.mock('../../lib/files/uploads.js', () => ({ ...jest.requireActual('../../lib/files/uploads.js'), uploadDir: tmpDir }));
 jest.mock('../../lib/prisma.js', () => ({ prisma: prismaMock }));
 
-import mediaRoutes, { MAX_UPLOAD_MB } from '../mediaRoutes.js';
+import mediaRoutes from '../mediaRoutes.js';
 
 const app = express();
 app.use('/api/v1/media', mediaRoutes);
@@ -55,6 +55,43 @@ describe('POST /api/v1/media/upload', () => {
     expect(res.body.reason).toBe('PERSON_NOT_FOUND');
     expect(filesInUploadDir()).toEqual([]);
     expect(prismaMock.media.create).not.toHaveBeenCalled();
+  });
+
+  it('stores a scan of a source in the library – without family tree and person – and links it', async () => {
+    prismaMock.source.findFirst.mockResolvedValueOnce({ id: 's1' } as never);
+    prismaMock.media.create.mockImplementationOnce((async ({ data }: { data: Record<string, unknown> }) => mediaRow({ id: 'scan', ...data })) as never);
+
+    const res = await request(app)
+      .post('/api/v1/media/upload')
+      .field('sourceId', 's1')
+      .field('type', 'DOCUMENT')
+      .attach('file', png, { filename: 'seite.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(201);
+    expect(prismaMock.media.create.mock.calls[0][0].data).toMatchObject({ familyTreeId: null, personId: null, type: 'DOCUMENT' });
+    expect(prismaMock.sourceMedia.create).toHaveBeenCalledWith({ data: { sourceId: 's1', mediaId: 'scan' } });
+    expect(prismaMock.source.findFirst).toHaveBeenCalledWith({ where: { id: 's1', isDeleted: false }, select: { id: true } });
+  });
+
+  it('links a scan with a citation, and refuses one whose source is in the recycle bin', async () => {
+    prismaMock.citation.findFirst.mockResolvedValueOnce({ id: 'c1' } as never);
+    prismaMock.media.create.mockImplementationOnce((async ({ data }: { data: Record<string, unknown> }) => mediaRow({ id: 'page', ...data })) as never);
+    const ok = await request(app)
+      .post('/api/v1/media/upload')
+      .field('citationId', 'c1')
+      .attach('file', png, { filename: 'eintrag.png', contentType: 'image/png' });
+    expect(ok.status).toBe(201);
+    expect(prismaMock.citationMedia.create).toHaveBeenCalledWith({ data: { citationId: 'c1', mediaId: 'page' } });
+
+    prismaMock.citation.findFirst.mockResolvedValueOnce(null);
+    const gone = await request(app)
+      .post('/api/v1/media/upload')
+      .field('citationId', 'c2')
+      .attach('file', png, { filename: 'eintrag.png', contentType: 'image/png' });
+    expect(gone.status).toBe(404);
+    expect(gone.body.reason).toBe('CITATION_NOT_FOUND');
+    expect(prismaMock.citation.findFirst).toHaveBeenLastCalledWith({ where: { id: 'c2', source: { isDeleted: false } }, select: { id: true } });
+    expect(filesInUploadDir()).toEqual([ok.body.fileName]);
   });
 
   it('stores a photo without touching the profile picture', async () => {
@@ -189,6 +226,19 @@ describe('POST /api/v1/media/upload', () => {
     expect(prismaMock.person.update).not.toHaveBeenCalled();
   });
 
+  it('refuses a file named as a picture that is none and removes it', async () => {
+    const res = await request(app)
+      .post('/api/v1/media/upload')
+      .field('personId', 'p1')
+      .field('type', 'PROFILE_PICTURE')
+      .attach('file', Buffer.from('nur Text'), { filename: 'fake.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.reason).toBe('FILE_CONTENT_MISMATCH');
+    expect(filesInUploadDir()).toEqual([]);
+    expect(prismaMock.media.create).not.toHaveBeenCalled();
+  });
+
   it('refuses an unknown media type and removes the stored file', async () => {
     const res = await request(app)
       .post('/api/v1/media/upload')
@@ -202,14 +252,31 @@ describe('POST /api/v1/media/upload', () => {
     expect(prismaMock.media.create).not.toHaveBeenCalled();
   });
 
-  it('answers a file above the limit with 413 and keeps nothing of it', async () => {
-    const big = Buffer.alloc(MAX_UPLOAD_MB * 1024 * 1024 + 1);
+  it('accepts a large file (no limit per file)', async () => {
+    prismaMock.media.create.mockResolvedValue({ id: 'm1' } as never);
+    const big = Buffer.alloc(60 * 1024 * 1024);
     const res = await request(app).post('/api/v1/media/upload').field('personId', 'p1').attach('file', big, { filename: 'film.mp4', contentType: 'video/mp4' });
 
-    expect(res.status).toBe(413);
-    expect(res.body).toMatchObject({ reason: 'FILE_TOO_LARGE', params: { limitMb: MAX_UPLOAD_MB } });
-    expect(filesInUploadDir()).toEqual([]);
-    expect(prismaMock.media.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(prismaMock.media.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ sizeBytes: big.length }) }));
+    fs.rmSync(path.join(tmpDir, filesInUploadDir()[0]));
+  });
+
+  it('answers a file that does not fit on the drive with 413 and keeps nothing of it', async () => {
+    const statfs = jest.spyOn(fs.promises, 'statfs').mockResolvedValue({ bavail: 10, bsize: 4096 } as never);
+    try {
+      const res = await request(app)
+        .post('/api/v1/media/upload')
+        .field('personId', 'p1')
+        .attach('file', png, { filename: 'bild.png', contentType: 'image/png' });
+
+      expect(res.status).toBe(413);
+      expect(res.body).toMatchObject({ reason: 'NOT_ENOUGH_SPACE', params: { freeMb: 0 } });
+      expect(filesInUploadDir()).toEqual([]);
+      expect(prismaMock.media.create).not.toHaveBeenCalled();
+    } finally {
+      statfs.mockRestore();
+    }
   });
 
   it('writes medium, link and profile picture in one transaction', async () => {
@@ -255,7 +322,10 @@ describe('GET /api/v1/media/:id/download', () => {
     expect(Buffer.from(res.body).equals(png)).toBe(true);
     // Only media of the requested family tree
     expect(prismaMock.familyTree.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'tree-1', isDeleted: false } }));
-    expect(prismaMock.media.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'm1', familyTreeId: 'tree-1' } }));
+    // Files of the active family tree and scans of the library
+    expect(prismaMock.media.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'm1', OR: [{ familyTreeId: 'tree-1' }, { familyTreeId: null, personId: null }] } }),
+    );
   });
 
   it('answers a medium of another family tree with 404', async () => {

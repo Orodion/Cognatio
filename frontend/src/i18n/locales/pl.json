@@ -9,6 +9,8 @@
     "persons": "Osoby",
     "tree": "Drzewo genealogiczne",
     "statistics": "Statystyki",
+    "plausibility": "Możliwe błędy",
+    "plausibilityOpen": "Otwarte możliwe błędy: {{count}}",
     "importExport": "Import/Eksport",
     "settings": "Ustawienia",
     "familyTrees": "Drzewa genealogiczne",
@@ -18,7 +20,20 @@
     "trashCount_many": "{{count}} elementów",
     "trashCount_other": "{{count}} elementu",
     "help": "Pomoc",
-    "quit": "Zakończ"
+    "quit": "Zakończ",
+    "activity": "Aktywność",
+    "activityFailed": "Operacja się nie powiodła",
+    "activityRunning_one": "{{count}} w toku",
+    "activityRunning_few": "{{count}} w toku",
+    "activityRunning_many": "{{count}} w toku",
+    "activityRunning_other": "{{count}} w toku",
+    "sources": "Źródła",
+    "reports": "Raporty",
+    "groups": {
+      "record": "Wprowadzanie",
+      "evaluate": "Analiza",
+      "manage": "Zarządzanie"
+    }
   },
   "header": {
     "searchPlaceholder": "Szukaj osób…",
@@ -55,6 +70,7 @@
     "showMore_other": "Pokaż więcej (pozostało {{count, number}})"
   },
   "personDetail": {
+    "report": "Raport",
     "notFound": "Nie znaleziono osoby.",
     "loading": "Wczytywanie osoby…",
     "edit": "Edytuj",
@@ -67,7 +83,8 @@
       "timeline": "Oś czasu",
       "relations": "Relacje",
       "notes": "Notatki",
-      "media": "Pliki"
+      "media": "Pliki",
+      "sources": "Źródła"
     },
     "sections": {
       "personal": "Dane osobowe",
@@ -93,7 +110,9 @@
       "hobbies": "Zainteresowania",
       "maritalStatus": "Stan cywilny",
       "nationality": "Narodowość",
-      "languages": "Języki"
+      "languages": "Języki",
+      "citations": "Przypisy",
+      "citationIds": "Przypisy"
     },
     "tabsLabel": "Sekcje osoby",
     "filter": {
@@ -101,10 +120,14 @@
         "timeline": "Filtruj życiorys…",
         "relations": "Filtruj relacje…",
         "notes": "Filtruj notatki…",
-        "media": "Filtruj multimedia…"
+        "media": "Filtruj multimedia…",
+        "sources": "Filtruj źródła…"
       },
       "noMatches": "Brak wyników dla „{{query}}”."
-    }
+    },
+    "homePerson": "Osoba główna",
+    "homePersonSet": "Ustaw jako osobę główną drzewa – statystyki, raporty i drzewo zaczynają się wtedy od niej",
+    "homePersonRemove": "Osoba główna drzewa – kliknięcie to cofa"
   },
   "gender": {
     "MALE": "Mężczyzna",
@@ -311,7 +334,6 @@
       "unlink": "Odłącz „{{name}}”",
       "removeFile": "Nie przesyłaj „{{name}}”",
       "uploadOnSave": "Zostanie przesłany podczas zapisu",
-      "tooLarge": "Za duży (maks. 50 MB): {{names}}",
       "uploadFailed": "Wydarzenie zostało zapisane, ale nie udało się przesłać następujących plików: {{names}}"
     }
   },
@@ -334,7 +356,6 @@
     "downloadButton": "Pobierz",
     "uploading": "Przesyłanie...",
     "empty": "Nie znaleziono plików. Prześlij obraz lub dokument.",
-    "fileTooLarge": "Plik jest za duży (maks. 50 MB)",
     "uploadError": "Błąd podczas przesyłania pliku",
     "confirmDelete": "Czy na pewno chcesz usunąć ten plik?",
     "profilePicture": "Zdjęcie profilowe",
@@ -416,6 +437,43 @@
       "searchText": "Filtruj osoby według imienia lub nazwiska w polu wyszukiwania na górnym pasku.",
       "datesTitle": "Niepewne daty:",
       "datesText": "Wpisuj daty historyczne tak, jak je znasz – np. „1880”, „05.1880”, „około 1880” lub „1880-1885”. Dokładność jest rozpoznawana automatycznie."
+    },
+    "anniversaries": {
+      "title": "Rocznice",
+      "hint_one": "Urodziny, rocznice śmierci i ślubu w ciągu najbliższego {{count}} dnia",
+      "hint_few": "Urodziny, rocznice śmierci i ślubu w ciągu najbliższych {{count}} dni",
+      "hint_many": "Urodziny, rocznice śmierci i ślubu w ciągu najbliższych {{count}} dni",
+      "hint_other": "Urodziny, rocznice śmierci i ślubu w ciągu najbliższych {{count}} dnia",
+      "none_one": "Brak rocznic w ciągu najbliższego {{count}} dnia. Potrzebna jest dokładna data z dniem, miesiącem i rokiem.",
+      "none_few": "Brak rocznic w ciągu najbliższych {{count}} dni. Potrzebna jest dokładna data z dniem, miesiącem i rokiem.",
+      "none_many": "Brak rocznic w ciągu najbliższych {{count}} dni. Potrzebna jest dokładna data z dniem, miesiącem i rokiem.",
+      "none_other": "Brak rocznic w ciągu najbliższych {{count}} dnia. Potrzebna jest dokładna data z dniem, miesiącem i rokiem.",
+      "today": "Dziś",
+      "tomorrow": "Jutro",
+      "inDays_one": "Za {{count}} dzień",
+      "inDays_few": "Za {{count}} dni",
+      "inDays_many": "Za {{count}} dni",
+      "inDays_other": "Za {{count}} dnia",
+      "BIRTHDAY_one": "Kończy {{count}} rok",
+      "BIRTHDAY_few": "Kończy {{count}} lata",
+      "BIRTHDAY_many": "Kończy {{count}} lat",
+      "BIRTHDAY_other": "Kończy {{count}} roku",
+      "BIRTH_one": "Urodzony/a {{count}} rok temu",
+      "BIRTH_few": "Urodzony/a {{count}} lata temu",
+      "BIRTH_many": "Urodzony/a {{count}} lat temu",
+      "BIRTH_other": "Urodzony/a {{count}} roku temu",
+      "DEATH_one": "Zmarł/a {{count}} rok temu",
+      "DEATH_few": "Zmarł/a {{count}} lata temu",
+      "DEATH_many": "Zmarł/a {{count}} lat temu",
+      "DEATH_other": "Zmarł/a {{count}} roku temu",
+      "WEDDING_one": "Ślub {{count}} rok temu",
+      "WEDDING_few": "Ślub {{count}} lata temu",
+      "WEDDING_many": "Ślub {{count}} lat temu",
+      "WEDDING_other": "Ślub {{count}} roku temu",
+      "more_one": "i jeszcze {{count}} rocznica",
+      "more_few": "i jeszcze {{count}} rocznice",
+      "more_many": "i jeszcze {{count}} rocznic",
+      "more_other": "i jeszcze {{count}} rocznicy"
     }
   },
   "apiErrors": {
@@ -429,7 +487,7 @@
     "DATE_ORDER": "Data końcowa nie może być wcześniejsza niż data początkowa.",
     "DUPLICATE": "Ta relacja już istnieje.",
     "CYCLE": "Osoba nie może być swoim własnym przodkiem.",
-    "INVALID_LIMIT": "Limit rozmiaru musi być liczbą całkowitą megabajtów (od 64 MB do 1 TB).",
+    "INVALID_LIMIT": "Limit rozmiaru musi być całkowitą liczbą megabajtów (od 64 MB do 16 TB) lub pusty, jeśli limitu ma nie być.",
     "INVALID_CATEGORY": "Nieprawidłowa kategoria.",
     "TITLE_REQUIRED": "Wpisz tytuł.",
     "NOTE_TEXT_REQUIRED": "Treść notatki nie może być pusta.",
@@ -449,8 +507,30 @@
     "NOTE_NOT_FOUND": "Notatka nie istnieje (już).",
     "NOTE_TOO_LONG": "Notatka może mieć najwyżej 10 000 znaków.",
     "INVALID_GENDER": "Nieprawidłowa płeć.",
+    "INVALID_MARITAL_STATUS": "Nieprawidłowy stan cywilny.",
     "INVALID_DATE_PRECISION": "Nieprawidłowa dokładność daty.",
-    "PERSON_IN_TRASH": "Osoba jest w koszu – najpierw ją przywróć, aby dodać pliki."
+    "PERSON_IN_TRASH": "Osoba jest w koszu – najpierw ją przywróć, aby dodać pliki.",
+    "FILE_CONTENT_MISMATCH": "Plik nie jest tym, co mówi jego nazwa – np. nie jest obrazem, choć kończy się na „.jpg”.",
+    "IMPLAUSIBLE": "Relacja wygląda na błędną i nie została zapisana.",
+    "ISSUE_NOT_FOUND": "Ten możliwy błąd już nie istnieje.",
+    "NOT_ENOUGH_SPACE": "Za mało wolnego miejsca na dysku: potrzeba około {{needed}}, wolne jest {{free}}. Zwolnij miejsce i spróbuj ponownie.",
+    "SOURCE_NOT_FOUND": "Źródło nie istnieje (już).",
+    "SOURCE_TITLE_REQUIRED": "Wpisz tytuł źródła.",
+    "INVALID_SOURCE_TYPE": "Nieznany rodzaj źródła.",
+    "REPOSITORY_NOT_FOUND": "Archiwum nie istnieje (już).",
+    "REPOSITORY_NAME_REQUIRED": "Wpisz nazwę archiwum.",
+    "CITATION_NOT_FOUND": "Przypis nie istnieje (już).",
+    "INVALID_QUALITY": "Wiarygodność musi być jednym z czterech poziomów.",
+    "INVALID_FACT": "Nieznany fakt dotyczący osoby.",
+    "INVALID_CITATION_TARGET": "Przypis jest za każdym razem powiązany z dokładnie jedną osobą, jednym wydarzeniem albo jedną relacją.",
+    "TEXT_TOO_LONG": "Tekst jest za długi: tytuł, strona i podobne pola mieszczą do 1000 znaków, transkrypcje i notatki do 20 000.",
+    "SOURCE_NOT_DELETED": "Trwale usunąć można tylko źródła z kosza.",
+    "REPOSITORY_NOT_DELETED": "Trwale usunąć można tylko archiwa z kosza.",
+    "INVALID_MEDIA_TARGET": "Skan należy do jednego źródła albo jednego przypisu.",
+    "MCP_DISABLED": "Asystenci AI są wyłączeni.",
+    "MCP_SETTINGS_FORBIDDEN": "Ustawienia asystentów AI można zmienić tylko w aplikacji.",
+    "BAD_SCOPE": "Tego zakresu statystyk nie można użyć.",
+    "BAD_FILTER": "Taki wybór w statystykach nie istnieje."
   },
   "trash": {
     "title": "Kosz",
@@ -464,7 +544,17 @@
     "deletedOn": "Ta osoba została usunięta {{date}} i znajduje się w koszu.",
     "deletedAt": "usunięto {{date}}",
     "personsTitle": "Osoby z „{{name}}”",
-    "emptyPersons": "Brak usuniętych osób w tym drzewie genealogicznym."
+    "emptyPersons": "Brak usuniętych osób w tym drzewie genealogicznym.",
+    "library": {
+      "title": "Źródła i archiwa",
+      "description": "Należą do wszystkich drzew. Źródło w koszu zabiera ze sobą swoje przypisy; po przywróceniu wracają one do wszystkich faktów.",
+      "sourceDetails": "Źródło · przypisy: {{citations}}, poświadczone fakty: {{links}}",
+      "repositoryDetails": "Archiwum · źródła: {{count}}",
+      "restoreLabel": "Przywróć: {{name}}",
+      "deleteForeverLabel": "Usuń trwale: {{name}}",
+      "deleteSourceConfirm": "Trwale usunąć źródło „{{name}}”? Zostaną też usunięte jego przypisy (przypisy: {{citations}}) i ich powiązania z faktami (fakty: {{links}}) we wszystkich drzewach, a także skany, z których nic innego nie korzysta. Tego nie można cofnąć.",
+      "deleteRepositoryConfirm": "Trwale usunąć archiwum „{{name}}”? Jego źródła pozostaną, bez archiwum. Tego nie można cofnąć."
+    }
   },
   "importExport": {
     "subtitle": "Twórz kopie zapasowe danych, przenoś je na inny komputer lub wymieniaj z innymi programami genealogicznymi",
@@ -491,7 +581,6 @@
       "title": "Import",
       "description": "Eksport ZIP z tej aplikacji lub plik GEDCOM (5.5.1 / 7.0, także jako ZIP/GEDZIP z plikami). Przed importem zobaczysz, co się zmieni.",
       "file": "Wybierz plik",
-      "checking": "Sprawdzanie pliku…",
       "fileZip": "Eksport z {{source}} z dnia {{date}}",
       "fileGedcom": "Plik {{source}} z dnia {{date}}",
       "counts": "{{imported}} osób w pliku, {{existing}} osób istniejących",
@@ -499,6 +588,7 @@
       "missingFiles_few": "{{count}} plików brakuje w archiwum ZIP i zostaną pominięte.",
       "missingFiles_many": "{{count}} plików brakuje w archiwum ZIP i zostaną pominięte.",
       "missingFiles_other": "{{count}} pliku brakuje w archiwum ZIP i zostanie pominięty.",
+      "cycles": "Cykl w relacjach rodzic–dziecko: {{names}} – ktoś byłby własnym przodkiem. Import zostanie mimo to wykonany; popraw potem relacje ręcznie.",
       "backupHint": "Istnieją dane. Pobierz kopię zapasową przed importem, aby w razie potrzeby móc je przywrócić.",
       "backupButton": "Pobierz kopię zapasową",
       "backupDone": "Kopia zapasowa pobrana",
@@ -519,7 +609,8 @@
       "targetCurrent": "otwartego drzewa genealogicznego „{{name}}”",
       "targetNew": "nowego drzewa genealogicznego",
       "treeName": "Nazwa nowego drzewa genealogicznego",
-      "successNewTree": "Import zakończony – nowe drzewo genealogiczne „{{name}}” jest otwarte."
+      "successNewTree": "Import zakończony – nowe drzewo genealogiczne „{{name}}” jest otwarte.",
+      "chosenFile": "Wybrany plik: {{name}}"
     },
     "strategies": {
       "OVERWRITE": {
@@ -545,7 +636,9 @@
       "newRelations": "Nowe relacje",
       "newEvents": "Nowe wpisy na osi czasu",
       "newNotes": "Nowe notatki",
-      "newMedia": "Nowe pliki"
+      "newMedia": "Nowe pliki",
+      "newSources": "Nowe źródła",
+      "newCitations": "Nowe przypisy"
     },
     "conflicts": {
       "title_one": "{{count}} osoba z różnicami",
@@ -569,7 +662,7 @@
       "NO_FILE": "Nie wybrano pliku.",
       "TOO_LARGE": "Plik jest za duży (limit: {{limit}}).",
       "UNPACKED_TOO_LARGE": "Plik jest za duży po rozpakowaniu (limit: {{limit}}).",
-      "EXPORT_TOO_LARGE": "Pliki tego drzewa genealogicznego są za duże na jeden plik (około {{size}}, limit: {{limit}}). Zamiast tego wyeksportuj bez plików.",
+      "EXPORT_TOO_LARGE": "Eksport (około {{size}}) przekracza limit ustawiony w ustawieniach ({{limit}}). Podnieś lub usuń limit albo wyeksportuj bez plików.",
       "UNSUPPORTED_FILE": "Plik nie jest ani eksportem tej aplikacji (ZIP), ani plikiem GEDCOM (.ged).",
       "INVALID_ZIP": "Archiwum ZIP jest uszkodzone i nie można go rozpakować.",
       "MISSING_PERSONS_JSON": "Archiwum ZIP nie zawiera pliku persons.json – czy to eksport z tej aplikacji?",
@@ -594,9 +687,14 @@
       "SAFETY_BACKUP_FAILED": "Nie udało się zapisać bieżącego stanu – dlatego nic nie zostało przywrócone. Czy folder kopii zapasowych jest zapisywalny?",
       "BACKUP_FAILED": "Utworzenie kopii zapasowej się nie powiodło.",
       "RESTORE_FAILED": "Przywracanie się nie powiodło. Żadne dane nie zostały zmienione.",
-      "MEDIA_TOO_LARGE": "Plik w imporcie jest większy niż {{limit}} i nie może zostać przejęty.",
       "DOWNLOAD_CANCELLED": "Kopia zapasowa nie została zapisana – przywracanie nie zostało rozpoczęte.",
-      "OPERATION_IN_PROGRESS": "Trwa już inny import, eksport lub kopia zapasowa. Poczekaj, aż się zakończy, i spróbuj ponownie."
+      "OPERATION_IN_PROGRESS": "Trwa już inny import, eksport lub kopia zapasowa. Poczekaj, aż się zakończy, i spróbuj ponownie.",
+      "NOT_ENOUGH_SPACE": "Za mało wolnego miejsca na dysku: potrzeba około {{needed}}, wolne jest {{free}}. Zwolnij miejsce i spróbuj ponownie.",
+      "UPLOAD_NOT_FOUND": "Wybranego pliku nie ma już na serwerze. Wybierz go ponownie.",
+      "CANCELLED": "Przerwano. Żadne dane nie zostały zmienione.",
+      "FILE_SYSTEM_LIMIT": "Plik (około {{size}}) jest za duży dla wybranego dysku. Dyski z FAT32 (wiele pendrive’ów) przyjmują najwyżej 4 GB na plik – wybierz dysk z exFAT lub NTFS.",
+      "DOWNLOAD_FAILED": "Nie udało się zapisać pliku.",
+      "JOB_NOT_FOUND": "Serwer nie zna już trwającej operacji (czy został uruchomiony ponownie?). Sprawdź dane i spróbuj ponownie."
     },
     "history": {
       "title": "Poprzednie importy",
@@ -625,7 +723,7 @@
     }
   },
   "statistics": {
-    "subtitle": "Analizy wszystkich zapisanych osób (bez kosza)",
+    "subtitle": "Analizy otwartego drzewa genealogicznego (bez kosza) – każda liczba prowadzi do osób, które się za nią kryją",
     "empty": "Nie zapisano jeszcze żadnych osób – analizy pojawią się tutaj po dodaniu osób.",
     "noData": "Brak danych.",
     "barAria": "{{label}}: {{value}} ({{share}})",
@@ -635,7 +733,9 @@
     "years_other": "{{count, number}} roku",
     "kpi": {
       "persons": "Osoby",
-      "gender": "{{male, number}} mężczyzn · {{female, number}} kobiet · {{unknown, number}} nie podano",
+      "male": "{{count, number}} mężczyzn",
+      "female": "{{count, number}} kobiet",
+      "unknownGender": "{{count, number}} nie podano",
       "relations": "Relacje",
       "families": "Grupy rodzinne",
       "unconnected_one": "{{count, number}} osoba bez relacji",
@@ -688,6 +788,303 @@
       "persons": "Osoby",
       "births": "Lata urodzenia",
       "footnote": "{{families, number}} grup rodzinnych, {{unconnected, number}} osób bez relacji (każda w pokoleniu 1)."
+    },
+    "sources": {
+      "title": "Źródła",
+      "description": "Używane źródła: {{sources}}, przypisy: {{citations}}. Osoby z co najmniej jednym przypisem: {{cited}} z {{persons}} ({{share}}).",
+      "mostCited": "Najczęściej cytowane źródła (poświadczone fakty)",
+      "empty": "Żaden fakt w tym drzewie nie ma jeszcze przypisu.",
+      "wholeTree": "Źródła dotyczą zawsze całego drzewa, nie tylko wybranego zakresu."
+    },
+    "tabs": {
+      "label": "Obszary statystyk",
+      "overview": "Przegląd",
+      "lives": "Życie",
+      "names": "Nazwiska i miejsca",
+      "ancestors": "Przodkowie",
+      "sources": "Źródła"
+    },
+    "scope": {
+      "label": "Zakres",
+      "kind": {
+        "all": "Całe drzewo",
+        "ancestors": "Przodkowie osoby",
+        "descendants": "Potomkowie osoby",
+        "surname": "Nazwisko"
+      },
+      "person": "Osoba",
+      "choosePerson": "Wybierz osobę",
+      "surname": "Nazwisko",
+      "born": {
+        "label": "Urodzeni",
+        "fromLabel": "od (rok)",
+        "toLabel": "do (rok)",
+        "range": "urodzeni {{from}}–{{to}}",
+        "from": "urodzeni od {{from}}",
+        "to": "urodzeni do {{to}}"
+      },
+      "apply": "Zastosuj",
+      "reset": "Resetuj",
+      "invalid": "Ten zakres nie pasuje do otwartego drzewa – może tej osoby w nim nie ma (już).",
+      "empty": "W tym zakresie nie ma osób.",
+      "summary_one": "{{scope}}: {{count, number}} osoba",
+      "summary_few": "{{scope}}: {{count, number}} osoby",
+      "summary_many": "{{scope}}: {{count, number}} osób",
+      "summary_other": "{{scope}}: {{count, number}} osoby",
+      "of": {
+        "all": "Całe drzewo",
+        "ancestors": "Przodkowie: {{name}}",
+        "descendants": "Potomkowie: {{name}}",
+        "surname": "Nazwisko {{name}}"
+      }
+    },
+    "filter": {
+      "from": "Ze statystyk:",
+      "back": "Wróć do statystyk",
+      "clear": "Usuń filtr",
+      "empty": "Brak osób w tym wyborze.",
+      "all": "Wszystkie osoby",
+      "gender": "Płeć: {{gender}}",
+      "deceased": "Zmarli",
+      "living": "Bez danych o śmierci",
+      "lifespan": "Zmarli, z rokiem urodzenia i śmierci",
+      "livingAge": "Żyjący, wiek {{ages}}",
+      "deathAge": "Zmarli w wieku {{ages}}",
+      "withoutAge": "Bez roku urodzenia lub śmierci",
+      "probablyDeceased": "Prawdopodobnie zmarli, bez daty śmierci",
+      "surname": "Nazwisko: {{value}}",
+      "birthplace": "Miejsce urodzenia: {{value}}",
+      "generation": "Pokolenie {{value}}",
+      "family": "W grupie rodzinnej",
+      "unconnected": "Bez relacji",
+      "missing": "Brak: {{fact}}",
+      "ancestors": "Przodkowie osoby {{name}}, pokolenie {{generation}}",
+      "openEnds": "Otwarte końce wśród przodków osoby {{name}}, pokolenie {{generation}}",
+      "bornDecade": "Urodzeni {{decades}}",
+      "diedDecade": "Zmarli {{decades}}",
+      "marriedDecade": "Śluby {{decades}}",
+      "noBirthYear": "Bez roku urodzenia",
+      "noDeathYear": "Zmarli, bez roku śmierci",
+      "lives": "{{measure}} – {{gender}}, {{centuries}}",
+      "children": "Pary ze wspólnymi dziećmi: {{number}}",
+      "ageGap": "Pary: {{gap}}",
+      "firstName": "Imię {{name}} – {{gender}}{{centuries}}",
+      "stayed": {
+        "yes": "Zmarli w miejscu urodzenia",
+        "no": "Zmarli gdzie indziej"
+      },
+      "move": "Droga {{from}} → {{to}}",
+      "place": "Miejsce: {{value}}"
+    },
+    "completeness": {
+      "title": "Czego jeszcze brakuje?",
+      "description": "Odsetek osób, dla których zapisano daną informację – kliknięcie brakujących pokazuje, u kogo jej jeszcze brak.",
+      "score": "Stan badań (średnia wierszy)",
+      "fact": "Informacja",
+      "present": "Zapisano",
+      "missing": "Brak",
+      "missingCount_one": "brak u {{count, number}}",
+      "missingCount_few": "brak u {{count, number}}",
+      "missingCount_many": "brak u {{count, number}}",
+      "missingCount_other": "brak u {{count, number}}",
+      "facts": {
+        "birthDate": "Data urodzenia",
+        "birthPlace": "Miejsce urodzenia",
+        "deathDate": "Data śmierci (zmarli)",
+        "deathPlace": "Miejsce śmierci (zmarli)",
+        "father": "Znany ojciec",
+        "mother": "Znana matka",
+        "partner": "Partner (zmarli od 18 lat)",
+        "photo": "Zdjęcie lub plik",
+        "source": "Co najmniej jedno źródło"
+      }
+    },
+    "ancestors": {
+      "title": "Przodkowie",
+      "description": "Znalezieni przodkowie w każdym pokoleniu w porównaniu z możliwymi (2, 4, 8 …). Liczy się każde miejsce w tablicy przodków – kto stoi w dwóch miejscach, liczy się dwa razy.",
+      "of": "Przodkowie osoby",
+      "homePerson": "osoba główna",
+      "otherPerson": "Inna osoba",
+      "makeHome": "Ustaw jako osobę główną",
+      "noHome": "Nie ustawiono jeszcze osoby głównej – pokazano osobę z największą liczbą przodków.",
+      "possible": "Możliwi",
+      "found": "Znalezieni",
+      "repeated": "Powtórzeni",
+      "openEnds": "Otwarte końce",
+      "collapse": "Zanik przodków {{share}}: {{repeated, number}} z {{found, number}} miejsc zajmują osoby, które występują już w innym miejscu.",
+      "names": {
+        "1": "Osoba",
+        "2": "Rodzice",
+        "3": "Dziadkowie",
+        "4": "Pradziadkowie",
+        "5": "Prapradziadkowie"
+      }
+    },
+    "timeline": {
+      "title": "Oś czasu",
+      "description": "Według dekad; puste dekady zostają, aby luki były widoczne. Śluby: początek małżeństwa lub wydarzenie „ślub”.",
+      "measure": "Pokaż",
+      "chart": "Oś czasu: {{measure}} według dekad",
+      "bar": "{{decades}} – {{measure}}: {{count, number}}",
+      "without": "Bez roku:",
+      "withoutBirths_one": "{{count, number}} urodzenie",
+      "withoutBirths_few": "{{count, number}} urodzenia",
+      "withoutBirths_many": "{{count, number}} urodzeń",
+      "withoutBirths_other": "{{count, number}} urodzenia",
+      "withoutDeaths_one": "{{count, number}} zgon",
+      "withoutDeaths_few": "{{count, number}} zgony",
+      "withoutDeaths_many": "{{count, number}} zgonów",
+      "withoutDeaths_other": "{{count, number}} zgonu",
+      "measures": {
+        "births": "Urodzenia",
+        "deaths": "Zgony",
+        "weddings": "Śluby"
+      }
+    },
+    "lives": {
+      "title": "Życie na przestrzeni czasu",
+      "measure": "Wskaźnik",
+      "measures": {
+        "lifespan": "Długość życia",
+        "adultLifespan": "Długość życia od 15 lat",
+        "firstWedding": "Wiek przy pierwszym ślubie",
+        "firstChild": "Wiek przy pierwszym dziecku"
+      },
+      "hints": {
+        "lifespan": "Średni wiek w chwili śmierci, według stulecia urodzenia.",
+        "adultLifespan": "Jak długość życia, ale tylko u tych, którzy dożyli 15 lat – tak śmiertelność dzieci nie przesłania życia dorosłych.",
+        "firstWedding": "Średni wiek przy pierwszym ślubie (początek małżeństwa lub wydarzenie „ślub”).",
+        "firstChild": "Średni wiek przy narodzinach pierwszego dziecka."
+      },
+      "footnote": "W nawiasie liczba osób; średniej z mniej niż 5 osób się nie pokazuje.",
+      "century": "Urodzeni",
+      "allCenturies": "Wszystkie stulecia",
+      "genders": {
+        "male": "Mężczyźni",
+        "female": "Kobiety",
+        "all": "Wszyscy"
+      },
+      "children": {
+        "title": "Dzieci na parę",
+        "description": "Pary – partnerzy lub wspólni rodzice – według liczby wspólnych dzieci; średnio {{mean}}."
+      },
+      "ageGap": {
+        "title": "Różnica wieku partnerów",
+        "manOlderMean": "Pary mężczyzny i kobiety z obydwoma latami urodzenia; średnio mężczyzna jest starszy o {{years}} lat.",
+        "womanOlderMean": "Pary mężczyzny i kobiety z obydwoma latami urodzenia; średnio kobieta jest starsza o {{years}} lat.",
+        "manOlder": "Mężczyzna starszy",
+        "sameAge": "W tym samym wieku (±1 rok)",
+        "womanOlder": "Kobieta starsza"
+      },
+      "couples": "Pary"
+    },
+    "firstNames": {
+      "title": "Imiona",
+      "description": "Liczy się każde imię – „Johann Georg” dla Johanna i dla Georga; pisownie są łączone.",
+      "male": "Najczęstsze imiona – mężczyźni",
+      "female": "Najczęstsze imiona – kobiety",
+      "fashion": "Moda na imiona według stuleci"
+    },
+    "migration": {
+      "title": "Migracje",
+      "description": "Drogi od miejsca urodzenia przez przeprowadzki do miejsca śmierci, w kolejności czasu; miejsca ze wszystkimi danymi, które ich dotyczą.",
+      "stayedIntro": "{{share}} zmarłych z miejscem urodzenia i śmierci zmarło tam, gdzie się urodziło:",
+      "moves": "Najczęstsze drogi",
+      "places": "Miejsca",
+      "place": "Miejsce",
+      "years": "Okres",
+      "stayed_one": "{{count, number}} w miejscu urodzenia",
+      "stayed_few": "{{count, number}} w miejscu urodzenia",
+      "stayed_many": "{{count, number}} w miejscu urodzenia",
+      "stayed_other": "{{count, number}} w miejscu urodzenia",
+      "moved_one": "{{count, number}} gdzie indziej",
+      "moved_few": "{{count, number}} gdzie indziej",
+      "moved_many": "{{count, number}} gdzie indziej",
+      "moved_other": "{{count, number}} gdzie indziej",
+      "morePlaces_one": "… i {{count, number}} inne miejsce",
+      "morePlaces_few": "… i {{count, number}} inne miejsca",
+      "morePlaces_many": "… i {{count, number}} innych miejsc",
+      "morePlaces_other": "… i {{count, number}} innego miejsca"
+    },
+    "records": {
+      "title": "Rekordy",
+      "description": "Tylko osoby zmarłe. Rekord, który jest też możliwym błędem, jest oznaczony – często kryje się za nim literówka.",
+      "possibleError": "możliwy błąd",
+      "ties_one": "i {{count, number}} inna osoba",
+      "ties_few": "i {{count, number}} inne osoby",
+      "ties_many": "i {{count, number}} innych osób",
+      "ties_other": "i {{count, number}} innej osoby",
+      "kinds": {
+        "longestLife": "Najdłuższe życie",
+        "longestMarriage": "Najdłuższe małżeństwo",
+        "mostChildren": "Najwięcej dzieci",
+        "mostCommonChildren": "Najwięcej wspólnych dzieci pary",
+        "mostPartners": "Najwięcej partnerów",
+        "mostDescendants": "Najwięcej potomków",
+        "youngestMother": "Najmłodsza matka",
+        "oldestMother": "Najstarsza matka",
+        "youngestFather": "Najmłodszy ojciec",
+        "oldestFather": "Najstarszy ojciec",
+        "largestAgeGap": "Największa różnica wieku w parze"
+      }
+    },
+    "print": "Drukuj lub zapisz jako PDF",
+    "csv": {
+      "copy": "Kopiuj jako CSV",
+      "copied": "Skopiowano",
+      "failed": "Nie udało się skopiować"
+    }
+  },
+  "plausibility": {
+    "title": "Możliwe błędy",
+    "intro": "Dane dozwolone, ale rzadko prawdziwe – często literówka. Popraw je u osoby albo oznacz jako poprawne, jeśli takie są.",
+    "none": "Nie znaleziono możliwych błędów.",
+    "allChecked": "Wszystkie możliwe błędy są oznaczone jako poprawne.",
+    "showChecked": "Pokaż też oznaczone jako poprawne ({{count}})",
+    "markRight": "Jest poprawne",
+    "showAgain": "Pokaż ponownie",
+    "confirmSave": "Ta relacja wygląda na błędną:\n\n{{issues}}\n\nZapisać mimo to?",
+    "groups": {
+      "relations": "Relacje",
+      "dates": "Daty życia i wydarzenia",
+      "duplicates": "Duplikaty i cykle"
+    },
+    "roles": {
+      "MOTHER": "matka",
+      "FATHER": "ojciec",
+      "HUSBAND": "mąż",
+      "WIFE": "żona"
+    },
+    "genders": {
+      "MALE": "męska",
+      "FEMALE": "żeńska"
+    },
+    "kinship": {
+      "PARENT": "rodzic i dziecko",
+      "ANCESTOR": "przodek i potomek",
+      "SIBLING": "rodzeństwo"
+    },
+    "issues": {
+      "ROLE_GENDER": "{{a}}: wpisano jako {{role}} dla {{b}}, ale płeć to {{gender}}.",
+      "PARTNER_IS_RELATIVE": "{{a}} i {{b}} są partnerami, ale też: {{kinship}}.",
+      "TOO_MANY_PARENTS": "{{a}}: liczba rodziców {{count}}.",
+      "CHILD_BORN_BEFORE_PARENT": "{{b}}: urodzenie przed rodzicem ({{a}}).",
+      "PARENT_TOO_YOUNG": "{{a}}: wiek przy narodzinach {{b}} tylko {{age}}.",
+      "PARENT_TOO_YOUNG_inexact": "{{a}}: wiek przy narodzinach {{b}} najwyżej {{age}}.",
+      "MOTHER_TOO_OLD": "{{a}}: wiek przy narodzinach {{b}} {{age}}.",
+      "MOTHER_TOO_OLD_inexact": "{{a}}: wiek przy narodzinach {{b}} co najmniej {{age}}.",
+      "PARENT_DIED_BEFORE_BIRTH": "{{a}}: śmierć przed narodzinami {{b}}.",
+      "PARTNERSHIP_BEFORE_BIRTH": "Związek {{a}} i {{b}} zaczyna się przed narodzinami {{a}}.",
+      "PARTNERSHIP_AFTER_DEATH": "Związek {{a}} i {{b}} zaczyna się po śmierci {{a}}.",
+      "DEATH_BEFORE_BIRTH": "{{a}}: data śmierci przed datą urodzenia.",
+      "LIFESPAN_TOO_LONG": "{{a}}: długość życia {{age}}.",
+      "LIFESPAN_TOO_LONG_inexact": "{{a}}: długość życia co najmniej {{age}}.",
+      "LIVING_TOO_OLD": "{{a}}: wiek dzisiaj {{age}} – czy brakuje daty śmierci?",
+      "LIVING_TOO_OLD_inexact": "{{a}}: wiek dzisiaj co najmniej {{age}} – czy brakuje daty śmierci?",
+      "EVENT_BEFORE_BIRTH": "„{{event}}” ({{a}}) przypada przed urodzeniem.",
+      "EVENT_AFTER_DEATH": "„{{event}}” ({{a}}) przypada po śmierci.",
+      "POSSIBLE_DUPLICATE": "{{a}} i {{b}} mogą być tą samą osobą.",
+      "ANCESTOR_CYCLE": "{{names}} są swoimi własnymi przodkami."
     }
   },
   "search": {
@@ -721,14 +1118,14 @@
     },
     "limits": {
       "title": "Limity rozmiaru",
-      "hint": "Największy plik do eksportu i importu oraz do kopii zapasowej i przywracania. Są przetwarzane w pamięci, dlatego domyślne 2 GB wystarcza na większości komputerów. Zwiększaj tylko na komputerze z dużą ilością wolnej pamięci.",
+      "hint": "Opcjonalne górne limity plików eksportu i importu oraz kopii zapasowej i przywracania. Pliki są czytane i zapisywane po kawałku, dlatego domyślnie nie ma limitu – liczy się tylko wolne miejsce na dysku. Puste pole oznacza brak limitu.",
       "import": "Największy plik eksportu i importu",
       "backup": "Największy plik kopii zapasowej",
       "unit": "GB",
       "save": "Zapisz",
-      "reset": "Przywróć domyślne",
+      "reset": "Usuń limity",
       "saved": "Zapisano. Nowe limity obowiązują od razu.",
-      "memoryWarning": "Powyżej 4 GB: do eksportu, importu lub przywracania wolne musi być co najmniej dwukrotnie więcej pamięci RAM niż rozmiar pliku. Przy mniejszej ilości aplikacja może bardzo zwolnić lub przestać działać."
+      "none": "Bez limitu"
     },
     "backup": {
       "title": "Kopia zapasowa",
@@ -748,13 +1145,12 @@
       "missingMedia_few": "{{count}} plików brakowało na serwerze i nie zostały dołączone.",
       "missingMedia_many": "{{count}} plików brakowało na serwerze i nie zostały dołączone.",
       "missingMedia_other": "{{count}} pliku brakowało na serwerze i nie został dołączony.",
-      "overLimit": "Kopia zapasowa (około {{size}}) przekracza limit {{limit}}: została zapisana, ale ta aplikacja nie może jej przywrócić. Warto dodatkowo zapisać pojedyncze drzewa przez „Import/Eksport”.",
+      "overLimit": "Kopia zapasowa (około {{size}}) przekracza limit {{limit}} ustawiony w „Limity rozmiaru”: zostanie zapisana, ale da się ją przywrócić dopiero po podniesieniu lub usunięciu limitu.",
       "singleTreeHint": "Eksport lub import pojedynczego drzewa genealogicznego:",
       "restore": {
         "title": "Przywróć kopię zapasową",
         "intro": "Wybierz plik kopii zapasowej (cognatio_backup_….zip). Zostanie najpierw sprawdzony – nic jeszcze nie zostanie zmienione.",
         "file": "Plik kopii zapasowej",
-        "checking": "Sprawdzanie pliku …",
         "backupFrom": "Kopia zapasowa z dnia {{date}} (wersja {{version}})",
         "compare": "Bieżące dane i zawartość kopii zapasowej",
         "current": "Teraz",
@@ -766,13 +1162,16 @@
           "events": "Wydarzenia życiowe",
           "notes": "Notatki",
           "media": "Pliki",
-          "trash": "W koszu"
+          "trash": "W koszu",
+          "sources": "Źródła",
+          "citations": "Przypisy"
         },
         "trees": "Drzewa genealogiczne w kopii zapasowej (osoby):",
         "missingFiles_one": "{{count}} pliku brakuje w kopii zapasowej – wpis zostanie zachowany, plik nie.",
         "missingFiles_few": "{{count}} plików brakuje w kopii zapasowej – wpisy zostaną zachowane, pliki nie.",
         "missingFiles_many": "{{count}} plików brakuje w kopii zapasowej – wpisy zostaną zachowane, pliki nie.",
         "missingFiles_other": "{{count}} pliku brakuje w kopii zapasowej – wpis zostanie zachowany, plik nie.",
+        "cycleTrees": "W {{trees}} ktoś jest własnym przodkiem (cykl w relacjach rodzic–dziecko). Kopia zapasowa zostanie mimo to przywrócona bez zmian; relacje można potem poprawić.",
         "warning": "Wszystkie bieżące dane zostaną usunięte – wszystkie drzewa genealogiczne, osoby, pliki, kosz i historia importów – i zastąpione kopią zapasową.",
         "autoBackup": "Wcześniej bieżący stan jest automatycznie zapisywany w folderze kopii zapasowych na serwerze; zachowywane są trzy ostatnie takie kopie.",
         "downloadFirst": "Pobierz także bieżący stan",
@@ -780,12 +1179,12 @@
         "typeToConfirm": "Wpisz „{{word}}”, aby potwierdzić",
         "submit": "Przywróć",
         "downloading": "Pobieranie bieżącego stanu …",
-        "restoring": "Przywracanie … Nie zamykaj strony.",
         "done_one": "Kopia zapasowa została przywrócona: drzewa genealogiczne: {{trees}}, {{count}} osoba.",
         "done_few": "Kopia zapasowa została przywrócona: drzewa genealogiczne: {{trees}}, {{count}} osoby.",
         "done_many": "Kopia zapasowa została przywrócona: drzewa genealogiczne: {{trees}}, {{count}} osób.",
         "done_other": "Kopia zapasowa została przywrócona: drzewa genealogiczne: {{trees}}, {{count}} osoby.",
-        "safetyBackup": "Poprzedni stan zapisano jako {{file}} (folder {{dir}}). Za pomocą tego pliku można cofnąć przywrócenie."
+        "safetyBackup": "Poprzedni stan zapisano jako {{file}} (folder {{dir}}). Za pomocą tego pliku można cofnąć przywrócenie.",
+        "largeSafetyBackup": "Bieżące dane są duże ({{size}} plików): pełna kopia bieżącego stanu, zapisywana najpierw, potrzebuje mniej więcej tyle wolnego miejsca i chwilę potrwa."
       }
     },
     "system": {
@@ -901,7 +1300,8 @@
       "treeBehaviour": "Drzewo: zachowanie",
       "data": "Dane i kopie zapasowe",
       "expandAll": "Rozwiń wszystko",
-      "collapseAll": "Zwiń wszystko"
+      "collapseAll": "Zwiń wszystko",
+      "mcp": "Asystenci AI (MCP)"
     },
     "logs": {
       "view": "Pokaż logi",
@@ -918,7 +1318,8 @@
       "exportPartial": "Nie udało się dołączyć logu serwera; plik zawiera tylko log przeglądarki.",
       "clear": "Wyczyść logi",
       "confirmClear": "Usunąć wszystkie logi serwera i tej przeglądarki? Tej operacji nie można cofnąć.",
-      "cleared": "Logi usunięte."
+      "cleared": "Logi usunięte.",
+      "mcpOnly": "Tylko asystenci AI (MCP)"
     },
     "search": {
       "label": "Szukaj ustawień",
@@ -940,6 +1341,109 @@
       "channelBeta": "Także wersje testowe (beta)",
       "betaHint": "Wersje testowe pojawiają się przed wydaniem i mogą zawierać błędy. Cognatio zapisuje dane przed każdą aktualizacją, ale bazy danych zmienionej przez wersję testową nie można otworzyć w starszej wersji. Powrót do wydanych wersji zadziała dopiero przy następnym wydaniu.",
       "error": "Sprawdzanie aktualizacji nie powiodło się: {{message}}"
+    },
+    "mcp": {
+      "intro": "Asystenci AI, tacy jak Claude, mogą pracować z twoimi drzewami genealogicznymi przez Model Context Protocol (MCP): wyszukiwać osoby, odpowiadać na pytania i – jeśli na to pozwolisz – wprowadzać dane. Łączą się tylko z tym komputerem.",
+      "enable": "Zezwól na asystentów AI",
+      "privacy": "To, co asystent odczyta, trafia do dostawcy modelu AI, z którego korzystasz (w przypadku Claude: Anthropic).",
+      "summary": {
+        "off": "Wyłączone",
+        "nothing": "Włączone – nic nie jest dozwolone",
+        "readOnly": "Włączone – tylko odczyt",
+        "readWrite": "Włączone – odczyt i zapis",
+        "withDelete": "Włączone – także usuwanie",
+        "everything": "Włączone – wszystko dozwolone"
+      },
+      "portChanged": "Przy tym uruchomieniu aplikacja musiała użyć innego portu. Asystenci skonfigurowani wcześniej potrzebują nowego adresu poniżej.",
+      "connect": "Połącz asystenta",
+      "address": "Adres",
+      "token": "Token",
+      "tokenOnce": "Token jest wyświetlany tylko teraz. Skopiuj go do swojego asystenta; Cognatio przechowuje tylko jego odcisk.",
+      "tokenHidden": "Token został wyświetlony przy tworzeniu i nie jest zapisany. Jeśli go już nie masz, utwórz nowy – stary przestanie wtedy działać.",
+      "renew": "Nowy token",
+      "claudeCode": "Polecenie dla Claude Code",
+      "json": "Plik konfiguracyjny innych programów (mcpServers)",
+      "copy": "Kopiuj: {{what}}",
+      "copyShort": "Kopiuj",
+      "copied": "Skopiowano",
+      "copyFailed": "Kopiowanie nie jest tu możliwe. Tekst jest zaznaczony – skopiuj go klawiszami Ctrl+C.",
+      "permissions": "Co mogą robić asystenci",
+      "permissionsHint": "Ustawiane dla każdego obszaru; zmiana obowiązuje od razu. Asystent nigdy nie może zmienić ustawień asystentów AI.",
+      "noAccess": "Brak dostępu.",
+      "areas": {
+        "persons": {
+          "name": "Osoby, wydarzenia z życia, notatki, relacje",
+          "read": "Wyszukiwanie osób, rodzin, przodków i potomków.",
+          "write": "Także tworzenie i zmiana; przenoszenie osób i relacji do kosza.",
+          "delete": "Także trwałe usuwanie wydarzeń z życia i notatek."
+        },
+        "sources": {
+          "name": "Źródła i przypisy",
+          "read": "Wyszukiwanie źródeł, archiwów i przypisów.",
+          "write": "Także tworzenie, zmiana, dodawanie przypisów i przenoszenie do kosza.",
+          "delete": "Także trwałe usuwanie przypisów."
+        },
+        "media": {
+          "name": "Multimedia",
+          "read": "Nazwy i dane plików.",
+          "write": "Także dodawanie plików z tego komputera i ustawianie zdjęć profilowych.",
+          "delete": "Także trwałe usuwanie plików."
+        },
+        "familyTrees": {
+          "name": "Drzewa genealogiczne",
+          "read": "Lista drzew genealogicznych.",
+          "write": "Także tworzenie, zmiana nazwy i przenoszenie do kosza.",
+          "delete": "Także trwale usuwać drzewa z kosza (razem z „Kosz: Usuwanie”)."
+        },
+        "recycleBin": {
+          "name": "Kosz",
+          "read": "Podgląd zawartości kosza.",
+          "write": "Także przywracanie.",
+          "delete": "Także trwałe usuwanie."
+        },
+        "transfer": {
+          "name": "Import i eksport",
+          "read": "Historia importów; eksport do folderu na tym komputerze.",
+          "write": "Także import pliku jako nowego drzewa lub z połączeniem.",
+          "delete": "Także import z opcją „nadpisz”, która zastępuje osoby drzewa."
+        },
+        "backup": {
+          "name": "Kopia zapasowa",
+          "read": "Lista kopii zapasowych.",
+          "write": "Także tworzyć kopię zapasową.",
+          "delete": "Także przywracanie kopii zapasowej – zastępuje wszystkie dane."
+        },
+        "settings": {
+          "name": "Ustawienia",
+          "read": "Odczyt limitów rozmiaru, poziomu logów i stanu aplikacji.",
+          "write": "Także zmiana limitów rozmiaru i poziomu logów."
+        },
+        "statistics": {
+          "name": "Statystyki i logi",
+          "read": "Liczby drzewa genealogicznego i logi aplikacji."
+        }
+      },
+      "trees": "Drzewa genealogiczne dla asystentów",
+      "treesHint": "Asystenci widzą tylko zaznaczone drzewa. Nowe drzewa są widoczne.",
+      "allTrees": "Wszystkie drzewa genealogiczne",
+      "warning": {
+        "write": {
+          "title": "Zezwolić na zmiany w obszarze „{{area}}”?",
+          "text": "Asystent będzie mógł wtedy sam zmieniać twoje dane, bez wcześniejszego pytania. Zmiany można cofnąć w aplikacji; to, co usunie, trafia do kosza."
+        },
+        "delete": {
+          "title": "Zezwolić na usuwanie w obszarze „{{area}}”?",
+          "text": "Asystent będzie mógł wtedy trwale usuwać dane lub zastąpić wszystkie dane. Tego nie można cofnąć. Zezwól tylko wtedy, gdy ufasz asystentowi i masz aktualną kopię zapasową."
+        },
+        "confirm": "Zezwól"
+      },
+      "area": "Obszar",
+      "allAreas": "Wszystkie obszary",
+      "columns": {
+        "read": "Odczyt",
+        "write": "Zapis",
+        "delete": "Usuwanie"
+      }
     }
   },
   "familyTrees": {
@@ -1013,5 +1517,366 @@
     "title": "Coś poszło nie tak",
     "text": "Nie udało się wyświetlić tej strony. Zwykle pomaga ponowne załadowanie; zapisane dane nie są naruszone. Szczegóły są w dzienniku (Ustawienia → System).",
     "reload": "Załaduj ponownie"
+  },
+  "transferProgress": {
+    "phases": {
+      "upload": "Przesyłanie pliku",
+      "waiting": "Oczekiwanie na zakończenie trwającej operacji (np. pobierania)",
+      "check": "Sprawdzanie pliku",
+      "safetyBackup": "Zapisywanie bieżącego stanu",
+      "media": "Kopiowanie plików",
+      "database": "Zapisywanie danych – nie zamykaj aplikacji",
+      "download": "Pobieranie"
+    },
+    "bytes": "{{done}} z {{total}}",
+    "cancel": "Przerwij",
+    "cancelling": "Przerywanie…"
+  },
+  "activity": {
+    "subtitle": "Dłuższe operacje tej sesji: przesyłanie, sprawdzanie, import, przywracanie, eksport i kopia zapasowa. Trwają dalej, gdy otworzysz inną stronę. Zakończone pozostają na liście, dopóki ich nie usuniesz lub nie zamkniesz aplikacji.",
+    "empty": "W tej sesji nie było jeszcze operacji.",
+    "running": "W toku",
+    "finished": "Zakończone",
+    "clearFinished": "Usuń zakończone",
+    "open": "Przejdź do strony",
+    "show": "Pokaż",
+    "remove": "Usuń {{title}}",
+    "cancelled": "Przerwano, żadne dane nie zostały zmienione.",
+    "title": "{{kind}}: {{label}}",
+    "kinds": {
+      "importCheck": "Sprawdzanie pliku importu",
+      "import": "Import",
+      "restoreCheck": "Sprawdzanie kopii zapasowej",
+      "restore": "Przywracanie",
+      "export": "Eksport",
+      "backup": "Kopia zapasowa",
+      "media": "Przesyłanie pliku",
+      "mcp": "Asystent AI"
+    },
+    "results": {
+      "importCheck": "Osoby w pliku: {{persons}} – podgląd jest na stronie importu.",
+      "import": "Nowe: {{created}}, zaktualizowane: {{updated}}, usunięte: {{removed}}.",
+      "restoreCheck": "Osoby w kopii zapasowej: {{persons}} – porównanie jest w oknie dialogowym.",
+      "restore": "Przywrócono – drzewa: {{trees}}, osoby: {{persons}}.",
+      "export": "Zapisano jako {{file}} ({{size}}).",
+      "backup": "Zapisano jako {{file}} ({{size}}).",
+      "media": "Przesłano ({{size}}).",
+      "mcp": "{{client}}: {{action}}.",
+      "mcpFailed": "{{client}}: {{action}} – odrzucono ({{reason}})."
+    },
+    "states": {
+      "done": "Zakończono",
+      "failed": "Niepowodzenie",
+      "cancelled": "Przerwano"
+    },
+    "notice": {
+      "done": "{{title}} – zakończono.",
+      "failed": "{{title}} – niepowodzenie.",
+      "cancelled": "{{title}} – przerwano."
+    },
+    "missingMedia_one": "Brakowało {{count}} pliku.",
+    "missingMedia_few": "Brakowało {{count}} plików.",
+    "missingMedia_many": "Brakowało {{count}} plików.",
+    "missingMedia_other": "Brakowało {{count}} pliku.",
+    "mcpClient": "Asystent AI",
+    "mcpTools": {
+      "create_person": "utworzono osobę",
+      "update_person": "zmieniono osobę",
+      "add_event": "dodano wydarzenie z życia",
+      "update_event": "zmieniono wydarzenie z życia",
+      "delete_event": "usunięto wydarzenie z życia",
+      "add_note": "dodano notatkę",
+      "update_note": "zmieniono notatkę",
+      "delete_note": "usunięto notatkę",
+      "create_relation": "utworzono relację",
+      "update_relation": "zmieniono relację",
+      "move_to_recycle_bin": "przeniesiono do kosza",
+      "create_repository": "utworzono archiwum",
+      "update_repository": "zmieniono archiwum",
+      "create_source": "utworzono źródło",
+      "update_source": "zmieniono źródło",
+      "add_citation": "dodano przypis",
+      "update_citation": "zmieniono przypis",
+      "link_citation": "powiązano przypis",
+      "unlink_citation": "usunięto powiązanie przypisu",
+      "delete_citation": "usunięto przypis",
+      "move_source_to_recycle_bin": "przeniesiono źródło do kosza",
+      "add_media": "dodano plik",
+      "set_profile_picture": "ustawiono zdjęcie profilowe",
+      "remove_media": "usunięto plik",
+      "create_family_tree": "utworzono drzewo genealogiczne",
+      "rename_family_tree": "zmieniono nazwę drzewa genealogicznego",
+      "delete_family_tree": "przeniesiono drzewo genealogiczne do kosza",
+      "restore_from_recycle_bin": "przywrócono z kosza",
+      "delete_for_good": "usunięto trwale",
+      "import_file": "rozpoczęto import",
+      "restore_backup": "rozpoczęto przywracanie",
+      "set_settings": "zmieniono ustawienia"
+    },
+    "mcpReasons": {
+      "NOT_ALLOWED": "niedozwolone",
+      "BAD_INPUT": "nieprawidłowe dane",
+      "INTERNAL_ERROR": "błąd w aplikacji",
+      "PERSON_NOT_FOUND": "nie znaleziono osoby",
+      "TREE_NOT_FOUND": "nie znaleziono drzewa genealogicznego",
+      "PATH_NOT_ALLOWED": "niedozwolony folder",
+      "FILE_NOT_FOUND": "nie znaleziono pliku"
+    }
+  },
+  "sources": {
+    "title": "Źródła",
+    "subtitle": "Skąd pochodzą dane: księgi metrykalne, akta stanu cywilnego, listy, strony internetowe… Jeden zbiór dla wszystkich drzew; przypis wskazuje stronę lub wpis i poświadcza dowolnie wiele faktów.",
+    "areas": "Działy źródeł",
+    "area": {
+      "sources": "Źródła",
+      "repositories": "Archiwa"
+    },
+    "types": {
+      "CHURCH_BOOK": "Księga metrykalna",
+      "CIVIL_REGISTER": "Akta stanu cywilnego",
+      "CENSUS": "Spis ludności",
+      "NEWSPAPER": "Gazeta",
+      "BOOK": "Książka",
+      "LETTER": "List",
+      "GRAVESTONE": "Nagrobek",
+      "WEBSITE": "Strona internetowa",
+      "INTERVIEW": "Wywiad",
+      "DOCUMENT": "Dokument",
+      "OTHER": "Inne"
+    },
+    "facts": {
+      "GENERAL": "Osoba ogólnie",
+      "NAME": "Imię i nazwisko",
+      "BIRTH": "Narodziny",
+      "DEATH": "Śmierć"
+    },
+    "quality": {
+      "none": "Bez oceny",
+      "3": "Źródło pierwotne – oryginalny wpis",
+      "2": "Źródło wtórne – spisane później",
+      "1": "Wątpliwe – np. przekaz ustny",
+      "0": "Niewiarygodne lub szacunkowe",
+      "hint": "Jak wiarygodny jest wpis dla danego faktu (poziomy GEDCOM).",
+      "short": {
+        "3": "pierwotne",
+        "2": "wtórne",
+        "1": "wątpliwe",
+        "0": "niewiarygodne"
+      }
+    },
+    "fields": {
+      "type": "Rodzaj",
+      "title": "Tytuł",
+      "titlePlaceholder": "np. Księga chrztów parafii św. Marcina 1820–1850",
+      "titleRequired": "Wpisz tytuł.",
+      "author": "Autor lub twórca",
+      "abbreviation": "Krótki tytuł",
+      "publication": "Publikacja",
+      "publicationPlaceholder": "Wydawca, miejsce, rok – albo adres strony",
+      "repository": "Archiwum",
+      "noRepository": "Bez archiwum",
+      "newRepository": "Nowe archiwum…",
+      "newRepositoryName": "Nazwa nowego archiwum",
+      "newRepositoryPlaceholder": "np. Urząd Stanu Cywilnego w Nowogrodzie",
+      "newRepositoryRequired": "Wpisz nazwę nowego archiwum.",
+      "repositoryInTrash": "(archiwum w koszu)",
+      "callNumber": "Sygnatura",
+      "text": "Transkrypcja",
+      "note": "Notatka"
+    },
+    "form": {
+      "createTitle": "Nowe źródło",
+      "editTitle": "Edytuj źródło"
+    },
+    "list": {
+      "filter": "Filtruj źródła…",
+      "allTypes": "Wszystkie rodzaje",
+      "scope": "Które źródła",
+      "thisTree": "To drzewo",
+      "allTrees": "Wszystkie drzewa",
+      "new": "Nowe źródło",
+      "empty": "To drzewo nie ma jeszcze źródeł. Utwórz je tutaj albo zacytuj źródło na stronie osoby (karta „Źródła”).",
+      "emptyAll": "Zbiór nie ma jeszcze źródeł.",
+      "noMatches": "Żadne źródło nie pasuje do filtra.",
+      "citations": "Przypisy: {{count}}",
+      "unused": "nieużywane",
+      "otherTrees": "także inne drzewa"
+    },
+    "detail": {
+      "notFound": "Źródło nie istnieje (już).",
+      "edit": "Edytuj",
+      "deleteConfirm": "Przenieść źródło „{{title}}” do kosza? Jego przypisy (przypisy: {{citations}}) znikną ze wszystkich faktów, które poświadczają (fakty: {{links}}), także w innych drzewach, aż do przywrócenia.",
+      "citations": "Przypisy",
+      "newCitation": "Nowy przypis",
+      "noCitations": "Brak przypisów. Przypis wskazuje stronę lub wpis oraz fakty, które poświadcza.",
+      "supports": "Poświadcza",
+      "unused": "Jeszcze niepowiązany z żadnym faktem.",
+      "inTrash": "w koszu",
+      "supportsCount": "Fakty: {{facts}} · Osoby: {{persons}}",
+      "otherTree": "Należy do drzewa „{{name}}”",
+      "factsOf": "Poświadczone fakty: {{name}}",
+      "unlink": "Odłącz „{{fact}}” ({{name}})",
+      "unlinkConfirm": "Nie łączyć już „{{fact}}” ({{name}}) z tym przypisem?",
+      "showMore": "Pokaż więcej osób ({{count}})",
+      "showLess": "Pokaż mniej",
+      "linkFacts": "Powiąż fakty z: {{entry}}",
+      "editCitation": "Edytuj: {{entry}}",
+      "deleteCitation": "Usuń: {{entry}}",
+      "deleteCitationConfirm": "Trwale usunąć ten przypis? Zniknie ze wszystkich faktów, które poświadcza (fakty: {{count}}), także w innych drzewach."
+    },
+    "citation": {
+      "page": "Strona lub wpis",
+      "pagePlaceholder": "np. s. 12, nr 117, k. 3r",
+      "date": "Data wpisu",
+      "quality": "Wiarygodność",
+      "text": "Transkrypcja",
+      "textPlaceholder": "Wpis słowo w słowo",
+      "note": "Notatka",
+      "createTitle": "Nowy przypis",
+      "editTitle": "Edytuj przypis",
+      "withoutPage": "Przypis bez strony",
+      "supports": "Poświadczone fakty: {{count}}"
+    },
+    "cite": {
+      "title": "Zacytuj źródło",
+      "fact": "Fakt",
+      "source": "Źródło",
+      "searchSource": "Szukaj w źródłach…",
+      "newSource": "Nowe źródło…",
+      "more": "Kolejne wyniki: {{count}} – zawęź wyszukiwanie.",
+      "entry": "Przypis",
+      "newEntry": "Nowy przypis",
+      "chooseSource": "Wybierz źródło albo utwórz nowe.",
+      "save": "Zacytuj"
+    },
+    "linkFacts": {
+      "title": "Powiąż fakty",
+      "intro": "Wybierz osobę z otwartego drzewa i zaznacz fakty poświadczone przez przypis – jedną osobę po drugiej, np. pana młodego, pannę młodą, rodziców i świadków z aktu małżeństwa.",
+      "choosePerson": "Osoba",
+      "factsOf": "Fakty: {{name}}",
+      "already": "już powiązane",
+      "link": "Powiąż ({{count}})",
+      "linked": "Powiązano: {{names}}",
+      "otherPerson": "Wybierz inną osobę"
+    },
+    "person": {
+      "title": "Źródła",
+      "cite": "Zacytuj źródło",
+      "citeFor": "Zacytuj źródło dla: {{fact}}",
+      "intro": "Przypisy osoby, jej wydarzeń i relacji. Książka obok faktu pokazuje, ile ma przypisów.",
+      "empty": "Brak przypisów. „Zacytuj źródło” wiąże źródło z faktem dotyczącym osoby.",
+      "unlink": "Usuń przypis ze źródła {{source}}",
+      "unlinkConfirm": "Usunąć przypis ze źródła „{{source}}” z faktu: {{fact}}? Przypis pozostanie w źródle."
+    },
+    "mark": {
+      "label": "{{fact}} – przypisy: {{count}}"
+    },
+    "repositories": {
+      "new": "Nowe archiwum",
+      "empty": "Brak archiwów. Archiwum (urząd stanu cywilnego, archiwum parafialne, biblioteka, strona internetowa) przechowuje źródła; tworzy się je raz i wybiera przy każdym źródle.",
+      "createTitle": "Nowe archiwum",
+      "editTitle": "Edytuj archiwum",
+      "nameRequired": "Wpisz nazwę.",
+      "fields": {
+        "name": "Nazwa",
+        "address": "Adres",
+        "url": "Adres strony",
+        "email": "E-mail",
+        "phone": "Telefon",
+        "note": "Notatka"
+      },
+      "sources": "Źródła: {{count}}",
+      "edit": "Edytuj: {{name}}",
+      "delete": "Usuń: {{name}}",
+      "deleteConfirm": "Przenieść archiwum „{{name}}” do kosza? Jego źródła pozostaną (źródła: {{count}}) i do czasu przywrócenia nie pokażą archiwum."
+    },
+    "scans": {
+      "title": "Skany",
+      "ofSource": "Skany źródła",
+      "ofCitation": "Skany: {{entry}}",
+      "add": "Dodaj skan",
+      "remove": "Usuń: {{name}}",
+      "removeConfirm": "Usunąć tutaj „{{name}}”? Plik zostanie usunięty, gdy nic innego już z niego nie korzysta."
+    },
+    "search": {
+      "title": "Znaleziono w źródłach: {{count}}"
+    }
+  },
+  "reports": {
+    "title": "Raporty",
+    "intro": "Wydrukuj dane drzewa genealogicznego lub zapisz je jako PDF – karta osoby lub rodziny, wykaz przodków i potomków.",
+    "report": "Raport",
+    "start": "Osoba początkowa",
+    "choosePerson": "Wybierz osobę…",
+    "choosePersonHint": "Wybierz osobę początkową raportu.",
+    "allPersons": "Wszystkie osoby",
+    "generations": "Pokolenia",
+    "allGenerations": "Wszystkie ({{max}})",
+    "contents": "Zawartość",
+    "options": {
+      "photos": "Zdjęcia",
+      "notes": "Notatki",
+      "sources": "Źródła",
+      "contact": "Dane kontaktowe",
+      "hideLiving": "Osoby żyjące tylko z imieniem i rokiem urodzenia"
+    },
+    "paper": "Papier",
+    "papers": {
+      "AUTO": "Automatycznie",
+      "A4": "A4",
+      "LETTER": "Letter"
+    },
+    "print": "Drukuj",
+    "savePdf": "Zapisz jako PDF",
+    "pdfHint": "W oknie drukowania wybierz „Zapisz jako PDF” jako drukarkę.",
+    "printFailed": "Nie udało się wydrukować raportu.",
+    "empty": "Drzewo genealogiczne nie ma jeszcze osób.",
+    "types": {
+      "person": "Karta osoby",
+      "family": "Karta rodziny",
+      "ancestors": "Wykaz przodków",
+      "descendants": "Wykaz potomków",
+      "statistics": "Statystyki"
+    },
+    "born": "Urodzenie",
+    "died": "Śmierć",
+    "age": "Wiek",
+    "ageAtDeath": "Wiek w chwili śmierci",
+    "years_one": "{{count}} rok",
+    "years_few": "{{count}} lata",
+    "years_many": "{{count}} lat",
+    "years_other": "{{count}} roku",
+    "bornIn": "Urodzony/a w {{year}}",
+    "livingHidden": "Dane osób żyjących nie są pokazywane.",
+    "nameAndPerson": "Źródła do imienia i osoby",
+    "family": "Rodzina",
+    "father": "Ojciec",
+    "mother": "Matka",
+    "partner": "Partner",
+    "children": "Dzieci",
+    "siblings": "Rodzeństwo",
+    "marriedOn": "ślub {{date}}",
+    "events": "Wydarzenia",
+    "notes": "Notatki",
+    "photos": "Zdjęcia",
+    "sources": "Źródła",
+    "citationPage": "s. {{page}}",
+    "wedding": "Ślub",
+    "unknown": "nieznany",
+    "until": "do {{date}}",
+    "noChildren": "Brak zapisanych dzieci.",
+    "name": "Imię i nazwisko",
+    "generationNames": {
+      "1": "Osoba początkowa",
+      "2": "Rodzice",
+      "3": "Dziadkowie",
+      "4": "Pradziadkowie",
+      "5": "Prapradziadkowie"
+    },
+    "generation": "Pokolenie {{number}}",
+    "see": "zob. {{number}}",
+    "noAncestors": "Brak zapisanych rodziców.",
+    "noDescendants": "Brak zapisanych dzieci.",
+    "footer": "Utworzono w Cognatio {{date}}"
   }
 }

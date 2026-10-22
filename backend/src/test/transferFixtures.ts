@@ -16,14 +16,15 @@ export function person(id: string, overrides: Partial<TransferPerson> = {}): Tra
     events: [],
     notes: [],
     media: [],
+    citations: [],
     ...overrides,
   };
 }
 
 export function relation(id: string, personAId: string, personBId: string, type: string, overrides: Partial<TransferRelation> = {}): TransferRelation {
-  return { id, personAId, personBId, type, active: true, createdAt: T1, updatedAt: T1, ...overrides };
+  return { id, personAId, personBId, type, active: true, citationIds: [], createdAt: T1, updatedAt: T1, ...overrides };
 }
 
 export function transfer(persons: TransferPerson[], relations: TransferRelation[] = []): TransferData {
-  return { format: FORMAT_NAME, version: FORMAT_VERSION, exportedAt: T2, persons, relations };
+  return { format: FORMAT_NAME, version: FORMAT_VERSION, exportedAt: T2, persons, relations, repositories: [], sources: [], citations: [], libraryMedia: [] };
 }

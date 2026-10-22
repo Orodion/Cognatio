@@ -61,8 +61,36 @@ describe('reconcileGedcom', () => {
     expect(data.persons.map((p) => p.id)).toEqual(['a', 'x']);
   });
 
+  it('recognises events and dates the import wrote in another language', () => {
+    const event = (id: string, title: string, date: string) => ({
+      id,
+      title,
+      category: 'OTHER',
+      date,
+      mediaIds: [],
+      citationIds: [],
+      createdAt: T1,
+      updatedAt: T1,
+    });
+    const existing = transfer([person('p', { firstName: 'Anna', birthDate: 'um 1850', events: [event('e-old', 'Beerdigung', 'vor 1920')] })]);
+    const imported = transfer([
+      person('neu', { firstName: 'Anna', birthDate: 'about 1850', events: [event('e-neu', 'Burial', 'before 1920')], updatedAt: T2 }),
+    ]);
+
+    const { data } = reconcileGedcom(imported, existing);
+    expect(data.persons[0]).toMatchObject({ id: 'p', birthDate: 'um 1850' });
+    expect(data.persons[0].events).toEqual([expect.objectContaining({ id: 'e-old', title: 'Beerdigung', date: 'vor 1920' })]);
+  });
+
+  it('compares dates in the words of every language of the interface', () => {
+    const existing = transfer([person('p', { firstName: 'Anna', birthDate: 'vers 1850', deathDate: 'przed 1920' })]);
+    const imported = transfer([person('neu', { firstName: 'Anna', birthDate: 'about 1850', deathDate: 'before 1920', updatedAt: T2 })]);
+
+    expect(reconcileGedcom(imported, existing).data.persons[0]).toMatchObject({ id: 'p', birthDate: 'vers 1850', deathDate: 'przed 1920' });
+  });
+
   it('reuses events, notes and media with the same content so a re-import adds nothing twice', () => {
-    const event = { id: 'e-old', title: 'Taufe', category: 'BAPTISM', mediaIds: ['m-old'], date: '1950', createdAt: T1, updatedAt: T1 };
+    const event = { id: 'e-old', title: 'Taufe', category: 'BAPTISM', mediaIds: ['m-old'], citationIds: [], date: '1950', createdAt: T1, updatedAt: T1 };
     const existing = transfer([
       person('p', {
         firstName: 'Anna',
@@ -89,8 +117,8 @@ describe('reconcileGedcom', () => {
         birthDate: '1950',
         profilePictureId: 'm-neu',
         events: [
-          { ...event, id: 'e-neu', mediaIds: ['m-neu'], createdAt: T2, updatedAt: T2 },
-          { id: 'e-extra', title: 'Umzug', category: 'MOVE', mediaIds: [], createdAt: T2, updatedAt: T2 },
+          { ...event, id: 'e-neu', mediaIds: ['m-neu'], citationIds: [], createdAt: T2, updatedAt: T2 },
+          { id: 'e-extra', title: 'Umzug', category: 'MOVE', mediaIds: [], citationIds: [], createdAt: T2, updatedAt: T2 },
         ],
         notes: [{ id: 'n-neu', text: ' Notiz ', createdAt: T2, updatedAt: T2 }],
         media: [
@@ -109,7 +137,7 @@ describe('reconcileGedcom', () => {
       // Group photo of Anna at another person's event
       person('gast', {
         firstName: 'Gast',
-        events: [{ id: 'e-gast', title: 'Hochzeit', category: 'WEDDING', mediaIds: ['m-neu'], createdAt: T2, updatedAt: T2 }],
+        events: [{ id: 'e-gast', title: 'Hochzeit', category: 'WEDDING', mediaIds: ['m-neu'], citationIds: [], createdAt: T2, updatedAt: T2 }],
       }),
     ]);
 

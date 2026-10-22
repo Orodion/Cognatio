@@ -23,6 +23,7 @@ import {
   type TreeView,
 } from '@/features/tree/lib/treeUtils';
 import { focusIdOf, useSettingsStore } from '@/stores/settingsStore';
+import { useHomePerson } from '@/features/family-trees/lib/useFamilyTrees';
 import { useAppearanceStore } from '@/stores/appearanceStore';
 import { genderColor } from '@/lib/appearance';
 import { useActiveTreeStore } from '@/stores/activeTreeStore';
@@ -66,8 +67,10 @@ export function TreePage() {
 
   const persons = useMemo(() => [...(data?.getPersons ?? [])].sort(comparePersonNames), [data]);
   const relations = useMemo(() => data?.getRelations ?? [], [data]);
-  // Focus person from the address, otherwise the one last chosen in this family tree (stored so it does not have to be set every time)
-  const requestedFocus = searchParams.get('person') ?? focusIdOf(defaults.treeFocusIds, activeTreeId);
+  // The person of the address, else the focus person chosen last in this family tree (also "none"), else the home person
+  const { homePerson } = useHomePerson();
+  const storedFocus = activeTreeId in defaults.treeFocusIds ? focusIdOf(defaults.treeFocusIds, activeTreeId) : (homePerson?.id ?? null);
+  const requestedFocus = searchParams.get('person') ?? storedFocus;
   const focusPerson = persons.find((p) => p.id === requestedFocus) ?? null;
   const focusId = focusPerson?.id ?? null;
 

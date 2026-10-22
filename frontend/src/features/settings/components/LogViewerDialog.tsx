@@ -103,6 +103,7 @@ export function LogViewerDialog({ open, onClose }: LogViewerDialogProps) {
               <option value="all">{t('settings.logs.allLevels')}</option>
               <option value="warn">{t('settings.logs.warnUp')}</option>
               <option value="error">{t('settings.logs.errorsOnly')}</option>
+              <option value="mcp">{t('settings.logs.mcpOnly')}</option>
             </Select>
           </div>
           <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>

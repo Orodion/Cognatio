@@ -1,8 +1,20 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
 import type { PrismaClient } from '../../generated/prisma/client.js';
-import { ensureUploadDir, removeUploadedFile, uploadDir, writeUploadedFile } from '../files/uploads.js';
-import type { TransferEvent, TransferMedia, TransferNote, TransferPerson, TransferRelation } from './format.js';
+import { ensureUploadDir, removeUploadedFile, uploadDir } from '../files/uploads.js';
+import type { ArchiveFiles } from '../files/archive.js';
+import { assertFreeSpace } from '../files/freeSpace.js';
+import type {
+  TransferCitation,
+  TransferEvent,
+  TransferMedia,
+  TransferNote,
+  TransferPerson,
+  TransferRelation,
+  TransferRepository,
+  TransferSource,
+} from './format.js';
+import type { JobControl } from './jobs.js';
 import type { ImportPlan } from './plan.js';
 import { personPhonetics } from '../search/phonetics.js';
 
@@ -60,8 +72,8 @@ const noteData = (personId: string, n: TransferNote) => ({
   updatedAt: new Date(n.updatedAt),
 });
 
-// The size is that of the stored file, not what the import file claims
-const mediaData = (familyTreeId: string, personId: string, m: TransferMedia, file: { name: string; size: number }) => ({
+// The size is that of the stored file, not what the import file claims; scans of the library have no family tree
+const mediaData = (familyTreeId: string | null, personId: string | null, m: TransferMedia, file: { name: string; size: number }) => ({
   familyTreeId,
   personId,
   fileName: file.name,
@@ -86,6 +98,128 @@ const relationData = (r: TransferRelation) => ({
   updatedAt: new Date(r.updatedAt),
 });
 
+const repositoryData = (r: TransferRepository) => ({
+  name: r.name,
+  address: r.address ?? null,
+  url: r.url ?? null,
+  email: r.email ?? null,
+  phone: r.phone ?? null,
+  note: r.note ?? null,
+  isDeleted: r.isDeleted,
+  deletedAt: date(r.deletedAt),
+  createdAt: new Date(r.createdAt),
+  updatedAt: new Date(r.updatedAt),
+});
+
+const sourceData = (s: TransferSource) => ({
+  type: s.type,
+  title: s.title,
+  author: s.author ?? null,
+  publication: s.publication ?? null,
+  abbreviation: s.abbreviation ?? null,
+  text: s.text ?? null,
+  repositoryId: s.repositoryId ?? null,
+  callNumber: s.callNumber ?? null,
+  note: s.note ?? null,
+  isDeleted: s.isDeleted,
+  deletedAt: date(s.deletedAt),
+  createdAt: new Date(s.createdAt),
+  updatedAt: new Date(s.updatedAt),
+});
+
+const citationData = (c: TransferCitation) => ({
+  sourceId: c.sourceId,
+  page: c.page ?? null,
+  date: c.date ?? null,
+  datePrecision: c.datePrecision ?? null,
+  text: c.text ?? null,
+  quality: c.quality ?? null,
+  note: c.note ?? null,
+  createdAt: new Date(c.createdAt),
+  updatedAt: new Date(c.updatedAt),
+});
+
+type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+
+/**
+ * Archives, sources, citations and their scans: added to the library or updated, never deleted (other family trees may
+ * use them). Their links to scans follow the file; scans whose file is missing are not linked.
+ */
+async function applyLibrary(
+  tx: Tx,
+  plan: ImportPlan,
+  media: { create: Array<{ record: TransferMedia }>; update: Array<{ record: TransferMedia }> },
+  fileFor: Map<string, { name: string; size: number }>,
+  obsoleteFiles: string[],
+) {
+  await tx.repository.createMany({ data: plan.createRepositories.map((r) => ({ id: r.id, ...repositoryData(r) })) });
+  for (const r of plan.updateRepositories) {
+    await tx.repository.update({ where: { id: r.id }, data: repositoryData(r) });
+  }
+  await tx.source.createMany({ data: plan.createSources.map((s) => ({ id: s.id, ...sourceData(s) })) });
+  for (const s of plan.updateSources) {
+    await tx.source.update({ where: { id: s.id }, data: sourceData(s) });
+  }
+  await tx.media.createMany({ data: media.create.map((c) => ({ id: c.record.id, ...mediaData(null, null, c.record, fileFor.get(c.record.id)!) })) });
+  for (const c of media.update) {
+    const old = await tx.media.findUnique({ where: { id: c.record.id }, select: { fileName: true } });
+    if (old) {
+      obsoleteFiles.push(old.fileName);
+    }
+    await tx.media.update({ where: { id: c.record.id }, data: mediaData(null, null, c.record, fileFor.get(c.record.id)!) });
+  }
+  await tx.citation.createMany({ data: plan.createCitations.map((c) => ({ id: c.id, ...citationData(c) })) });
+  for (const c of plan.updateCitations) {
+    await tx.citation.update({ where: { id: c.id }, data: citationData(c) });
+  }
+
+  const sources = [...plan.createSources, ...plan.updateSources];
+  const citations = [...plan.createCitations, ...plan.updateCitations];
+  const linkedIds = [...new Set([...sources, ...citations].flatMap((r) => r.mediaIds))];
+  const existingMedia = new Set((await tx.media.findMany({ where: { id: { in: linkedIds } }, select: { id: true } })).map((m) => m.id));
+  for (const s of plan.updateSources) {
+    await tx.sourceMedia.deleteMany({ where: { sourceId: s.id, mediaId: { notIn: s.mediaIds } } });
+  }
+  await tx.sourceMedia.createMany({
+    data: sources.flatMap((s) => s.mediaIds.filter((id) => existingMedia.has(id)).map((mediaId) => ({ sourceId: s.id, mediaId }))),
+    skipDuplicates: true,
+  });
+  for (const c of plan.updateCitations) {
+    await tx.citationMedia.deleteMany({ where: { citationId: c.id, mediaId: { notIn: c.mediaIds } } });
+  }
+  await tx.citationMedia.createMany({
+    data: citations.flatMap((c) => c.mediaIds.filter((id) => existingMedia.has(id)).map((mediaId) => ({ citationId: c.id, mediaId }))),
+    skipDuplicates: true,
+  });
+}
+
+/** Links of persons, events and relations to citations as in the file (created and updated records) */
+async function applyCitationLinks(tx: Tx, plan: ImportPlan) {
+  for (const p of plan.updatePersons) {
+    await tx.personCitation.deleteMany({
+      where: { personId: p.id, NOT: p.citations.length ? p.citations.map((c) => ({ citationId: c.citationId, fact: c.fact })) : undefined },
+    });
+  }
+  await tx.personCitation.createMany({
+    data: [...plan.createPersons, ...plan.updatePersons].flatMap((p) => p.citations.map((c) => ({ personId: p.id, citationId: c.citationId, fact: c.fact }))),
+    skipDuplicates: true,
+  });
+  for (const c of plan.updateEvents) {
+    await tx.eventCitation.deleteMany({ where: { eventId: c.record.id, citationId: { notIn: c.record.citationIds } } });
+  }
+  await tx.eventCitation.createMany({
+    data: [...plan.createEvents, ...plan.updateEvents].flatMap((c) => c.record.citationIds.map((citationId) => ({ eventId: c.record.id, citationId }))),
+    skipDuplicates: true,
+  });
+  for (const r of plan.updateRelations) {
+    await tx.relationCitation.deleteMany({ where: { relationId: r.id, citationId: { notIn: r.citationIds } } });
+  }
+  await tx.relationCitation.createMany({
+    data: [...plan.createRelations, ...plan.updateRelations].flatMap((r) => r.citationIds.map((citationId) => ({ relationId: r.id, citationId }))),
+    skipDuplicates: true,
+  });
+}
+
 /** Target of the import: an existing family tree or a new one created in the same transaction */
 export type ImportTarget = { treeId: string } | { newTreeName: string };
 
@@ -99,38 +233,61 @@ export interface ApplyResult {
   createdEvents: number;
   createdNotes: number;
   createdMedia: number;
+  createdSources: number;
+  createdCitations: number;
   /** Media whose file was missing in the ZIP file and which were therefore skipped */
   missingFiles: string[];
 }
 
-/**
- * Executes the plan completely or not at all: media files are stored beforehand,
- * the database changes run in one transaction. On an error the new files are removed,
- * after success the old files that are no longer needed.
- */
-export async function applyPlan(db: PrismaClient, plan: ImportPlan, files: Map<string, Uint8Array>, target: ImportTarget): Promise<ApplyResult> {
-  const missingFiles: string[] = [];
-  const written: string[] = [];
-  const fileFor = new Map<string, { name: string; size: number }>();
-
-  const store = (m: TransferMedia) => {
-    const content = files.get(m.path);
-    if (!content) {
-      missingFiles.push(m.path);
-      return false;
+/** Copies the media of the plan from the import file into the upload folder; the ones without a file are left out */
+async function storeMedia<T extends { record: TransferMedia }>(
+  changes: T[],
+  files: ArchiveFiles,
+  stored: { written: string[]; missing: string[]; fileFor: Map<string, { name: string; size: number }> },
+  job?: JobControl,
+): Promise<T[]> {
+  const kept: T[] = [];
+  for (const change of changes) {
+    const m = change.record;
+    if (!files.has(m.path)) {
+      stored.missing.push(m.path);
+      continue;
     }
+    job?.checkpoint();
     const name = `${randomUUID()}${path.extname(m.path).toLowerCase()}`;
-    writeUploadedFile(name, content, uploadDir);
-    written.push(name);
-    fileFor.set(m.id, { name, size: content.length });
-    return true;
-  };
+    await files.copyTo(m.path, path.join(uploadDir, name), job?.advance);
+    stored.written.push(name);
+    stored.fileFor.set(m.id, { name, size: files.size(m.path) });
+    kept.push(change);
+  }
+  return kept;
+}
+
+/**
+ * Executes the plan completely or not at all: media files are copied from the import file beforehand (piece by
+ * piece, after checking the free space), the database changes run in one transaction. On an error or when the user
+ * cancels before the database step, the new files are removed; after success the old files that are no longer needed.
+ */
+export async function applyPlan(db: PrismaClient, plan: ImportPlan, files: ArchiveFiles, target: ImportTarget, job?: JobControl): Promise<ApplyResult> {
+  const stored = { written: [] as string[], missing: [] as string[], fileFor: new Map<string, { name: string; size: number }>() };
+  const { written, fileFor } = stored;
+  const missingFiles = stored.missing;
 
   let obsoleteFiles: string[] = [];
   try {
     ensureUploadDir(uploadDir);
-    const createMedia = plan.createMedia.filter((c) => store(c.record));
-    const updateMedia = plan.updateMedia.filter((c) => store(c.record));
+    const media = [...plan.createMedia, ...plan.updateMedia, ...plan.createLibraryMedia, ...plan.updateLibraryMedia].map((c) => c.record.path);
+    const bytes = files.totalSize(media);
+    await assertFreeSpace(uploadDir, bytes);
+    job?.phase('media', bytes);
+    const createMedia = await storeMedia(plan.createMedia, files, stored, job);
+    const updateMedia = await storeMedia(plan.updateMedia, files, stored, job);
+    const libraryMedia = {
+      create: await storeMedia(plan.createLibraryMedia, files, stored, job),
+      update: await storeMedia(plan.updateLibraryMedia, files, stored, job),
+    };
+    job?.checkpoint(true);
+    job?.phase('database');
 
     const result = await db.$transaction(
       async (tx) => {
@@ -146,6 +303,9 @@ export async function applyPlan(db: PrismaClient, plan: ImportPlan, files: Map<s
           await tx.relation.deleteMany({ where: { OR: [{ personA: { familyTreeId } }, { personB: { familyTreeId } }] } });
           removedPersons = (await tx.person.deleteMany({ where: { familyTreeId } })).count;
         }
+
+        // The library first: links of persons, events and relations refer to its citations
+        await applyLibrary(tx, plan, libraryMedia, fileFor, obsoleteFiles);
 
         await tx.person.createMany({
           data: plan.createPersons.map((p) => ({ id: p.id, familyTreeId, ...personData(p), profilePictureId: null })),
@@ -197,6 +357,8 @@ export async function applyPlan(db: PrismaClient, plan: ImportPlan, files: Map<s
           skipDuplicates: updatedEventIds.length > 0,
         });
 
+        await applyCitationLinks(tx, plan);
+
         // Set profile pictures only once the media exist; if the medium is missing, the person stays without a picture
         const withPicture = [...plan.createPersons, ...plan.updatePersons];
         const pictureIds = withPicture.map((p) => p.profilePictureId).filter((id): id is string => !!id);
@@ -217,6 +379,8 @@ export async function applyPlan(db: PrismaClient, plan: ImportPlan, files: Map<s
           createdEvents: plan.createEvents.length,
           createdNotes: plan.createNotes.length,
           createdMedia: createMedia.length,
+          createdSources: plan.createSources.length,
+          createdCitations: plan.createCitations.length,
           missingFiles,
         };
       },

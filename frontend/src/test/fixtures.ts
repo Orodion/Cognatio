@@ -51,6 +51,7 @@ export function makeTree(overrides: Partial<FamilyTree> = {}): FamilyTree {
     deletedAt: null,
     createdAt: '2026-09-01T10:00:00.000Z',
     updatedAt: '2026-09-01T10:00:00.000Z',
+    homePerson: null,
     ...overrides,
   } as FamilyTree;
 }

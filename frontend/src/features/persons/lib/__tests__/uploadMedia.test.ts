@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { uploadMedia, uploadTypeOf, MAX_UPLOAD_BYTES } from '../uploadMedia';
+import { uploadMedia, uploadTypeOf } from '../uploadMedia';
 import { useActiveTreeStore } from '@/stores/activeTreeStore';
+import { useActivityStore } from '@/stores/activityStore';
+import { cancelActivity } from '@/lib/activity';
+import { stubXhr } from '@/test/xhr';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   useActiveTreeStore.setState({ treeId: null });
+  useActivityStore.setState({ activities: [] });
 });
 
 const file = (size: number, type = 'image/png') => {
@@ -14,44 +18,60 @@ const file = (size: number, type = 'image/png') => {
 };
 
 describe('uploadMedia', () => {
-  it('rejects files above the size limit without calling the server', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await uploadMedia(file(MAX_UPLOAD_BYTES + 1), 'p1', 'PROFILE_PICTURE')).toEqual({
+  it('sends large files too (no limit per file) and names the space the drive lacks', async () => {
+    const sent = stubXhr({ status: 413, body: { reason: 'NOT_ENOUGH_SPACE', params: { neededMb: 6144, freeMb: 512 } } });
+    expect(await uploadMedia(file(5 * 1024 ** 3, 'video/mp4'), 'p1', 'OTHER')).toEqual({
       ok: false,
-      reason: 'FILE_TOO_LARGE',
+      reason: 'NOT_ENOUGH_SPACE',
+      values: { needed: '6 GB', free: '512 MB' },
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(1);
   });
 
   it('posts to the relative upload URL and returns the error reason from the server', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ reason: 'PERSON_NOT_FOUND' }) });
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await uploadMedia(file(10), 'p1', 'PROFILE_PICTURE')).toEqual({ ok: false, reason: 'PERSON_NOT_FOUND' });
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/media/upload');
-    expect((fetchMock.mock.calls[0][1].body as FormData).get('type')).toBe('PROFILE_PICTURE');
+    const sent = stubXhr({ status: 404, body: { reason: 'PERSON_NOT_FOUND' } });
+    expect(await uploadMedia(file(10), 'p1', 'PROFILE_PICTURE')).toEqual({ ok: false, reason: 'PERSON_NOT_FOUND', values: {} });
+    expect(sent[0]).toMatchObject({ method: 'POST', url: '/api/v1/media/upload' });
+    expect(sent[0].body.get('type')).toBe('PROFILE_PICTURE');
   });
 
   it('uploads into the open family tree', async () => {
     useActiveTreeStore.setState({ treeId: 't2' });
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm1' }) });
-    vi.stubGlobal('fetch', fetchMock);
+    const sent = stubXhr({ status: 201, body: { id: 'm1' } });
     await uploadMedia(file(10), 'p1', 'PHOTO');
-    expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'X-Family-Tree-Id': 't2' });
+    expect(sent[0].headers).toEqual({ 'X-Family-Tree-Id': 't2' });
   });
 
   it('reports network errors', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    stubXhr('network-error');
     expect(await uploadMedia(file(10), 'p1', 'PHOTO')).toEqual({ ok: false, reason: 'NETWORK' });
   });
 
   it('links the file with an event and returns the id of the new medium', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm1' }) });
-    vi.stubGlobal('fetch', fetchMock);
+    const sent = stubXhr({ status: 201, body: { id: 'm1' } });
     expect(await uploadMedia(file(10), 'p1', 'PHOTO', 'e1')).toEqual({ ok: true, id: 'm1' });
-    const body = fetchMock.mock.calls[0][1].body as FormData;
-    expect(body.get('eventId')).toBe('e1');
-    expect(body.get('personId')).toBe('p1');
+    expect(sent[0].body.get('eventId')).toBe('e1');
+    expect(sent[0].body.get('personId')).toBe('p1');
+  });
+
+  it('shows the upload under "Activity" with its progress and result', async () => {
+    stubXhr({ status: 201, body: { id: 'm1' } });
+    await uploadMedia(file(3), 'p1', 'PHOTO');
+    expect(useActivityStore.getState().activities[0]).toMatchObject({
+      kind: 'media',
+      label: 'bild.png',
+      link: '/persons/p1',
+      state: 'done',
+      result: { size: 3 },
+    });
+  });
+
+  it('can be cancelled there', async () => {
+    stubXhr({ status: 201 }, { hold: true });
+    const upload = uploadMedia(file(10), 'p1', 'PHOTO');
+    cancelActivity(useActivityStore.getState().activities[0].id);
+    expect(await upload).toEqual({ ok: false, reason: 'CANCELLED' });
+    expect(useActivityStore.getState().activities[0].state).toBe('cancelled');
   });
 
   it('files images as photos and everything else as documents', () => {

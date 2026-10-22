@@ -25,7 +25,7 @@ const mockMedia = {
   fileName: 'test.jpg',
   originalFileName: 'test_orig.jpg',
   mimeType: 'image/jpeg',
-  sizeBytes: 1024,
+  sizeBytes: BigInt(1024),
   type: 'PROFILE_PICTURE',
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -67,6 +67,11 @@ describe('mediaResolvers', () => {
       await expect(mediaResolvers.Media.person({ personId: '1' }, {}, ctx)).resolves.toMatchObject({ firstName: 'Anna' });
       expect(mediaResolvers.Media.person({ personId: null }, {}, ctx)).toBeNull();
       await expect(mediaResolvers.Media.events({ id: 'm1' }, {}, ctx)).resolves.toEqual([{ id: 'e1', title: 'Hochzeit' }]);
+      // Shown by the browser or offered as a download
+      expect(mediaResolvers.Media.viewable({ fileName: 'scan.PDF' })).toBe(true);
+      expect(mediaResolvers.Media.viewable({ fileName: 'notiz.md' })).toBe(true);
+      expect(mediaResolvers.Media.viewable({ fileName: 'seite.html' })).toBe(false);
+      expect(mediaResolvers.Media.viewable({ fileName: 'daten.zip' })).toBe(false);
     });
   });
 

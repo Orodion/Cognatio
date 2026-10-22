@@ -1,0 +1,155 @@
+import type { TreeStatistics } from '@/features/statistics/lib/types';
+
+/** Figures of the statistics for GraphQL mocks (treeStatistics, sourceStatistics) */
+export const anna = { __typename: 'Person', id: 'a', title: null, firstName: 'Anna', middleName: null, lastName: 'Muster', birthName: null };
+
+export const stats = (values: Partial<TreeStatistics> = {}) => ({
+  __typename: 'TreeStatistics',
+  total: 2,
+  living: 1,
+  deceased: 1,
+  male: 1,
+  female: 1,
+  unknownGender: 0,
+  relations: 1,
+  livingAges: [{ from: 30, count: 1, filter: 'livingAge:30' }],
+  deathAges: [{ from: 80, count: 1, filter: 'deathAge:80' }],
+  withoutAge: 0,
+  probablyDeceased: 0,
+  averageLifespan: 80,
+  oldestBirth: { year: 1900, person: anna },
+  surnames: [{ label: 'Muster', count: 2, filter: 'surname:Muster' }],
+  distinctSurnames: 1,
+  birthplaces: [{ label: 'Köln', count: 2, filter: 'birthplace:Köln' }],
+  distinctBirthplaces: 1,
+  withBirthplace: 2,
+  generations: [
+    { generation: 1, count: 1, earliestBirth: 1900, latestBirth: 1900, filter: 'generation:1' },
+    { generation: 2, count: 1, earliestBirth: 1990, latestBirth: 1990, filter: 'generation:2' },
+  ],
+  families: 1,
+  unconnected: 0,
+  completeness: {
+    __typename: 'StatisticsCompleteness',
+    score: 0.5,
+    rows: [
+      { __typename: 'StatisticsCompletenessRow', fact: 'birthDate', total: 2, present: 2, missing: 0, filter: 'missing:birthDate' },
+      { __typename: 'StatisticsCompletenessRow', fact: 'father', total: 2, present: 0, missing: 2, filter: 'missing:father' },
+    ],
+  },
+  timeline: {
+    __typename: 'StatisticsTimeline',
+    decades: [
+      { __typename: 'StatisticsDecade', decade: 1900, births: 1, deaths: 0, weddings: 1 },
+      { __typename: 'StatisticsDecade', decade: 1910, births: 0, deaths: 0, weddings: 0 },
+      { __typename: 'StatisticsDecade', decade: 1980, births: 0, deaths: 1, weddings: 0 },
+    ],
+    withoutBirthYear: 2,
+    withoutDeathYear: 0,
+  },
+  lives: {
+    __typename: 'StatisticsLives',
+    tables: ['lifespan', 'adultLifespan', 'firstWedding', 'firstChild'].map((measure) => ({
+      __typename: 'StatisticsLifeTable',
+      measure,
+      rows: [
+        {
+          __typename: 'StatisticsLifeRow',
+          century: 1900,
+          male: { __typename: 'StatisticsLifeCell', mean: null, count: 0, filter: `lives:${measure}:1900:male` },
+          female: { __typename: 'StatisticsLifeCell', mean: 80, count: 6, filter: `lives:${measure}:1900:female` },
+          all: { __typename: 'StatisticsLifeCell', mean: null, count: 3, filter: `lives:${measure}:1900:all` },
+        },
+      ],
+    })),
+    children: [
+      { __typename: 'StatisticsCountRow', key: '0', count: 0, filter: 'children:0' },
+      { __typename: 'StatisticsCountRow', key: '1', count: 1, filter: 'children:1' },
+    ],
+    meanChildren: 1,
+    ageGaps: [{ __typename: 'StatisticsCountRow', key: 'manOlder', count: 1, filter: 'ageGap:manOlder' }],
+    meanAgeGap: -2.5,
+  },
+  firstNames: {
+    __typename: 'StatisticsFirstNames',
+    male: [{ __typename: 'StatisticsName', label: 'Johann', count: 3, filter: 'firstName:male:all:Johann' }],
+    female: [],
+    fashion: [
+      {
+        __typename: 'StatisticsNameFashion',
+        century: 1800,
+        male: [{ __typename: 'StatisticsName', label: 'Johann', count: 2, filter: 'firstName:male:1800:Johann' }],
+        female: [],
+      },
+    ],
+  },
+  migration: {
+    __typename: 'StatisticsMigration',
+    stayed: 1,
+    moved: 3,
+    moves: [{ __typename: 'StatisticsMove', from: 'Halle', to: 'Berlin', count: 2, filter: 'move:Halle|Berlin' }],
+    places: [{ __typename: 'StatisticsPlace', place: 'Halle', persons: 4, firstYear: 1850, lastYear: 1920, filter: 'place:Halle' }],
+    morePlaces: 5,
+  },
+  records: [
+    { __typename: 'StatisticsRecord', kind: 'longestLife', value: 98, ties: 2, possibleError: false, persons: [anna] },
+    { __typename: 'StatisticsRecord', kind: 'mostChildren', value: 7, ties: 0, possibleError: false, persons: [anna] },
+    { __typename: 'StatisticsRecord', kind: 'oldestMother', value: 61, ties: 0, possibleError: true, persons: [anna] },
+  ],
+  ancestors: {
+    __typename: 'StatisticsAncestors',
+    person: anna,
+    isHomePerson: false,
+    hasHomePerson: false,
+    found: 3,
+    distinct: 2,
+    generations: [
+      {
+        __typename: 'StatisticsAncestorGeneration',
+        generation: 1,
+        possible: 1,
+        found: 1,
+        distinct: 1,
+        openEnds: 0,
+        earliestBirth: 1900,
+        latestBirth: 1900,
+        filter: 'ancestors:a:1',
+        openEndsFilter: 'openEnds:a:1',
+      },
+      {
+        __typename: 'StatisticsAncestorGeneration',
+        generation: 2,
+        possible: 2,
+        found: 2,
+        distinct: 2,
+        openEnds: 2,
+        earliestBirth: 1870,
+        latestBirth: 1875,
+        filter: 'ancestors:a:2',
+        openEndsFilter: 'openEnds:a:2',
+      },
+      {
+        __typename: 'StatisticsAncestorGeneration',
+        generation: 3,
+        possible: 4,
+        found: 1,
+        distinct: 1,
+        openEnds: 1,
+        earliestBirth: null,
+        latestBirth: null,
+        filter: 'ancestors:a:3',
+        openEndsFilter: 'openEnds:a:3',
+      },
+    ],
+  },
+  ...values,
+});
+
+export const sourceStatistics = {
+  __typename: 'SourceStatistics',
+  persons: 4,
+  citedPersons: 1,
+  citations: 2,
+  sources: 1,
+  topSources: [{ __typename: 'CitedSource', id: 's1', title: 'Kirchenbuch St. Martin', abbreviation: null, type: 'CHURCH_BOOK', links: 3 }],
+};

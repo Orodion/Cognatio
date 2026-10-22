@@ -1,31 +1,28 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ensureUploadDir, readUploadedFile, uploadedBytes, writeUploadedFile } from '../uploads.js';
+import { ensureUploadDir, uploadedBytes, uploadedFilePath } from '../uploads.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cognatio-uploads-'));
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe('uploaded files', () => {
-  it('creates the folder, writes a file and reads it back', () => {
+  it('creates the folder and finds a file in it', () => {
     const sub = path.join(dir, 'neu', 'uploads');
     ensureUploadDir(sub);
-    writeUploadedFile('a.bin', Buffer.from('inhalt'), sub);
-    expect(readUploadedFile('a.bin', sub)?.toString()).toBe('inhalt');
+    fs.writeFileSync(path.join(sub, 'a.bin'), 'inhalt');
+    expect(uploadedFilePath('a.bin', sub)).toBe(path.join(sub, 'a.bin'));
   });
 
   it('returns null for a file that does not exist', () => {
-    expect(readUploadedFile('fehlt.bin', dir)).toBeNull();
+    expect(uploadedFilePath('fehlt.bin', dir)).toBeNull();
   });
 
   it('cannot leave the folder with a manipulated name', () => {
     fs.writeFileSync(path.join(dir, 'außen.bin'), 'geheim');
     const inner = path.join(dir, 'inner');
     fs.mkdirSync(inner);
-    expect(readUploadedFile('../außen.bin', inner)).toBeNull();
-    writeUploadedFile('../x.bin', Buffer.from('1'), inner);
-    expect(fs.existsSync(path.join(dir, 'x.bin'))).toBe(false);
-    expect(fs.existsSync(path.join(inner, 'x.bin'))).toBe(true);
+    expect(uploadedFilePath('../außen.bin', inner)).toBeNull();
   });
 
   it('adds up the sizes; a missing file counts as 0 and a path cannot leave the folder', () => {

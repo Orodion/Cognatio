@@ -11,23 +11,22 @@ import { formatDateTime } from '@/lib/formatDate';
 import { IMPORT_HISTORY } from '@/features/transfer/graphql/importQueries';
 import { cn } from '@/lib/utils';
 import { useFamilyTrees, useSwitchTree } from '@/features/family-trees/lib/useFamilyTrees';
+import { create } from 'zustand';
 import {
   IMPORT_STRATEGIES,
-  downloadExport,
-  executeImport,
+  cycleText,
   manualSummary,
-  previewImport,
-  toError,
-  type ErrorState,
   type ImportConflict,
   type ImportDecision,
-  type ImportPreview,
-  type ImportResult,
   type ImportStrategy,
   type ImportSummary,
   type ImportTarget,
 } from '@/features/transfer/lib/transfer';
+import { backupBeforeImport, exportTracked, loadPreview, resetImport, runImport, useImportSession } from '@/features/transfer/lib/importSession';
+import { cancelActivity, runningProgress } from '@/lib/activity';
+import { useActivityStore } from '@/stores/activityStore';
 import { ErrorBox } from '@/features/transfer/components/ErrorBox';
+import { TransferProgressBar } from '@/features/transfer/components/TransferProgressBar';
 
 /** GEDCOM files mostly come from other programs – by default they go into a new family tree */
 const defaultTarget = (file: File): ImportTarget => (/\.(ged|gdz)$/i.test(file.name) ? 'NEW' : 'CURRENT');
@@ -60,36 +59,39 @@ export function ImportExportPage() {
   );
 }
 
+/** The export the card started last – its progress and result also after leaving the page */
+const useExportCard = create<{ activityId: string | null }>()(() => ({ activityId: null }));
+
 function ExportCard() {
   const { t } = useTranslation();
   const { active } = useFamilyTrees();
   const [withMedia, setWithMedia] = useState(true);
   const [gedcomMedia, setGedcomMedia] = useState(false);
   const [version, setVersion] = useState<'5.5.1' | '7.0'>('5.5.1');
-  const [busy, setBusy] = useState<'zip' | 'gedcom' | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<ErrorState | null>(null);
+  const [kindRunning, setKindRunning] = useState<'zip' | 'gedcom' | null>(null);
+  const activityId = useExportCard((state) => state.activityId);
+  const activity = useActivityStore((state) => state.activities.find((a) => a.id === activityId));
+  const progress = runningProgress(activity);
+  const busy = progress ? kindRunning : null;
 
   const run = async (kind: 'zip' | 'gedcom') => {
-    setBusy(kind);
-    setError(null);
-    setMessage(null);
-    try {
-      const { filename, missingMedia, saved } = await downloadExport(kind, { media: kind === 'zip' ? withMedia : gedcomMedia, version });
-      if (!saved) {
-        return;
-      }
-      setMessage(
-        [t('importExport.export.done', { filename }), missingMedia ? t('importExport.export.missingMedia', { count: missingMedia }) : null]
-          .filter(Boolean)
-          .join(' '),
-      );
-    } catch (err) {
-      setError(toError(err));
-    } finally {
-      setBusy(null);
-    }
+    setKindRunning(kind);
+    // The result is shown from the activity; an error as well
+    await exportTracked(kind, { media: kind === 'zip' ? withMedia : gedcomMedia, version }, (id) => useExportCard.setState({ activityId: id })).catch(
+      () => undefined,
+    );
   };
+
+  const message =
+    activity?.state === 'done' && activity.result
+      ? [
+          t('importExport.export.done', { filename: activity.result.file }),
+          Number(activity.result.missing) > 0 ? t('importExport.export.missingMedia', { count: Number(activity.result.missing) }) : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : null;
+  const error = activity?.error ?? null;
 
   return (
     <Card>
@@ -105,7 +107,7 @@ function ExportCard() {
             <input type="checkbox" className="h-4 w-4 accent-primary" checked={withMedia} onChange={(e) => setWithMedia(e.target.checked)} />
             {t('importExport.export.withMedia')}
           </label>
-          <Button onClick={() => run('zip')} disabled={busy !== null}>
+          <Button onClick={() => run('zip')} disabled={progress !== null}>
             {busy === 'zip' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {t('importExport.export.zipButton')}
           </Button>
@@ -126,7 +128,7 @@ function ExportCard() {
                 <option value="7.0">7.0</option>
               </Select>
             </div>
-            <Button variant="outline" onClick={() => run('gedcom')} disabled={busy !== null}>
+            <Button variant="outline" onClick={() => run('gedcom')} disabled={progress !== null}>
               {busy === 'gedcom' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {t('importExport.export.gedcomButton')}
             </Button>
@@ -134,6 +136,15 @@ function ExportCard() {
         </section>
 
         <p className="text-xs text-muted-foreground">{t('importExport.export.saveLocation')}</p>
+        {progress && activity && (
+          <div className="text-sm">
+            <TransferProgressBar
+              progress={progress}
+              onCancel={activity.cancel ? () => cancelActivity(activity.id) : undefined}
+              cancelling={activity.cancelling}
+            />
+          </div>
+        )}
         {message && (
           <p className="flex items-center gap-2 text-sm text-primary" role="status">
             <CheckCircle2 className="h-4 w-4" />
@@ -152,89 +163,39 @@ function ImportCard() {
   const { active, none } = useFamilyTrees();
   const switchTree = useSwitchTree();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  // Target: active or new family tree; suggested by file type as long as the user has not chosen
-  const [chosenTarget, setTarget] = useState<ImportTarget>('CURRENT');
+  const session = useImportSession();
+  const { file, preview, strategy, decisions, error, result, newTreeName, backupDone, busy, treeName, targetTouched } = session;
   // Without a family tree only a new one can take the data
-  const target = none ? 'NEW' : chosenTarget;
-  const [targetTouched, setTargetTouched] = useState(false);
-  const [treeName, setTreeName] = useState('');
-  const [treeNameTouched, setTreeNameTouched] = useState(false);
-  const [newTreeName, setNewTreeName] = useState<string | null>(null);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [strategy, setStrategy] = useState<ImportStrategy>('MERGE_NEWER');
-  const [decisions, setDecisions] = useState<Record<string, ImportDecision>>({});
-  const [busy, setBusy] = useState<'preview' | 'import' | 'backup' | null>(null);
-  const [error, setError] = useState<ErrorState | null>(null);
-  const [result, setResult] = useState<ImportResult | null>(null);
-  const [backupDone, setBackupDone] = useState(false);
+  const target = none ? 'NEW' : session.target;
+  const activity = useActivityStore((state) => state.activities.find((a) => a.id === session.activityId));
+  const progress = runningProgress(activity);
+  const setStrategy = (value: ImportStrategy) => session.set({ strategy: value });
+  const setDecisions = (value: Record<string, ImportDecision>) => session.set({ decisions: value });
 
   const reset = () => {
-    setFile(null);
-    setPreview(null);
-    setDecisions({});
-    setBackupDone(false);
-    setTargetTouched(false);
-    setTreeName('');
-    setTreeNameTouched(false);
+    resetImport();
     if (inputRef.current) {
       inputRef.current.value = '';
     }
   };
 
-  // The preview compares with the target – check again when the target changes
-  const loadPreview = async (selected: File, into: ImportTarget) => {
-    setError(null);
-    setPreview(null);
-    setDecisions({});
-    setBusy('preview');
-    try {
-      const p = await previewImport(selected, into);
-      setPreview(p);
-      // Empty data: nothing to merge – overwriting is equivalent and the simplest
-      setStrategy(p.existingPersons === 0 ? 'OVERWRITE' : 'MERGE_NEWER');
-      if (!treeNameTouched) {
-        setTreeName(p.suggestedTreeName);
-      }
-    } catch (err) {
-      setError(toError(err));
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const handleFile = async (selected: File | undefined) => {
-    setResult(null);
-    setNewTreeName(null);
-    setBackupDone(false);
-    setFile(selected ?? null);
+    session.set({ result: null, newTreeName: null, backupDone: false, file: selected ?? null });
     if (!selected) {
-      setPreview(null);
+      session.set({ preview: null });
       return;
     }
+    // Target suggested by the kind of the file as long as the user has not chosen one
     const into = none ? 'NEW' : targetTouched ? target : defaultTarget(selected);
-    setTarget(into);
+    session.set({ target: into });
     await loadPreview(selected, into);
   };
 
+  // The preview compares with the target – check again when the target changes
   const changeTarget = (into: ImportTarget) => {
-    setTarget(into);
-    setTargetTouched(true);
+    session.set({ target: into, targetTouched: true });
     if (file) {
-      loadPreview(file, into);
-    }
-  };
-
-  const backup = async () => {
-    setBusy('backup');
-    setError(null);
-    try {
-      // Only a saved file counts as backup (the "Save as" dialog of the app can be cancelled)
-      setBackupDone((await downloadExport('zip', { media: true })).saved);
-    } catch (err) {
-      setError(toError(err));
-    } finally {
-      setBusy(null);
+      void loadPreview(file, into);
     }
   };
 
@@ -242,12 +203,12 @@ function ImportCard() {
 
   const toNewTree = preview?.target === 'NEW';
 
-  const runImport = async () => {
+  const startImport = async () => {
     if (!file || !preview || !summary) {
       return;
     }
     if (toNewTree && !treeName.trim()) {
-      setError({ reason: 'TREE_NAME_REQUIRED', details: [] });
+      session.set({ error: { reason: 'TREE_NAME_REQUIRED', details: [] } });
       return;
     }
     if (strategy === 'OVERWRITE' && preview.existingPersons > 0) {
@@ -255,25 +216,17 @@ function ImportCard() {
         return;
       }
     }
-    setBusy('import');
-    setError(null);
-    try {
-      const name = treeName.trim();
-      const res = await executeImport(file, strategy, decisions, toNewTree ? { target: 'NEW', treeName: name } : { target: 'CURRENT' });
-      setResult(res);
-      setNewTreeName(toNewTree ? name : null);
-      reset();
-      // Reload all views with the imported data – a new family tree is opened right away
-      if (toNewTree) {
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
+    // Reload all views with the imported data – a new family tree is opened right away (also after leaving the page)
+    await runImport(async (res, newTree) => {
+      if (newTree !== null) {
         await switchTree(res.familyTreeId, { stay: true });
       } else {
         await client.resetStore();
       }
-    } catch (err) {
-      setError(toError(err));
-    } finally {
-      setBusy(null);
-    }
+    });
   };
 
   return (
@@ -293,7 +246,7 @@ function ImportCard() {
                 value={value}
                 checked={target === value}
                 onChange={() => changeTarget(value)}
-                disabled={busy !== null}
+                disabled={busy === 'import'}
                 className="accent-primary"
               />
               {value === 'CURRENT' ? t('importExport.import.targetCurrent', { name: active?.name ?? '' }) : t('importExport.import.targetNew')}
@@ -304,15 +257,7 @@ function ImportCard() {
         {target === 'NEW' && (
           <div className="space-y-1.5">
             <Label htmlFor="import-tree-name">{t('importExport.import.treeName')}</Label>
-            <Input
-              id="import-tree-name"
-              value={treeName}
-              maxLength={100}
-              onChange={(e) => {
-                setTreeName(e.target.value);
-                setTreeNameTouched(true);
-              }}
-            />
+            <Input id="import-tree-name" value={treeName} maxLength={100} onChange={(e) => session.set({ treeName: e.target.value, treeNameTouched: true })} />
           </div>
         )}
 
@@ -326,13 +271,18 @@ function ImportCard() {
             onChange={(e) => handleFile(e.target.files?.[0])}
             className="block w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-card file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-accent"
           />
+          {/* Back on the page: the file chosen before (a file field cannot show it again) */}
+          {file && !inputRef.current?.value && <p className="text-sm text-muted-foreground">{t('importExport.import.chosenFile', { name: file.name })}</p>}
         </div>
 
         {busy === 'preview' && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t('importExport.import.checking')}
-          </p>
+          <div className="text-sm">
+            <TransferProgressBar
+              progress={progress}
+              onCancel={activity?.cancel ? () => cancelActivity(activity.id) : undefined}
+              cancelling={activity?.cancelling}
+            />
+          </div>
         )}
         {error && <ErrorBox error={error} />}
         {result && (
@@ -391,7 +341,7 @@ function ImportCard() {
               <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                 <ShieldCheck className="h-5 w-5 shrink-0" />
                 <p className="min-w-0 flex-1">{t('importExport.import.backupHint')}</p>
-                <Button variant="outline" size="sm" onClick={backup} disabled={busy !== null}>
+                <Button variant="outline" size="sm" onClick={() => void backupBeforeImport()} disabled={busy !== null}>
                   {busy === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   {backupDone ? t('importExport.import.backupDone') : t('importExport.import.backupButton')}
                 </Button>
@@ -424,14 +374,31 @@ function ImportCard() {
               <ConflictList conflicts={preview.conflicts} decisions={decisions} onChange={setDecisions} />
             )}
 
+            {preview.cycles[strategy].length > 0 && (
+              <p className="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400" role="status" data-testid="import-cycles">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                {t('importExport.import.cycles', { names: cycleText(preview.cycles[strategy]) })}
+              </p>
+            )}
+
             <div className="space-y-2 rounded-md border p-3">
               <h3 className="text-sm font-medium">{t('importExport.import.summaryTitle')}</h3>
               <SummaryList summary={summary} />
             </div>
 
+            {(busy === 'import' || busy === 'backup') && (
+              <div className="text-sm">
+                <TransferProgressBar
+                  progress={progress}
+                  onCancel={activity?.cancel ? () => cancelActivity(activity.id) : undefined}
+                  cancelling={activity?.cancelling}
+                />
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={runImport}
+                onClick={() => void startImport()}
                 disabled={busy !== null}
                 variant={strategy === 'OVERWRITE' && preview.existingPersons > 0 ? 'destructive' : 'default'}
               >
@@ -544,9 +511,11 @@ function SummaryList({ summary }: { summary: ImportSummary }) {
       'newEvents',
       'newNotes',
       'newMedia',
+      'newSources',
+      'newCitations',
     ] as const
   )
-    .map((key): [keyof ImportSummary, number] => [key, summary[key]])
+    .map((key): [keyof ImportSummary, number] => [key, summary[key] ?? 0])
     .filter(([key, value]) => value > 0 || key === 'newPersons');
   return (
     <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2" data-testid="import-summary">
@@ -579,16 +548,18 @@ function ConflictList({
     }
     return t(`personDetail.fields.${field}`, { defaultValue: field });
   };
-  const show = (value: unknown) => {
+  // Links (citations, files) are shown as their number – their ids say nothing
+  const LINKS = ['citations', 'citationIds', 'mediaIds'];
+  const show = (value: unknown, field?: string): string => {
     if (value === null || value === undefined || value === '') {
       return '—';
     }
     if (Array.isArray(value)) {
-      return value.join(', ') || '—';
+      return field && LINKS.includes(field) ? String(value.length) : value.join(', ') || '—';
     }
     if (typeof value === 'object') {
       return Object.entries(value as Record<string, unknown>)
-        .map(([k, v]) => `${t(`personDetail.fields.${k}`, { defaultValue: k })}: ${v ?? '—'}`)
+        .map(([k, v]) => `${t(`personDetail.fields.${k}`, { defaultValue: k })}: ${show(v, k)}`)
         .join(', ');
     }
     return String(value);
@@ -634,8 +605,8 @@ function ConflictList({
                   {c.changes.map((change, i) => (
                     <tr key={i} className="border-t align-top">
                       <td className="py-1 pr-2">{fieldLabel(change.field, change.label)}</td>
-                      <td className="py-1 pr-2">{show(change.existing)}</td>
-                      <td className="py-1">{show(change.imported)}</td>
+                      <td className="py-1 pr-2">{show(change.existing, change.field)}</td>
+                      <td className="py-1">{show(change.imported, change.field)}</td>
                     </tr>
                   ))}
                 </tbody>

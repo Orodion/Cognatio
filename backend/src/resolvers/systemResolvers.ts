@@ -25,10 +25,10 @@ export const systemResolvers = {
       logger.setLevel(level as LogLevel);
       return logger.level;
     },
-    // Changes the size limits of export/import and backup files (a computer with much memory can take larger ones)
-    setSizeLimits: (_: unknown, { importMb, backupMb }: { importMb: number; backupMb: number }) => {
+    // Changes the optional upper limits of export/import and backup files; null removes a limit
+    setSizeLimits: (_: unknown, { importMb = null, backupMb = null }: { importMb?: number | null; backupMb?: number | null }) => {
       for (const value of [importMb, backupMb]) {
-        if (!Number.isInteger(value) || value < MIN_LIMIT_MB || value > MAX_LIMIT_MB) {
+        if (value !== null && (!Number.isInteger(value) || value < MIN_LIMIT_MB || value > MAX_LIMIT_MB)) {
           throw new GraphQLError(`Size limit must be between ${MIN_LIMIT_MB} and ${MAX_LIMIT_MB} MB: ${value}`, {
             extensions: { code: 'BAD_USER_INPUT', reason: 'INVALID_LIMIT' },
           });

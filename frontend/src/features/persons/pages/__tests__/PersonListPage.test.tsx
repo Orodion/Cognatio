@@ -4,6 +4,7 @@ import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { MemoryRouter } from 'react-router-dom';
 import { GET_PERSONS, SEARCH, GET_DELETED_PERSONS, RESTORE_PERSON } from '@/features/persons/graphql/personQueries';
 import { makePerson } from '@/test/fixtures';
+import { GET_STATISTICS_PERSONS } from '@/features/statistics/graphql/statisticsQueries';
 import { PersonListPage, type DeletedPersonState } from '../PersonListPage';
 
 const many = (n: number) => Array.from({ length: n }, (_, i) => makePerson({ id: `p${i}`, firstName: `Person${i}` }));
@@ -74,6 +75,55 @@ describe('PersonListPage', () => {
     expect(screen.getAllByText('search.foundVia')).toHaveLength(1);
     // The number of hits is in a status region and announced by screen readers
     expect(screen.getByText('persons.count')).toHaveAttribute('role', 'status');
+  });
+
+  it('shows the persons behind a figure of the statistics, with its scope', async () => {
+    setup({
+      entry: '/persons?filter=surname%3AMuster&scope=surname&surname=Muster&from=1900',
+      extraMocks: [
+        {
+          request: {
+            query: GET_STATISTICS_PERSONS,
+            variables: { filter: 'surname:Muster', scope: { kind: 'SURNAME', personId: null, surname: 'Muster', bornFrom: 1900, bornTo: null } },
+          },
+          result: { data: { statisticsPersons: [makePerson({ id: 'p5', firstName: 'Paula' })] } },
+        },
+      ],
+    });
+    expect(await screen.findByText('Paula Muster')).toBeInTheDocument();
+    expect(cards()).toHaveLength(1);
+    expect(screen.getByText('statistics.filter.from')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'statistics.filter.back' })).toHaveAttribute('href', '/statistics?scope=surname&surname=Muster&from=1900');
+
+    // Removing the filter shows everybody again
+    fireEvent.click(screen.getByRole('button', { name: 'statistics.filter.clear' }));
+    expect(await screen.findByText('Person0 Muster')).toBeInTheDocument();
+    expect(cards()).toHaveLength(3);
+  });
+
+  it('searches within the persons of a figure', async () => {
+    setup({
+      entry: '/persons?q=Zora&filter=gender%3AFEMALE',
+      extraMocks: [
+        {
+          request: { query: SEARCH, variables: { query: 'Zora', language: 'cimode' } },
+          result: {
+            data: {
+              search: [
+                { __typename: 'SearchResult', matchedIn: ['NAME'], person: makePerson({ id: 'p7', firstName: 'Zora' }) },
+                { __typename: 'SearchResult', matchedIn: ['PHONETIC'], person: makePerson({ id: 'p8', firstName: 'Sora' }) },
+              ],
+            },
+          },
+        },
+        {
+          request: { query: GET_STATISTICS_PERSONS, variables: { filter: 'gender:FEMALE', scope: null } },
+          result: { data: { statisticsPersons: [makePerson({ id: 'p8', firstName: 'Sora' })] } },
+        },
+      ],
+    });
+    expect(await screen.findByText('Sora Muster')).toBeInTheDocument();
+    expect(cards()).toHaveLength(1);
   });
 
   it('offers to undo a deletion', async () => {

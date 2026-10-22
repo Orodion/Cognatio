@@ -9,6 +9,44 @@ export const uid = () => Array.from({ length: 6 }, () => String.fromCharCode(97 
 /** Header with which a request names its family tree (without: the oldest) */
 export const treeHeader = (tree?: string): Record<string, string> => (tree ? { 'X-Family-Tree-Id': tree } : {});
 
+/** Uploads an import or backup file once (as the page does) and returns its id */
+export async function uploadFile(request: APIRequestContext, purpose: 'import' | 'backup', buffer: Buffer, name = 'datei.zip'): Promise<string> {
+  const res = await request.post(`/api/v1/${purpose}/upload`, { multipart: { file: { name, mimeType: 'application/zip', buffer } }, timeout: 120_000 });
+  expect(res.status(), await res.text()).toBe(201);
+  return (await res.json()).uploadId;
+}
+
+/** Follows a job of the backend (import, restore) until it has finished; its answer as the route gives it */
+export async function finishedJob<T = Record<string, unknown>>(
+  request: APIRequestContext,
+  jobId: string,
+): Promise<{ state: string; status: number; result: T }> {
+  for (;;) {
+    const res = await request.get(`/api/v1/jobs/${jobId}`);
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const job = await res.json();
+    if (job.state !== 'running') {
+      return job;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+/** Imports a file through the API like the page: upload, start, follow the job; fails if the import fails */
+export async function importViaApi<T = { familyTreeId: string; createdPersons: number; removedPersons: number }>(
+  request: APIRequestContext,
+  file: Buffer,
+  fields: { strategy: string; target?: 'NEW' | 'CURRENT'; treeName?: string },
+  tree?: string,
+): Promise<T> {
+  const uploadId = await uploadFile(request, 'import', file, 'export.zip');
+  const start = await request.post('/api/v1/import/execute', { headers: treeHeader(tree), data: { uploadId, decisions: {}, ...fields } });
+  expect(start.status(), await start.text()).toBe(202);
+  const job = await finishedJob<T>(request, (await start.json()).jobId);
+  expect(job.state, JSON.stringify(job.result)).toBe('done');
+  return job.result;
+}
+
 /** GraphQL call through the frontend proxy (like the app itself), optionally in a given family tree */
 export async function gql<T = Record<string, unknown>>(
   request: APIRequestContext,
@@ -32,11 +70,11 @@ export async function createPerson(
   return res.createPerson.id;
 }
 
-/** Create a relation – semantics: "personB is <type> of personA" */
+/** Create a relation – semantics: "personB is <type> of personA"; test data is saved even if it looks wrong */
 export async function createRelation(request: APIRequestContext, personAId: string, personBId: string, type: string, tree?: string) {
   const res = await gql<{ createRelation: { id: string } }>(
     request,
-    'mutation($data: RelationInput!) { createRelation(data: $data) { id } }',
+    'mutation($data: RelationInput!) { createRelation(data: $data, confirmed: true) { id } }',
     { data: { personAId, personBId, type } },
     tree,
   );

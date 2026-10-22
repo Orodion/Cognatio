@@ -10,6 +10,7 @@ import { createDump, dumpDue } from './lib/postgres/safetyBackup.js';
 import { seedDemoTree } from './lib/demo/seedDemo.js';
 import { notifyParent, onParentMessage } from './lib/parentChannel.js';
 import { listen } from './lib/listen.js';
+import { setServerPort } from './lib/serverAddress.js';
 
 // PORT=0 picks a free port (Windows app). Only this machine can connect unless HOST names another address (e.g. 0.0.0.0
 // for the network) – the backend has no login of its own
@@ -118,8 +119,12 @@ async function start() {
   // Desktop app, first start: the example family tree instead of an empty database (COGNATIO_DEMO_FILE)
   const { prisma } = await import('./lib/prisma.js');
   await seedDemoTree(prisma, process.env, logger.child({ component: 'demo' }));
+  // Codes of the phonetic search that an older version could not compute (Cyrillic names); not fatal
+  const { refreshEmptyPhonetics } = await import('./lib/search/refreshPhonetics.js');
+  await refreshEmptyPhonetics(prisma, log).catch((err) => log.error('Phonetic codes could not be computed again', { err }));
   server = await listen(app, port, host, portFallback);
   const actual = (server.address() as AddressInfo).port;
+  setServerPort(actual, port);
   log.info(`Server ready: http://${host}:${actual}/graphql`, { port: actual, host });
   // Started by the desktop app: tell it the port
   notifyParent({ type: 'ready', port: actual });

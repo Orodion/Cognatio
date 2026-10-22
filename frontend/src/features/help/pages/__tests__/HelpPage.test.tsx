@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { HelpPage } from '../HelpPage';
+import { RELEASES } from '../../releases';
 import helpDefault from '@/features/help/content/en';
 import i18n from '@/i18n';
 
@@ -68,7 +69,7 @@ describe('HelpPage', () => {
     it('lists the releases with links to the help chapters', async () => {
       setup('/help#versions');
       const history = screen.getByRole('region', { name: 'Version history' });
-      expect(within(history).getByRole('heading', { name: /^help\.version/, level: 3 })).toBeInTheDocument();
+      expect(within(history).getAllByRole('heading', { name: /^help\.version/, level: 3 })).toHaveLength(RELEASES.length);
       fireEvent.click(within(history).getByRole('link', { name: 'Recycle bin' }));
       expect(screen.getByTestId('location')).toHaveTextContent('/help#trash');
       await waitFor(() => expect(screen.getByRole('heading', { name: 'Recycle bin', level: 2 })).toHaveFocus());

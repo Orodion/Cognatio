@@ -6,7 +6,7 @@ import { GET_PERSON_MEDIA } from '@/features/persons/graphql/mediaQueries';
 import { GET_PERSONS } from '@/features/persons/graphql/personQueries';
 import type { TimelineEvent } from '@/features/persons/types/event';
 import { makePerson } from '@/test/fixtures';
-import { MAX_UPLOAD_BYTES, uploadMedia } from '@/features/persons/lib/uploadMedia';
+import { uploadMedia } from '@/features/persons/lib/uploadMedia';
 import { EventFormDialog } from '../EventFormDialog';
 
 vi.mock('@/features/persons/lib/uploadMedia', async (original) => ({
@@ -27,6 +27,7 @@ const medium = (id: string, personId: string, originalFileName: string, mimeType
   fileName: `${id}.bin`,
   originalFileName,
   mimeType,
+  viewable: true,
   sizeBytes: 10,
   type: 'PHOTO',
   createdAt: '1',
@@ -74,6 +75,7 @@ describe('EventFormDialog', () => {
     fireEvent.change(screen.getByLabelText(/timeline.form.title/), { target: { value: ' Taufe ' } });
     fireEvent.change(screen.getByLabelText(/timeline.form.category/), { target: { value: 'BAPTISM' } });
     fireEvent.change(screen.getByLabelText(/timeline.form.date/), { target: { value: 'um 1980' } });
+    expect(screen.getByLabelText(/timeline.form.location/)).toHaveAttribute('list', 'place-suggestions');
     fireEvent.change(screen.getByLabelText(/timeline.form.location/), { target: { value: 'Köln' } });
     fireEvent.click(screen.getByRole('button', { name: /common.save/ }));
 
@@ -114,6 +116,20 @@ describe('EventFormDialog', () => {
     expect(result.mock.calls[0][0]).toMatchObject({ id: 'e1', data: { date: '01.05.1990', datePrecision: 'EXACT', sortOrder: 19900501 } });
     // The person of an event cannot be changed, so the update does not send it
     expect(result.mock.calls[0][0].data).not.toHaveProperty('personId');
+  });
+
+  it('sends emptied fields as null, so the backend clears them', async () => {
+    const event = saved({ title: 'Umzug', category: 'MOVE', date: '1990', place: 'Köln', description: 'Mit der Bahn' }) as unknown as TimelineEvent;
+    const result = vi.fn((vars: { id: string; data: Record<string, unknown> }) => ({ data: { updateEvent: saved({ ...vars.data, id: vars.id }) } }));
+    const { onSuccess } = setup(event, { request: { query: UPDATE_EVENT }, variableMatcher: () => true, result });
+
+    fireEvent.change(screen.getByLabelText(/timeline.form.date/), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText(/timeline.form.location/), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText(/timeline.form.description/), { target: { value: ' ' } });
+    fireEvent.click(screen.getByRole('button', { name: /common.save/ }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(result.mock.calls[0][0].data).toMatchObject({ date: null, datePrecision: null, sortOrder: null, place: null, description: null });
   });
 
   it('links own media and media of other persons, uploads new files and removes links', async () => {
@@ -163,18 +179,17 @@ describe('EventFormDialog', () => {
     expect(uploadMedia).toHaveBeenCalledWith(plan, 'p1', 'DOCUMENT', 'e1');
   });
 
-  it('does not accept files above the size limit and can drop a pending file', async () => {
+  it('accepts large files (no limit per file) and can drop a pending file', async () => {
     const result = vi.fn((vars: { data: Record<string, unknown> }) => ({ data: { createEvent: saved(vars.data) } }));
     const { onSuccess } = setup(null, { request: { query: CREATE_EVENT }, variableMatcher: () => true, result });
     fireEvent.change(screen.getByLabelText(/timeline.form.title/), { target: { value: 'Umzug' } });
     expect(screen.getByText('timeline.media.none')).toBeInTheDocument();
 
     const big = new File(['x'], 'film.mp4', { type: 'video/mp4' });
-    Object.defineProperty(big, 'size', { value: MAX_UPLOAD_BYTES + 1 });
-    const photo = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
-    fireEvent.change(screen.getByTestId('event-media-input'), { target: { files: [big, photo] } });
-    expect(screen.getByRole('alert')).toHaveTextContent('timeline.media.tooLarge');
-    expect(screen.queryByText('film.mp4')).not.toBeInTheDocument();
+    Object.defineProperty(big, 'size', { value: 5 * 1024 ** 3 });
+    fireEvent.change(screen.getByTestId('event-media-input'), { target: { files: [big] } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('film.mp4')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'timeline.media.removeFile' }));
     expect(screen.getByText('timeline.media.none')).toBeInTheDocument();

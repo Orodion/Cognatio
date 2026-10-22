@@ -23,6 +23,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   // The relation is in the active family tree
   prismaMock.relation.findFirst.mockResolvedValue({ id: 'r1' } as Relation);
+  prismaMock.$transaction.mockImplementation(((work: (tx: typeof prismaMock) => unknown) => work(prismaMock)) as never);
 });
 
 describe('relationResolvers - Query', () => {
@@ -139,6 +140,28 @@ describe('relationResolvers - Mutation', () => {
           active: true,
         }),
       });
+    });
+
+    it('refuses a relation that looks wrong with its possible errors and takes it once confirmed', async () => {
+      const anna = { id: '1', firstName: 'Anna', lastName: 'Kraft', gender: 'FEMALE' } as Person;
+      const paul = { id: '2', firstName: 'Paul', lastName: 'Kraft', gender: 'MALE' } as Person;
+      const data = { personAId: '1', personBId: '2', type: 'MOTHER' };
+      // Both exist; the family tree for the check; the names for the message
+      prismaMock.person.findMany.mockResolvedValueOnce([anna, paul]).mockResolvedValueOnce([anna, paul]).mockResolvedValueOnce([anna, paul]);
+      prismaMock.relation.findMany.mockResolvedValue([]);
+
+      const refusal = await relationResolvers.Mutation.createRelation(null, { data }, ctx).catch((err: GraphQLError) => err);
+
+      expect(refusal).toMatchObject({
+        message: expect.stringContaining('Paul Kraft is entered as mother of Anna Kraft but is male.'),
+        extensions: { reason: 'IMPLAUSIBLE', issues: [{ code: 'ROLE_GENDER', personIds: ['2', '1'], role: 'MOTHER', gender: 'MALE' }] },
+      });
+      expect(prismaMock.relation.create).not.toHaveBeenCalled();
+
+      prismaMock.person.findMany.mockResolvedValueOnce([anna, paul]);
+      prismaMock.relation.create.mockResolvedValueOnce({ ...mockRelation, ...data });
+      await relationResolvers.Mutation.createRelation(null, { data, confirmed: true }, ctx);
+      expect(prismaMock.relation.create).toHaveBeenCalled();
     });
 
     it('should reject an invalid relation type', async () => {
@@ -303,6 +326,39 @@ describe('relationResolvers - Mutation', () => {
       expect(prismaMock.relation.createMany).not.toHaveBeenCalled();
     });
 
+    it('guesses no second parent when the parent has several partners, but links the siblings', async () => {
+      // Mother '2' has partners '3' and '6' and child '4'; nobody knows whether '3' or '6' is the other parent of '1'
+      prismaMock.person.findMany.mockResolvedValueOnce([personId('1'), personId('2')]);
+      prismaMock.relation.findMany.mockResolvedValueOnce([]);
+      prismaMock.relation.findMany.mockResolvedValueOnce([]); // parent-child graph for the cycle check
+      prismaMock.relation.create.mockResolvedValueOnce({ ...mockRelation, personAId: '1', personBId: '2', type: 'MOTHER' });
+      prismaMock.relation.findMany.mockResolvedValueOnce([
+        { ...mockRelation, id: 'p', personAId: '2', personBId: '3', type: 'HUSBAND' },
+        { ...mockRelation, id: 'q', personAId: '6', personBId: '2', type: 'PARTNER' },
+        { ...mockRelation, id: 'k', personAId: '4', personBId: '2', type: 'MOTHER' },
+      ]);
+
+      await relationResolvers.Mutation.createRelation(null, { data: { personAId: '1', personBId: '2', type: 'MOTHER' } }, ctx);
+
+      expect(prismaMock.person.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.relation.createMany).toHaveBeenCalledWith({ data: [{ personAId: '1', personBId: '4', type: 'SIBLING', active: true }] });
+    });
+
+    it('writes the relation and the derived ones in one transaction', async () => {
+      prismaMock.person.findMany.mockResolvedValueOnce([personId('1'), personId('2')]);
+      prismaMock.relation.findMany.mockResolvedValueOnce([]);
+      prismaMock.relation.findMany.mockResolvedValueOnce([]); // parent-child graph for the cycle check
+      prismaMock.relation.create.mockResolvedValueOnce({ ...mockRelation, personAId: '1', personBId: '2', type: 'MOTHER' });
+      prismaMock.relation.findMany.mockResolvedValueOnce([{ ...mockRelation, id: 'k', personAId: '4', personBId: '2', type: 'MOTHER' }]);
+      prismaMock.relation.createMany.mockRejectedValueOnce(new Error('connection lost'));
+
+      await expect(relationResolvers.Mutation.createRelation(null, { data: { personAId: '1', personBId: '2', type: 'MOTHER' } }, ctx)).rejects.toThrow(
+        'connection lost',
+      );
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(prismaMock.relation.create).toHaveBeenCalledTimes(1);
+    });
+
     it('should not add a third parent', async () => {
       // Child '1' already has father '5'; new mother '2' is married to '3' -> '3' does not become a parent
       prismaMock.person.findMany.mockResolvedValueOnce([personId('1'), personId('2')]);
@@ -364,6 +420,35 @@ describe('relationResolvers - Mutation', () => {
       });
     });
 
+    it('keeps the fields that are not passed – also a relation that is switched off stays off', async () => {
+      prismaMock.relation.findFirst.mockResolvedValue({ ...mockRelation, active: false, note: 'Seit 1990' });
+      prismaMock.person.findMany.mockResolvedValueOnce([personId('1'), personId('2')]);
+      prismaMock.relation.update.mockResolvedValueOnce({ ...mockRelation, active: false, label: 'Stiefvater' });
+
+      await relationResolvers.Mutation.updateRelation(
+        null,
+        { id: 'r1', data: { personAId: '1', personBId: '2', type: 'PARTNER', label: 'Stiefvater', endDate: null } },
+        ctx,
+      );
+
+      const { data } = prismaMock.relation.update.mock.calls[0][0];
+      expect(data).toMatchObject({ label: 'Stiefvater', endDate: null });
+      expect(data.active).toBeUndefined();
+      expect(data.note).toBeUndefined();
+      expect(data.startDate).toBeUndefined();
+      // An inactive relation is not checked for duplicates
+      expect(prismaMock.relation.findMany).not.toHaveBeenCalled();
+    });
+
+    it('checks the order of the dates with the value that is kept', async () => {
+      prismaMock.relation.findFirst.mockResolvedValue({ ...mockRelation, startDate: new Date('1990-05-01T00:00:00.000Z') } as Relation);
+
+      await expect(
+        relationResolvers.Mutation.updateRelation(null, { id: 'r1', data: { personAId: '1', personBId: '2', type: 'PARTNER', endDate: '1980-01-01' } }, ctx),
+      ).rejects.toMatchObject({ extensions: { reason: 'DATE_ORDER' } });
+      expect(prismaMock.relation.update).not.toHaveBeenCalled();
+    });
+
     it('rejects a change that repeats another relation of the same persons, but not the relation itself', async () => {
       prismaMock.relation.findFirst.mockResolvedValue({ ...mockRelation, type: 'SIBLING' });
       prismaMock.person.findMany.mockResolvedValue([personId('1'), personId('2')]);
@@ -412,7 +497,8 @@ describe('relationResolvers - Mutation', () => {
       prismaMock.relation.findMany.mockResolvedValueOnce([]);
       prismaMock.relation.findMany.mockResolvedValueOnce([{ ...mockRelation, id: 'k', personAId: '4', personBId: '2', type: 'MOTHER' }]);
 
-      await relationResolvers.Mutation.updateRelation(null, { id: 'r1', data: { personAId: '1', personBId: '2', type: 'MOTHER' } }, ctx);
+      // Confirmed: the check for possible errors is tested on its own
+      await relationResolvers.Mutation.updateRelation(null, { id: 'r1', data: { personAId: '1', personBId: '2', type: 'MOTHER' }, confirmed: true }, ctx);
       expect(prismaMock.relation.createMany).toHaveBeenCalledWith({
         data: [{ personAId: '1', personBId: '4', type: 'SIBLING', active: true }],
       });
@@ -453,6 +539,72 @@ describe('relationResolvers - Mutation', () => {
       expect(prismaMock.relation.update).toHaveBeenCalledWith({
         where: { id: 'r1' },
         data: { active: false },
+      });
+    });
+
+    describe('siblings derived from a parent-child relation', () => {
+      const link = (child: string, parent: string, type = 'MOTHER') => ({ personAId: child, personBId: parent, type });
+      const motherOfC = { ...mockRelation, personAId: 'c', personBId: 'm', type: 'MOTHER' };
+      const siblingsWhere = (ids: string[]) => ({
+        type: 'SIBLING',
+        OR: [
+          { personAId: 'c', personBId: { in: ids } },
+          { personBId: 'c', personAId: { in: ids } },
+        ],
+      });
+
+      it('takes the sibling relations along that came only through the deleted parent', async () => {
+        prismaMock.relation.findFirst.mockResolvedValue(motherOfC);
+        // After the deletion: s1 shares only the mother with c, s2 also the father
+        prismaMock.relation.findMany.mockResolvedValueOnce([
+          link('s1', 'm'),
+          link('s2', 'm'),
+          link('s2', 'f', 'FATHER'),
+          link('c', 'f', 'FATHER'),
+        ] as Relation[]);
+
+        await relationResolvers.Mutation.deleteRelation(null, { id: 'r1' }, ctx);
+
+        expect(prismaMock.relation.updateMany).toHaveBeenCalledWith({ where: { active: true, ...siblingsWhere(['s1']) }, data: { active: false } });
+      });
+
+      it('leaves siblings alone when a relation of another kind is deleted', async () => {
+        await relationResolvers.Mutation.deleteRelation(null, { id: 'r1' }, ctx);
+
+        expect(prismaMock.relation.findMany).not.toHaveBeenCalled();
+        expect(prismaMock.relation.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('takes the sibling relations along when a parent-child relation is deactivated by an update', async () => {
+        prismaMock.relation.findFirst.mockResolvedValue(motherOfC);
+        prismaMock.person.findMany.mockResolvedValueOnce([personId('c'), personId('m')]);
+        prismaMock.relation.findMany.mockResolvedValueOnce([link('s1', 'm')] as Relation[]);
+        prismaMock.relation.update.mockResolvedValueOnce({ ...motherOfC, active: false });
+
+        await relationResolvers.Mutation.updateRelation(null, { id: 'r1', data: { personAId: 'c', personBId: 'm', type: 'MOTHER', active: false } }, ctx);
+
+        expect(prismaMock.relation.updateMany).toHaveBeenCalledWith({ where: { active: true, ...siblingsWhere(['s1']) }, data: { active: false } });
+      });
+
+      it('brings the sibling relations back with a restored parent-child relation, one per pair', async () => {
+        prismaMock.relation.findFirst.mockResolvedValue({ ...motherOfC, active: false });
+        prismaMock.relation.findMany
+          // No duplicate, no cycle
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([link('c', 'm'), link('s1', 'm'), link('s2', 'm')] as Relation[])
+          .mockResolvedValueOnce([
+            { ...mockRelation, id: 'x1', personAId: 'c', personBId: 's1', type: 'SIBLING', active: false },
+            { ...mockRelation, id: 'x2', personAId: 's1', personBId: 'c', type: 'SIBLING', active: false },
+            { ...mockRelation, id: 'x3', personAId: 's2', personBId: 'c', type: 'SIBLING', active: false },
+            { ...mockRelation, id: 'x4', personAId: 'c', personBId: 's2', type: 'SIBLING', active: true },
+          ]);
+        prismaMock.relation.update.mockResolvedValueOnce(motherOfC);
+
+        await relationResolvers.Mutation.restoreRelation(null, { id: 'r1' }, ctx);
+
+        expect(prismaMock.relation.findMany).toHaveBeenLastCalledWith({ where: siblingsWhere(['s1', 's2']), orderBy: { updatedAt: 'desc' } });
+        expect(prismaMock.relation.updateMany).toHaveBeenCalledWith({ where: { id: { in: ['x1'] } }, data: { active: true } });
       });
     });
 
@@ -503,6 +655,11 @@ describe('birthDateOf', () => {
   it('reads only exact birth dates', () => {
     expect(birthDateOf('13.02.1985')).toEqual(new Date('1985-02-13T00:00:00.000Z'));
     expect(birthDateOf(' 01.01.1900 ')).toEqual(new Date('1900-01-01T00:00:00.000Z'));
+    // Also the other forms the form accepts as an exact date
+    expect(birthDateOf('4.1.1980')).toEqual(new Date('1980-01-04T00:00:00.000Z'));
+    expect(birthDateOf('1980-01-04')).toEqual(new Date('1980-01-04T00:00:00.000Z'));
+    expect(birthDateOf('29.2.1900')).toBeNull();
+    expect(birthDateOf('01.1985')).toBeNull();
     expect(birthDateOf('31.02.1985')).toBeNull();
     expect(birthDateOf('um 1985')).toBeNull();
     expect(birthDateOf('1985')).toBeNull();

@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import { BackendStartError, newPort, startBackend, type BackendHandle } from './backend.js';
+import { Downloads } from './downloads.js';
 import { integrateAppImage } from './desktopEntry.js';
 import { errorSummary, lastError, logSize } from './logs.js';
-import { isSameOrigin } from './origin.js';
+import { isSameOrigin, permissionAllowed, viewerTitle } from './origin.js';
 import { appPaths, dataDir as resolveDataDir } from './paths.js';
 import { readSettings, writeSettings } from './settings.js';
 import { splashPage, texts } from './texts.js';
@@ -33,6 +34,8 @@ const logFile = path.join(dataDir, 'logs', 'cognatio.log');
 let window: BrowserWindow | null = null;
 let backend: BackendHandle | null = null;
 let quitting = false;
+// Backups and exports go straight into the file the user chose; the taskbar shows the progress
+const downloads = new Downloads((fraction) => window?.setProgressBar(fraction));
 
 // COGNATIO_UPDATE_URL: another update feed (own server, tests); the portable variant is not updated
 const feedUrl = process.env.COGNATIO_UPDATE_URL?.trim();
@@ -89,7 +92,7 @@ function createWindow(): BrowserWindow {
           width: 900,
           height: 700,
           autoHideMenuBar: true,
-          title: 'Cognatio',
+          title: viewerTitle(url, backend.origin) ?? 'Cognatio',
           webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
         },
       };
@@ -98,6 +101,14 @@ function createWindow(): BrowserWindow {
       void shell.openExternal(url);
     }
     return { action: 'deny' };
+  });
+  // A window with an uploaded file keeps the name of the file as its title, not the title inside the file
+  win.webContents.on('did-create-window', (child, { url }) => {
+    const title = backend ? viewerTitle(url, backend.origin) : undefined;
+    if (title !== undefined) {
+      child.on('page-title-updated', (event) => event.preventDefault());
+      child.setTitle(title);
+    }
   });
   win.webContents.on('will-navigate', (event, url) => {
     const allowed = backend ? isSameOrigin(url, backend.origin) : url.startsWith('data:');
@@ -142,6 +153,35 @@ function handleIpc() {
     }
     await fs.promises.writeFile(result.filePath, Buffer.from(data));
     return true;
+  });
+  // Reports: "Save as" first, then the page is rendered with its print styles (paper size and margins from @page)
+  ipcMain.handle('cognatio:save-pdf', async (event: IpcMainInvokeEvent, filename: string) => {
+    fromApp(event);
+    if (!window) {
+      return false;
+    }
+    const name = path.basename(String(filename)).replace(/\.pdf$/i, '') + '.pdf';
+    const result = await dialog.showSaveDialog(window, { defaultPath: name, filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+    if (result.canceled || !result.filePath) {
+      return false;
+    }
+    const pdf = await event.sender.printToPDF({ preferCSSPageSize: true, printBackground: true });
+    await fs.promises.writeFile(result.filePath, pdf);
+    return true;
+  });
+  // Large files (backup, export): "Save as" first, then the download runs from the backend into that file
+  ipcMain.handle('cognatio:download-to', async (event: IpcMainInvokeEvent, url: string, filename: string) => {
+    fromApp(event);
+    if (!window || !backend || !isSameOrigin(String(url), backend.origin)) {
+      return { saved: false, error: 'DOWNLOAD_FAILED' };
+    }
+    const result = await dialog.showSaveDialog(window, { defaultPath: path.basename(String(filename)) });
+    if (result.canceled || !result.filePath) {
+      return { saved: false };
+    }
+    const done = downloads.expect(String(url), result.filePath);
+    window.webContents.downloadURL(String(url));
+    return done;
   });
 }
 
@@ -307,12 +347,29 @@ if (gotLock) {
   void app.whenReady().then(() => {
     handleIpc();
     setupMenu();
-    // Nothing is allowed that the app does not need (camera, location, notifications …)
-    session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-    // Downloads (media under their original name) only from the backend of the app; Electron then asks where to save
-    session.defaultSession.on('will-download', (event, item) => {
+    // Nothing is allowed that the app does not need (camera, location, notifications …) – only its copy buttons write into the clipboard
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) =>
+      callback(permissionAllowed(permission, webContents.getURL(), backend?.origin)),
+    );
+    // Downloads only from the backend of the app: a backup or export into the file chosen before (downloadTo),
+    // anything else (media under their original name) with the "Save as" dialog of Electron
+    session.defaultSession.on('will-download', (event, item, webContents) => {
       if (!backend || !isSameOrigin(item.getURL(), backend.origin)) {
         event.preventDefault();
+        return;
+      }
+      // A new window that only led to a download stays empty: hide it, close it when the download ends
+      const owner = webContents ? BrowserWindow.fromWebContents(webContents) : null;
+      const shown = owner?.webContents.getURL();
+      if (owner && owner !== window && (!shown || shown === 'about:blank' || shown === item.getURL())) {
+        owner.hide();
+        item.once('done', () => {
+          if (!owner.isDestroyed()) {
+            owner.destroy();
+          }
+        });
+      }
+      if (downloads.take(item)) {
         return;
       }
       item.setSaveDialogOptions({ defaultPath: path.join(app.getPath('downloads'), path.basename(item.getFilename())) });

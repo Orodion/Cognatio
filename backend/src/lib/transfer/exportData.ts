@@ -1,12 +1,12 @@
 import path from 'path';
-import { zipSync, strToU8, type Zippable } from 'fflate';
 import type { PrismaClient } from '../../generated/prisma/client.js';
-import { readUploadedFile, uploadDir, uploadedBytes } from '../files/uploads.js';
-import { FORMAT_NAME, FORMAT_VERSION, sortedIds, type TransferData, type TransferPerson } from './format.js';
+import { uploadDir, uploadedBytes, uploadedFilePath } from '../files/uploads.js';
+import { FORMAT_NAME, formatVersionOf, sortedIds, sortedPersonCitations, type TransferData, type TransferMedia, type TransferPerson } from './format.js';
 import { toGedcom, type GedcomVersion } from './gedcom.js';
 import { assertFitsLimit, importMaxBytes } from './limits.js';
+import { writeZip, type ZipItem } from '../files/zipWriter.js';
 
-type Db = Pick<PrismaClient, 'person' | 'relation'>;
+type Db = Pick<PrismaClient, 'person' | 'relation' | 'citation' | 'source' | 'repository' | 'media'>;
 
 const TRANSLITERATION: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue' };
 
@@ -23,20 +23,65 @@ export function safeName(value: string | null | undefined, fallback = 'unknown')
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
-/** Reads all data of a family tree (including the recycle bin) and assigns readable paths to the media files. */
+const citationIdsOf = (links: Array<{ citationId: string }>) => sortedIds(links.map((l) => l.citationId));
+
+/** File extension of a stored file, for the readable path in the ZIP file */
+const extensionOf = (m: { fileName: string; originalFileName: string }) =>
+  path
+    .extname(m.fileName || m.originalFileName)
+    .toLowerCase()
+    .replace(/[^.a-z0-9]/g, '');
+
+/**
+ * Reads all data of a family tree (including the recycle bin) and assigns readable paths to the media files. From the
+ * library (shared by all family trees) it takes the citations its persons, events and relations use, their sources and
+ * archives and their scans.
+ */
 export async function buildExport(db: Db, treeId: string, now = new Date()) {
+  const citationLinks = { select: { citationId: true } } as const;
   const persons = await db.person.findMany({
     where: { familyTreeId: treeId },
-    include: { events: { include: { media: { select: { mediaId: true } } } }, notes: true, media: true },
+    include: {
+      events: { include: { media: { select: { mediaId: true } }, citations: citationLinks } },
+      notes: true,
+      media: true,
+      citations: { select: { citationId: true, fact: true } },
+    },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
-  const relations = await db.relation.findMany({ where: { personA: { familyTreeId: treeId } }, orderBy: { createdAt: 'asc' } });
+  const relations = await db.relation.findMany({
+    where: { personA: { familyTreeId: treeId } },
+    include: { citations: citationLinks },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const usedCitations = new Set([
+    ...persons.flatMap((p) => [...p.citations, ...p.events.flatMap((e) => e.citations)].map((l) => l.citationId)),
+    ...relations.flatMap((r) => r.citations.map((l) => l.citationId)),
+  ]);
+  const citations = usedCitations.size
+    ? await db.citation.findMany({ where: { id: { in: [...usedCitations] } }, include: { media: { select: { mediaId: true } } }, orderBy: { id: 'asc' } })
+    : [];
+  const sourceIds = [...new Set(citations.map((c) => c.sourceId))];
+  const sources = sourceIds.length
+    ? await db.source.findMany({ where: { id: { in: sourceIds } }, include: { media: { select: { mediaId: true } } }, orderBy: { id: 'asc' } })
+    : [];
+  const repositoryIds = [...new Set(sources.map((s) => s.repositoryId).filter((id): id is string => !!id))];
+  const repositories = repositoryIds.length ? await db.repository.findMany({ where: { id: { in: repositoryIds } }, orderBy: { id: 'asc' } }) : [];
+  // Scans: of the library, and files of persons of this family tree; files of other family trees are left out
+  const ownMedia = new Set(persons.flatMap((p) => p.media.map((m) => m.id)));
+  const scanIds = [...new Set([...sources, ...citations].flatMap((r) => r.media.map((l) => l.mediaId)))];
+  const libraryMedia = scanIds.length
+    ? await db.media.findMany({ where: { id: { in: scanIds.filter((id) => !ownMedia.has(id)) }, familyTreeId: null }, orderBy: { id: 'asc' } })
+    : [];
+  const exportable = new Set([...ownMedia, ...libraryMedia.map((m) => m.id)]);
+  const scansOf = (links: Array<{ mediaId: string }>) => sortedIds(links.map((l) => l.mediaId).filter((id) => exportable.has(id)));
 
   // Media files: one folder per person, files named <lastName>_<firstName>_<type>_<n>.<ext>
   const files: Array<{ zipPath: string; diskName: string }> = [];
   const data: TransferData = {
     format: FORMAT_NAME,
-    version: FORMAT_VERSION,
+    version: 1,
     exportedAt: now.toISOString(),
     source: 'Cognatio',
     persons: persons.map((p): TransferPerson => {
@@ -81,6 +126,7 @@ export async function buildExport(db: Db, treeId: string, now = new Date()) {
           place: e.place,
           sortOrder: e.sortOrder,
           mediaIds: sortedIds(e.media.map((link) => link.mediaId)),
+          citationIds: citationIdsOf(e.citations),
           createdAt: e.createdAt.toISOString(),
           updatedAt: e.updatedAt.toISOString(),
         })),
@@ -94,23 +140,20 @@ export async function buildExport(db: Db, treeId: string, now = new Date()) {
           const art = safeName(m.type).toLowerCase();
           const n = (counter.get(art) ?? 0) + 1;
           counter.set(art, n);
-          const ext = path
-            .extname(m.fileName || m.originalFileName)
-            .toLowerCase()
-            .replace(/[^.a-z0-9]/g, '');
-          const zipPath = `${folder}/${base}_${art}_${n}${ext}`;
+          const zipPath = `${folder}/${base}_${art}_${n}${extensionOf(m)}`;
           files.push({ zipPath, diskName: m.fileName });
           return {
             id: m.id,
             path: zipPath,
             originalFileName: m.originalFileName,
             mimeType: m.mimeType,
-            sizeBytes: m.sizeBytes,
+            sizeBytes: Number(m.sizeBytes),
             type: m.type,
             createdAt: m.createdAt.toISOString(),
             updatedAt: m.updatedAt.toISOString(),
           };
         }),
+        citations: sortedPersonCitations(p.citations.map((l) => ({ citationId: l.citationId, fact: l.fact }))),
       };
     }),
     relations: relations.map((r) => ({
@@ -123,10 +166,70 @@ export async function buildExport(db: Db, treeId: string, now = new Date()) {
       note: r.note,
       startDate: iso(r.startDate),
       endDate: iso(r.endDate),
+      citationIds: citationIdsOf(r.citations),
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     })),
+    repositories: repositories.map((r) => ({
+      id: r.id,
+      name: r.name,
+      address: r.address,
+      url: r.url,
+      email: r.email,
+      phone: r.phone,
+      note: r.note,
+      isDeleted: r.isDeleted,
+      deletedAt: iso(r.deletedAt),
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    })),
+    sources: sources.map((s) => ({
+      id: s.id,
+      type: s.type,
+      title: s.title,
+      author: s.author,
+      publication: s.publication,
+      abbreviation: s.abbreviation,
+      text: s.text,
+      repositoryId: s.repositoryId,
+      callNumber: s.callNumber,
+      note: s.note,
+      mediaIds: scansOf(s.media),
+      isDeleted: s.isDeleted,
+      deletedAt: iso(s.deletedAt),
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+    })),
+    citations: citations.map((c) => ({
+      id: c.id,
+      sourceId: c.sourceId,
+      page: c.page,
+      date: c.date,
+      datePrecision: c.datePrecision,
+      text: c.text,
+      quality: c.quality,
+      note: c.note,
+      mediaIds: scansOf(c.media),
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    })),
+    // One folder for the scans of the library, named after the original file
+    libraryMedia: libraryMedia.map((m): TransferMedia => {
+      const zipPath = `media/sources/${safeName(path.parse(m.originalFileName).name).toLowerCase()}_${m.id.slice(0, 8)}${extensionOf(m)}`;
+      files.push({ zipPath, diskName: m.fileName });
+      return {
+        id: m.id,
+        path: zipPath,
+        originalFileName: m.originalFileName,
+        mimeType: m.mimeType,
+        sizeBytes: Number(m.sizeBytes),
+        type: m.type,
+        createdAt: m.createdAt.toISOString(),
+        updatedAt: m.updatedAt.toISOString(),
+      };
+    }),
   };
+  data.version = formatVersionOf(data);
   return { data, files };
 }
 
@@ -161,23 +264,14 @@ export function exportFileName(data: TransferData, d: Date): string {
 }
 
 /**
- * Creates the ZIP file (persons.json + optional media/). Missing media files are skipped,
- * their entries removed and reported in `missing` so the export stays consistent anyway.
- * Media above `maxBytes` are refused (EXPORT_TOO_LARGE) – such a file could not be imported again.
+ * Creates the ZIP file (persons.json + optional media/), written piece by piece while it is sent. Missing media files
+ * are skipped, their entries removed and reported in `missing` so the export stays consistent anyway. An export above
+ * the optional limit (`maxBytes`) is refused (EXPORT_TOO_LARGE) – it could not be imported again.
  */
 export function createZip(data: TransferData, files: Array<{ zipPath: string; diskName: string }>, includeMedia: boolean, maxBytes = importMaxBytes()) {
-  const media = includeMedia ? files : [];
-  assertFitsLimit(
-    uploadedBytes(
-      media.map((f) => f.diskName),
-      uploadDir,
-    ),
-    maxBytes,
-    'EXPORT_TOO_LARGE',
-  );
-  const { zip, exported, missing } = collectMedia(data, media);
-  zip['persons.json'] = strToU8(JSON.stringify(exported, null, 2));
-  return { buffer: Buffer.from(zipSync(zip)), missing };
+  const { items, exported, missing } = collectMedia(data, includeMedia ? files : [], maxBytes);
+  items.push({ name: 'persons.json', buffer: Buffer.from(JSON.stringify(exported, null, 2)) });
+  return { zip: writeZip(items), missing };
 }
 
 /**
@@ -191,6 +285,25 @@ export function createGedzip(
   now: Date,
   maxBytes = importMaxBytes(),
 ) {
+  const { items, exported, missing } = collectMedia(data, files, maxBytes);
+  items.push({ name: 'gedcom.ged', buffer: Buffer.from(toGedcom(exported, version, now, { media: true })) });
+  return { zip: writeZip(items, now), missing };
+}
+
+/** The media files that exist (missing ones are skipped and their entries removed); refuses an export above the limit */
+function collectMedia(data: TransferData, files: Array<{ zipPath: string; diskName: string }>, maxBytes: number) {
+  const items: ZipItem[] = [];
+  const missing: string[] = [];
+  const present = new Set<string>();
+  for (const f of files) {
+    const file = uploadedFilePath(f.diskName, uploadDir);
+    if (!file) {
+      missing.push(f.zipPath);
+      continue;
+    }
+    items.push({ name: f.zipPath, file });
+    present.add(f.zipPath);
+  }
   assertFitsLimit(
     uploadedBytes(
       files.map((f) => f.diskName),
@@ -199,37 +312,21 @@ export function createGedzip(
     maxBytes,
     'EXPORT_TOO_LARGE',
   );
-  const { zip, exported, missing } = collectMedia(data, files);
-  zip['gedcom.ged'] = strToU8(toGedcom(exported, version, now, { media: true }));
-  return { buffer: Buffer.from(zipSync(zip)), missing };
-}
-
-/** Read the media files; missing ones are skipped and their entries removed */
-function collectMedia(data: TransferData, files: Array<{ zipPath: string; diskName: string }>) {
-  const zip: Zippable = {};
-  const missing: string[] = [];
-  const present = new Set<string>();
-  for (const f of files) {
-    const content = readUploadedFile(f.diskName, uploadDir);
-    if (!content) {
-      missing.push(f.zipPath);
-      continue;
-    }
-    // Images/documents are usually compressed already – store only
-    zip[f.zipPath] = [content, { level: 0 }];
-    present.add(f.zipPath);
-  }
-  return { zip, exported: withMedia(data, (mediaPath) => present.has(mediaPath)), missing };
+  return { items, exported: withMedia(data, (mediaPath) => present.has(mediaPath)), missing };
 }
 
 /**
  * Keeps only media whose file is exported; a removed profile picture is reset,
- * links of events to removed media are dropped.
+ * links of events, sources and citations to removed media are dropped.
  */
 function withMedia(data: TransferData, keep: (mediaPath: string) => boolean): TransferData {
-  const kept = new Set(data.persons.flatMap((p) => p.media.filter((m) => keep(m.path)).map((m) => m.id)));
+  const kept = new Set([...data.persons.flatMap((p) => p.media), ...data.libraryMedia].filter((m) => keep(m.path)).map((m) => m.id));
+  const scans = <T extends { mediaIds: string[] }>(record: T) => ({ ...record, mediaIds: record.mediaIds.filter((id) => kept.has(id)) });
   return {
     ...data,
+    libraryMedia: data.libraryMedia.filter((m) => kept.has(m.id)),
+    sources: data.sources.map(scans),
+    citations: data.citations.map(scans),
     persons: data.persons.map((p) => {
       const media = p.media.filter((m) => kept.has(m.id));
       const profilePictureId = media.some((m) => m.id === p.profilePictureId) ? p.profilePictureId : null;

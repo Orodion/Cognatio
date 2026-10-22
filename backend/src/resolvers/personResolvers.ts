@@ -3,8 +3,9 @@ import { removeUploadedFile } from '../lib/files/uploads.js';
 import { loadProfilePictureUrl } from '../lib/files/profilePictures.js';
 import { personPhonetics } from '../lib/search/phonetics.js';
 import { findSimilarPersons, searchPersons, type SimilarInput } from '../lib/search/search.js';
+import { placeSuggestions } from '../lib/places.js';
 import { lockTree, personInTree, treeNotFound, type GraphQLContext } from '../lib/treeScope.js';
-import { validateDatePrecision, validateGender } from '../lib/personValues.js';
+import { storedDateText, validateDatePrecision, validateGender, validateMaritalStatus } from '../lib/personValues.js';
 import { isoTimes } from './timestamps.js';
 
 interface PersonInput {
@@ -29,15 +30,22 @@ interface PersonInput {
   maritalStatus?: string;
   nationality?: string;
   languages?: string[];
-  profilePictureId?: string;
 }
 
 /** Gender and date precisions take only the values the app knows (any text was accepted before) */
 function validatePersonValues(data: PersonInput) {
   validateGender(data.gender);
+  validateMaritalStatus(data.maritalStatus);
   validateDatePrecision(data.birthDatePrecision, 'birthDatePrecision');
   validateDatePrecision(data.deathDatePrecision, 'deathDatePrecision');
 }
+
+/** Dates of birth and death written out ("2. Oktober 1951") are stored in their numeric form */
+const withNumericDates = (data: PersonInput): PersonInput => ({
+  ...data,
+  birthDate: storedDateText(data.birthDate),
+  deathDate: storedDateText(data.deathDate),
+});
 
 export const personResolvers = {
   Query: {
@@ -75,6 +83,9 @@ export const personResolvers = {
       searchPersons(prisma, await treeId(), query, language),
 
     similarPersons: async (_: unknown, input: SimilarInput, { prisma, treeId }: GraphQLContext) => findSimilarPersons(prisma, await treeId(), input),
+
+    // Places already used in the family tree, for the suggestions while typing
+    places: async (_: unknown, __: unknown, { prisma, treeId }: GraphQLContext) => placeSuggestions(prisma, await treeId()),
   },
 
   Mutation: {
@@ -83,7 +94,7 @@ export const personResolvers = {
       validatePersonValues(data);
       // Set defaults if not given
       const createData = {
-        ...data,
+        ...withNumericDates(data),
         familyTreeId: await treeId(),
         gender: data.gender || 'UNKNOWN',
         languages: data.languages || [],
@@ -102,7 +113,7 @@ export const personResolvers = {
       const current = await personInTree(prisma, await treeId(), id);
       return prisma.person.update({
         where: { id },
-        data: { ...data, phonetics: personPhonetics({ ...current, ...data }) },
+        data: { ...withNumericDates(data), phonetics: personPhonetics({ ...current, ...data }) },
       });
     },
 
@@ -185,12 +196,16 @@ export const personResolvers = {
     // URL of the profile picture so the frontend can show it without a further query
     // Deliberately not async: persons without a profile picture (the rule) create no promise –
     // with thousands of persons this saves noticeable time
-    profilePictureUrl: (person: { profilePictureId?: string | null }, _: unknown, { prisma }: GraphQLContext): string | null | Promise<string | null> => {
+    profilePictureUrl: (
+      person: { id: string; profilePictureId?: string | null },
+      _: unknown,
+      { prisma }: GraphQLContext,
+    ): string | null | Promise<string | null> => {
       if (!person.profilePictureId) {
         return null;
       }
       // Batched: one query for all persons of a response
-      return loadProfilePictureUrl(prisma, person.profilePictureId);
+      return loadProfilePictureUrl(prisma, person.profilePictureId, person.id);
     },
   },
 };

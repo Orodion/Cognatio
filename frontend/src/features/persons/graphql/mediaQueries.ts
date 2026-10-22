@@ -8,6 +8,7 @@ export const GET_PERSON_MEDIA = gql`
       fileName
       originalFileName
       mimeType
+      viewable
       sizeBytes
       type
       createdAt
@@ -36,6 +37,7 @@ export const GET_LINKED_MEDIA = gql`
       fileName
       originalFileName
       mimeType
+      viewable
       sizeBytes
       type
       createdAt

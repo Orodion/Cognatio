@@ -1,5 +1,7 @@
+import { buildSchema, type GraphQLInputObjectType } from 'graphql';
 import { personResolvers } from '../personResolvers.js';
 import { prismaMock, testContext, TEST_TREE_ID } from '../../test/prismaMock.js';
+import { typeDefs } from '../../schema/typeDefs.js';
 import type { Person } from '../../generated/prisma/index.js';
 
 beforeEach(() => {
@@ -24,6 +26,12 @@ describe('personResolvers - values', () => {
     expect(await reason(personResolvers.Mutation.updatePerson(null, { id: '1', data: { firstName: 'Anna', deathDatePrecision: 'x' } }, testContext))).toBe(
       'INVALID_DATE_PRECISION',
     );
+    expect(await reason(personResolvers.Mutation.createPerson(null, { data: { firstName: 'Anna', maritalStatus: 'ENGAGED' } }, testContext))).toBe(
+      'INVALID_MARITAL_STATUS',
+    );
+    expect(await reason(personResolvers.Mutation.updatePerson(null, { id: '1', data: { firstName: 'Anna', maritalStatus: 'verheiratet' } }, testContext))).toBe(
+      'INVALID_MARITAL_STATUS',
+    );
     expect(prismaMock.person.create).not.toHaveBeenCalled();
     expect(prismaMock.person.update).not.toHaveBeenCalled();
   });
@@ -34,6 +42,21 @@ describe('personResolvers - values', () => {
     await personResolvers.Mutation.createPerson(null, { data: { firstName: 'Bob', birthDatePrecision: '' } }, testContext);
     expect(prismaMock.person.create).toHaveBeenCalledTimes(2);
     expect(prismaMock.person.create).toHaveBeenLastCalledWith({ data: expect.objectContaining({ gender: 'UNKNOWN' }) });
+  });
+});
+
+describe('personResolvers - dates', () => {
+  it('stores written-out dates in their numeric form and keeps dates that are not passed', async () => {
+    prismaMock.person.create.mockResolvedValue({ id: '1' } as Person);
+    prismaMock.person.update.mockResolvedValue({ id: '1' } as Person);
+
+    await personResolvers.Mutation.createPerson(null, { data: { firstName: 'Anna', birthDate: '2. Oktober 1951', deathDate: 'um 1999' } }, testContext);
+    await personResolvers.Mutation.updatePerson(null, { id: '1', data: { firstName: 'Anna', deathDate: 'May 3, 2001' } }, testContext);
+
+    expect(prismaMock.person.create).toHaveBeenCalledWith({ data: expect.objectContaining({ birthDate: '02.10.1951', deathDate: 'um 1999' }) });
+    const updated = prismaMock.person.update.mock.calls[0][0].data;
+    expect(updated).toMatchObject({ deathDate: '03.05.2001' });
+    expect(updated.birthDate).toBeUndefined();
   });
 });
 
@@ -203,18 +226,32 @@ describe('personResolvers - Papierkorb & Profilbild', () => {
   });
 
   it('resolves the profile picture URL', async () => {
-    expect(await personResolvers.Person.profilePictureUrl({ profilePictureId: null }, null, ctx)).toBeNull();
-    prismaMock.media.findMany.mockResolvedValueOnce([{ id: 'm1', fileName: 'abc.jpg' }] as never);
-    expect(await personResolvers.Person.profilePictureUrl({ profilePictureId: 'm1' }, null, ctx)).toBe('/uploads/abc.jpg');
+    expect(await personResolvers.Person.profilePictureUrl({ id: '1', profilePictureId: null }, null, ctx)).toBeNull();
+    prismaMock.media.findMany.mockResolvedValueOnce([{ id: 'm1', fileName: 'abc.jpg', personId: '1' }] as never);
+    expect(await personResolvers.Person.profilePictureUrl({ id: '1', profilePictureId: 'm1' }, null, ctx)).toBe('/uploads/abc.jpg');
+  });
+
+  it('gives no URL for a medium of another person or of the library of sources', async () => {
+    prismaMock.media.findMany.mockResolvedValueOnce([
+      { id: 'fremd', fileName: 'x.jpg', personId: '2' },
+      { id: 'scan', fileName: 'y.jpg', personId: null },
+    ] as never);
+    const urls = await Promise.all(['fremd', 'scan'].map((id) => personResolvers.Person.profilePictureUrl({ id: '1', profilePictureId: id }, null, ctx)));
+    expect(urls).toEqual([null, null]);
+  });
+
+  it('takes the profile picture only through setProfilePicture, not as a field of the person', () => {
+    const input = buildSchema(typeDefs).getType('PersonInput') as GraphQLInputObjectType;
+    expect(Object.keys(input.getFields())).not.toContain('profilePictureId');
   });
 
   it('loads the profile pictures of a list with a single query', async () => {
     prismaMock.media.findMany.mockResolvedValueOnce([
-      { id: 'm1', fileName: 'a.jpg' },
-      { id: 'm2', fileName: 'b.png' },
+      { id: 'm1', fileName: 'a.jpg', personId: '1' },
+      { id: 'm2', fileName: 'b.png', personId: '1' },
     ] as never);
     // Like GraphQL for a list: all fields are requested in the same turn
-    const urls = await Promise.all(['m1', 'm2', 'fehlt'].map((id) => personResolvers.Person.profilePictureUrl({ profilePictureId: id }, null, ctx)));
+    const urls = await Promise.all(['m1', 'm2', 'fehlt'].map((id) => personResolvers.Person.profilePictureUrl({ id: '1', profilePictureId: id }, null, ctx)));
     expect(urls).toEqual(['/uploads/a.jpg', '/uploads/b.png', null]);
     expect(prismaMock.media.findMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.media.findMany.mock.calls[0][0]).toMatchObject({ where: { id: { in: ['m1', 'm2', 'fehlt'] } } });

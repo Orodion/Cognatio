@@ -18,6 +18,7 @@ type FamilyTreeRow = {
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  homePersonId?: string | null;
   _count?: { persons: number };
 };
 
@@ -34,6 +35,7 @@ const toGraphQL = (tree: FamilyTreeRow) => ({
   deletedAt: tree.deletedAt?.toISOString() ?? null,
   createdAt: tree.createdAt.toISOString(),
   updatedAt: tree.updatedAt.toISOString(),
+  homePersonId: tree.homePersonId ?? null,
 });
 
 function validate(data: FamilyTreeInput) {
@@ -93,6 +95,15 @@ export const familyTreeResolvers = {
       return toGraphQL(await prisma.familyTree.update({ where: { id }, data: validate(data), include: WITH_COUNT }));
     },
 
+    // Home person of the active family tree (null: none); it must be a person of that tree outside the recycle bin
+    setHomePerson: async (_: unknown, { personId }: { personId?: string | null }, { prisma, treeId }: GraphQLContext) => {
+      const id = await treeId();
+      if (personId && !(await prisma.person.findFirst({ where: { id: personId, familyTreeId: id, isDeleted: false }, select: { id: true } }))) {
+        throw new GraphQLError('The person is not in this family tree.', { extensions: { code: 'BAD_USER_INPUT', reason: 'PERSON_NOT_FOUND' } });
+      }
+      return toGraphQL(await prisma.familyTree.update({ where: { id }, data: { homePersonId: personId || null }, include: WITH_COUNT }));
+    },
+
     // Into the recycle bin – also the last one (the app then works without family tree); the data stays unchanged
     deleteFamilyTree: async (_: unknown, { id }: { id: string }, { prisma }: GraphQLContext) => {
       await findTree(prisma, id, false);
@@ -137,5 +148,11 @@ export const familyTreeResolvers = {
       media.forEach((m) => removeUploadedFile(m.fileName));
       return true;
     },
+  },
+
+  FamilyTree: {
+    // A person in the recycle bin or of another family tree counts as none
+    homePerson: (tree: { id: string; homePersonId: string | null }, _: unknown, { prisma }: GraphQLContext) =>
+      tree.homePersonId ? prisma.person.findFirst({ where: { id: tree.homePersonId, familyTreeId: tree.id, isDeleted: false } }) : null,
   },
 };

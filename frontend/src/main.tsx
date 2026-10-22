@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { ApolloClient, ApolloProvider, HttpLink, InMemoryCache } from '@apollo/client';
+import { ApolloClient, ApolloLink, ApolloProvider, HttpLink, InMemoryCache } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { setContext } from '@apollo/client/link/context';
 import App from './App.tsx';
@@ -22,6 +22,7 @@ import { installClientLog, logClient } from './lib/clientLog';
 installClientLog();
 import { treeHeaders } from './stores/activeTreeStore';
 import { apiUrl } from '@/lib/platform';
+import { dataChangeLink } from '@/lib/dataChanges';
 
 // Every request names the active family tree – the backend only works with its data
 const treeLink = setContext((_, { headers }) => ({ headers: { ...headers, ...treeHeaders() } }));
@@ -37,7 +38,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
 });
 
 const client = new ApolloClient({
-  link: errorLink.concat(treeLink).concat(new HttpLink({ uri: apiUrl('/graphql') })),
+  link: ApolloLink.from([errorLink, dataChangeLink, treeLink, new HttpLink({ uri: apiUrl('/graphql') })]),
   cache: new InMemoryCache(),
 });
 

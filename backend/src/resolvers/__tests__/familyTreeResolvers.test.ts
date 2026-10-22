@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { prismaMock, testContext } from '../../test/prismaMock.js';
+import { prismaMock, testContext, TEST_TREE_ID } from '../../test/prismaMock.js';
 import { familyTreeResolvers } from '../familyTreeResolvers.js';
 
 jest.mock('fs');
@@ -33,6 +33,7 @@ describe('familyTreeResolvers - Query', () => {
       deletedAt: null,
       createdAt: '2026-09-30T08:00:00.000Z',
       updatedAt: '2026-09-30T08:00:00.000Z',
+      homePersonId: null,
     });
     // Persons in the recycle bin do not count
     expect(prismaMock.familyTree.findMany).toHaveBeenCalledWith(
@@ -60,6 +61,36 @@ describe('familyTreeResolvers - Query', () => {
     const [result] = await familyTreeResolvers.Query.deletedFamilyTrees(null, {}, ctx);
     expect(result.deletedAt).toBe('2026-09-30T08:00:00.000Z');
     expect(prismaMock.familyTree.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { isDeleted: true }, orderBy: { deletedAt: 'desc' } }));
+  });
+});
+
+describe('home person', () => {
+  it('sets and removes the home person of the active family tree', async () => {
+    prismaMock.person.findFirst.mockResolvedValueOnce({ id: 'p1' } as never);
+    prismaMock.familyTree.update.mockResolvedValue(tree({ id: TEST_TREE_ID, homePersonId: 'p1' }) as never);
+
+    const result = await familyTreeResolvers.Mutation.setHomePerson(null, { personId: 'p1' }, ctx);
+
+    expect(prismaMock.person.findFirst).toHaveBeenCalledWith({ where: { id: 'p1', familyTreeId: TEST_TREE_ID, isDeleted: false }, select: { id: true } });
+    expect(prismaMock.familyTree.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: TEST_TREE_ID }, data: { homePersonId: 'p1' } }));
+    expect(result.homePersonId).toBe('p1');
+
+    await familyTreeResolvers.Mutation.setHomePerson(null, { personId: null }, ctx);
+    expect(prismaMock.familyTree.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { homePersonId: null } }));
+  });
+
+  it('refuses a person outside the family tree or in the recycle bin', async () => {
+    prismaMock.person.findFirst.mockResolvedValueOnce(null);
+    await expect(familyTreeResolvers.Mutation.setHomePerson(null, { personId: 'elsewhere' }, ctx)).rejects.toMatchObject({
+      extensions: { reason: 'PERSON_NOT_FOUND' },
+    });
+  });
+
+  it('reads the home person only from its own family tree and outside the recycle bin', async () => {
+    prismaMock.person.findFirst.mockResolvedValueOnce({ id: 'p1' } as never);
+    expect(await familyTreeResolvers.FamilyTree.homePerson({ id: 't1', homePersonId: 'p1' }, null, ctx)).toEqual({ id: 'p1' });
+    expect(prismaMock.person.findFirst).toHaveBeenCalledWith({ where: { id: 'p1', familyTreeId: 't1', isDeleted: false } });
+    expect(await familyTreeResolvers.FamilyTree.homePerson({ id: 't1', homePersonId: null }, null, ctx)).toBeNull();
   });
 });
 

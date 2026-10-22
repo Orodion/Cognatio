@@ -27,6 +27,11 @@ describe('filterLog', () => {
     expect(filterLog(all, 'warn').map((e) => e.level)).toEqual(['warn', 'error']);
     expect(filterLog(all, 'error').map((e) => e.level)).toEqual(['error']);
   });
+
+  it('keeps only the entries of AI assistants', () => {
+    const mcp = { ...entry('info'), component: 'mcp' };
+    expect(filterLog([...all, mcp], 'mcp')).toEqual([mcp]);
+  });
 });
 
 describe('fetchServerLog / browserLog', () => {

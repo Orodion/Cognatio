@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { apiBase, apiUrl, saveDataUrl, saveFile } from '../platform';
+import { apiBase, apiUrl, downloadFrom, saveDataUrl, saveFile } from '../platform';
 
 afterEach(() => {
   delete window.cognatioPlatform;
@@ -53,6 +53,25 @@ describe('saveFile', () => {
   it('reports a cancelled "Save as" dialog of the shell', async () => {
     window.cognatioPlatform = { saveFile: vi.fn(async () => false) };
     await expect(saveFile(new Blob(['a']), 'backup.zip')).resolves.toBe(false);
+  });
+});
+
+describe('downloadFrom', () => {
+  it('lets the browser download the address straight into the file', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await expect(downloadFrom('/api/v1/backup', 'backup.zip')).resolves.toEqual({ saved: true });
+    const link = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(link.download).toBe('backup.zip');
+    expect(link.getAttribute('href')).toBe('/api/v1/backup');
+  });
+
+  it('hands the full address to the shell, which saves it with its "Save as" dialog', async () => {
+    const native = vi.fn(async () => ({ saved: false, error: 'FILE_SYSTEM_LIMIT' as const }));
+    window.cognatioPlatform = { downloadTo: native };
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+    await expect(downloadFrom('/api/v1/backup', 'backup.zip')).resolves.toEqual({ saved: false, error: 'FILE_SYSTEM_LIMIT' });
+    expect(native).toHaveBeenCalledWith(new URL('/api/v1/backup', window.location.href).toString(), 'backup.zip');
+    expect(click).not.toHaveBeenCalled();
   });
 });
 

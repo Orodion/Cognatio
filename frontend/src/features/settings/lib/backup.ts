@@ -1,6 +1,6 @@
 /** Backup of all family trees via the REST API (/api/v1/backup…) – Settings → Backup */
-import { filenameFrom, request } from '@/features/transfer/lib/transfer';
-import { saveFile } from '@/lib/platform';
+import { downloadChecked, followJob, request, withUpload, type DownloadCheck } from '@/features/transfer/lib/transfer';
+import type { ActivityControl } from '@/lib/activity';
 
 /** Must be sent to the backend with a restore (protection against an accidental call) */
 const RESTORE_CONFIRMATION = 'DELETE_ALL';
@@ -15,6 +15,9 @@ export interface BackupCounts {
   notes: number;
   media: number;
   imports: number;
+  /** Sources without the recycle bin, and their citations (library of all family trees) */
+  sources?: number;
+  citations?: number;
 }
 
 export interface BackupPreview {
@@ -26,8 +29,12 @@ export interface BackupPreview {
   trees: Array<{ name: string; persons: number; isDeleted: boolean }>;
   /** Media whose file is missing in the backup */
   missingFiles: number;
+  /** Family trees in which persons are their own ancestors – restored unchanged, only warned about */
+  cycleTrees: string[];
   /** Current data in the database */
   current: BackupCounts;
+  /** Size of the current media: the backup before the restore needs about as much space and time */
+  currentMediaBytes: number;
 }
 
 export interface RestoreResult {
@@ -38,48 +45,36 @@ export interface RestoreResult {
   backupDir: string;
 }
 
-/** Downloads the backup of all family trees */
-export async function downloadBackup(): Promise<{
+/** Downloads the backup of all family trees, straight into the file (see `downloadChecked`) */
+export async function downloadBackup(control?: ActivityControl): Promise<{
   filename: string;
+  size: number;
   /** False if the user cancelled the "Save as" dialog of the app */
   saved: boolean;
   missingMedia: number;
-  /** Set when the backup is larger than the app restores (it is saved anyway) */
+  /** Set when the backup is larger than the optional limit for restoring (it is saved anyway) */
   overLimit: { sizeMb: number; limitMb: number } | null;
 }> {
-  const response = await request('/api/v1/backup');
-  const filename = filenameFrom(response.headers.get('Content-Disposition'), 'cognatio_backup.zip');
-  const saved = await saveFile(await response.blob(), filename);
-  const sizeMb = Number(response.headers.get('X-Backup-Size-Mb'));
-  const limitMb = Number(response.headers.get('X-Backup-Limit-Mb'));
-  return {
-    filename,
-    saved,
-    missingMedia: Number(response.headers.get('X-Missing-Media') ?? 0),
-    overLimit: sizeMb > 0 && limitMb > 0 ? { sizeMb, limitMb } : null,
-  };
+  const { check, saved } = await downloadChecked<DownloadCheck & { overLimit: { sizeMb: number; limitMb: number } | null }>('/api/v1/backup', control);
+  return { filename: check.filename, size: check.size, saved, missingMedia: check.missingMedia, overLimit: check.overLimit };
 }
 
-const withFile = (file: File, fields: Record<string, string> = {}) => {
-  const data = new FormData();
-  for (const [key, value] of Object.entries(fields)) {
-    data.append(key, value);
-  }
-  data.append('file', file);
-  return data;
-};
+const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-/** Checks the backup and compares it with the current data – changes nothing */
-export async function previewBackup(file: File): Promise<BackupPreview> {
-  const response = await request('/api/v1/backup/preview', { method: 'POST', body: withFile(file) });
+/** Checks the backup and compares it with the current data – changes nothing; the file is uploaded once */
+export async function previewBackup(file: File, control?: ActivityControl): Promise<BackupPreview> {
+  const response = await withUpload('/api/v1/backup/upload', file, (uploadId) => request('/api/v1/backup/preview', json({ uploadId })), control);
   return response.json();
 }
 
-/** Replaces all data with the backup; the backend saves the current state first */
-export async function restoreBackup(file: File): Promise<RestoreResult> {
-  const response = await request('/api/v1/backup/restore', {
-    method: 'POST',
-    body: withFile(file, { confirm: RESTORE_CONFIRMATION }),
-  });
-  return response.json();
+/** Replaces all data with the backup as a job of the backend, which saves the current state first */
+export async function restoreBackup(file: File, control?: ActivityControl): Promise<RestoreResult> {
+  const response = await withUpload(
+    '/api/v1/backup/upload',
+    file,
+    (uploadId) => request('/api/v1/backup/restore', json({ uploadId, confirm: RESTORE_CONFIRMATION })),
+    control,
+  );
+  const { jobId } = (await response.json()) as { jobId: string };
+  return followJob<RestoreResult>(jobId, control);
 }

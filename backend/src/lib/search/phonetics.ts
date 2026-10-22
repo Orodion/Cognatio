@@ -2,14 +2,58 @@
  * Cologne phonetics: maps German names to digit sequences so that spellings that sound alike
  * get the same code ("Meier", "Mayer", "Maier" → 67; "Schmidt", "Schmitt" → 862).
  * Better suited for historical names with changing spellings than Soundex (English pronunciation).
+ * Cyrillic names (Russian, Ukrainian) are transliterated first, the German way, so "Иванов", "Iwanow" and "Ivanov" get
+ * the same code. Other scripts get no code; the search still finds them by their spelling.
  */
 
 const VOWELS = new Set('AEIJOUY');
 
-/** Upper-case letters A–Z; umlauts count as vowels, ß as S, accents are removed */
+/** Cyrillic capital letters → Latin as German transliteration writes them (fits the German rules below) */
+const CYRILLIC: Record<string, string> = {
+  А: 'A',
+  Б: 'B',
+  В: 'W',
+  Г: 'G',
+  Ґ: 'G',
+  Д: 'D',
+  Е: 'E',
+  Ё: 'JO',
+  Є: 'JE',
+  Ж: 'SCH',
+  З: 'S',
+  И: 'I',
+  І: 'I',
+  Ї: 'JI',
+  Й: 'J',
+  К: 'K',
+  Л: 'L',
+  М: 'M',
+  Н: 'N',
+  О: 'O',
+  П: 'P',
+  Р: 'R',
+  С: 'S',
+  Т: 'T',
+  У: 'U',
+  Ф: 'F',
+  Х: 'CH',
+  Ц: 'Z',
+  Ч: 'TSCH',
+  Ш: 'SCH',
+  Щ: 'SCHTSCH',
+  Ъ: '',
+  Ы: 'Y',
+  Ь: '',
+  Э: 'E',
+  Ю: 'JU',
+  Я: 'JA',
+};
+
+/** Upper-case letters A–Z; Cyrillic is transliterated, umlauts count as vowels, ß as S, accents are removed */
 function normalize(word: string) {
   return word
     .toUpperCase()
+    .replace(/[\u0400-\u04FF]/g, (letter) => CYRILLIC[letter] ?? '')
     .replace(/[ÄÖÜ]/g, 'A')
     .replace(/ß/g, 'S')
     .normalize('NFD')
@@ -63,7 +107,7 @@ function codeFor(letter: string, prev: string, next: string, first: boolean): st
   }
 }
 
-/** Code of a single word; empty if the word contains no Latin letters */
+/** Code of a single word; empty if the word contains no Latin or Cyrillic letters */
 export function colognePhonetics(word: string) {
   const letters = normalize(word);
   let raw = '';

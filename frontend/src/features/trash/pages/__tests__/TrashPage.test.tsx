@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { GET_DELETED_PERSONS, RESTORE_PERSON, HARD_DELETE_PERSON } from '@/features/persons/graphql/personQueries';
 import { GET_DELETED_FAMILY_TREES, HARD_DELETE_FAMILY_TREE, RESTORE_FAMILY_TREE } from '@/features/family-trees/graphql/familyTreeQueries';
 import { makePerson, makeTree, treesMock } from '@/test/fixtures';
+import { GET_DELETED_REPOSITORIES, GET_DELETED_SOURCES, HARD_DELETE_SOURCE, RESTORE_REPOSITORY } from '@/features/sources/graphql/sourceQueries';
+import { makeRepository, makeSource } from '@/test/citations';
 import type { FamilyTree } from '@/features/family-trees/types/familyTree';
 import { TrashPage } from '../TrashPage';
 
@@ -16,7 +18,12 @@ const deleted = makePerson({ id: 'd1', firstName: 'Otto', isDeleted: true, delet
 
 const deletedTree = makeTree({ id: 't9', name: 'Familie Alt', isDeleted: true, deletedAt: '2026-09-29T10:00:00.000Z', personCount: 3 });
 
-function setup(mocks: MockedResponse[], trash = [deleted], trees: FamilyTree[] = [], open: FamilyTree[] = [makeTree()]) {
+const libraryMocks = (sources: unknown[] = [], repositories: unknown[] = []): MockedResponse[] => [
+  { request: { query: GET_DELETED_SOURCES }, result: { data: { deletedSources: sources } }, maxUsageCount: Number.POSITIVE_INFINITY },
+  { request: { query: GET_DELETED_REPOSITORIES }, result: { data: { deletedRepositories: repositories } }, maxUsageCount: Number.POSITIVE_INFINITY },
+];
+
+function setup(mocks: MockedResponse[], trash = [deleted], trees: FamilyTree[] = [], open: FamilyTree[] = [makeTree()], library = libraryMocks()) {
   const listMock: MockedResponse = {
     request: { query: GET_DELETED_PERSONS },
     result: { data: { getDeletedPersons: trash } },
@@ -28,7 +35,7 @@ function setup(mocks: MockedResponse[], trash = [deleted], trees: FamilyTree[] =
     maxUsageCount: Number.POSITIVE_INFINITY,
   };
   render(
-    <MockedProvider mocks={[listMock, treeMock, treesMock(open), ...mocks]}>
+    <MockedProvider mocks={[listMock, treeMock, treesMock(open), ...library, ...mocks]}>
       <MemoryRouter>
         <TrashPage />
       </MemoryRouter>
@@ -37,6 +44,33 @@ function setup(mocks: MockedResponse[], trash = [deleted], trees: FamilyTree[] =
 }
 
 describe('TrashPage', () => {
+  it('lists sources and archives in the recycle bin – they belong to all family trees', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const hardDelete = vi.fn(() => ({ data: { hardDeleteSource: true } }));
+    const restore = vi.fn(() => ({ data: { restoreRepository: { __typename: 'Repository', id: 'r1' } } }));
+    setup(
+      [
+        { request: { query: HARD_DELETE_SOURCE, variables: { id: 's1' } }, result: hardDelete },
+        { request: { query: RESTORE_REPOSITORY, variables: { id: 'r1' } }, result: restore },
+      ],
+      [],
+      [],
+      [makeTree()],
+      libraryMocks(
+        [makeSource({ isDeleted: true, deletedAt: '2026-10-13T10:00:00.000Z', citationCount: 2, linkCount: 5 })],
+        [makeRepository({ isDeleted: true })],
+      ),
+    );
+    const section = await screen.findByRole('region', { name: 'trash.library.title' });
+    expect(section).toHaveTextContent('Kirchenbuch St. Martin');
+    expect(section).toHaveTextContent('Standesamt Musterstadt');
+    fireEvent.click(screen.getAllByRole('button', { name: 'trash.library.deleteForeverLabel' })[0]);
+    expect(window.confirm).toHaveBeenCalledWith('trash.library.deleteSourceConfirm');
+    await waitFor(() => expect(hardDelete).toHaveBeenCalled());
+    fireEvent.click(screen.getAllByRole('button', { name: 'trash.library.restoreLabel' })[1]);
+    await waitFor(() => expect(restore).toHaveBeenCalled());
+  });
+
   it('shows the empty state', async () => {
     setup([], []);
     expect(await screen.findByText('trash.emptyPersons')).toBeInTheDocument();

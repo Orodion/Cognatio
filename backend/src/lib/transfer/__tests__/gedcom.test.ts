@@ -14,6 +14,22 @@ describe('GEDCOM dates', () => {
     ['nach 1980', 'AFT 1980'],
     ['vor 04.01.1980', 'BEF 4 JAN 1980'],
     ['1980-1985', 'BET 1980 AND 1985'],
+    // The words of every language of the interface
+    ['about 1880', 'ABT 1880'],
+    ['ca.1880', 'ABT 1880'],
+    ['~1880', 'ABT 1880'],
+    ['vers 1880', 'ABT 1880'],
+    ['intorno al 1880', 'ABT 1880'],
+    ['cerca de 1880', 'ABT 1880'],
+    ['близько 1880', 'ABT 1880'],
+    ['après 1900', 'AFT 1900'],
+    ['después de 1900', 'AFT 1900'],
+    ['na 1900', 'AFT 1900'],
+    ['після 1900', 'AFT 1900'],
+    ['przed 1900', 'BEF 1900'],
+    ['prima del 1900', 'BEF 1900'],
+    ['vóór 1900', 'BEF 1900'],
+    ['до 1900', 'BEF 1900'],
   ])('app %s → GEDCOM %s', (app, gedcom) => {
     expect(toGedcomDate(app)).toEqual({ date: gedcom });
   });
@@ -38,7 +54,7 @@ describe('GEDCOM dates', () => {
     ['(Ostern 1912)', 'Ostern 1912', null],
     ['@#DJULIAN@ 1700', '@#DJULIAN@ 1700', null],
   ])('GEDCOM %s → app %s', (gedcom, app, precision) => {
-    expect(fromGedcomDate(gedcom)).toMatchObject({ value: app, precision });
+    expect(fromGedcomDate(gedcom, 'de')).toMatchObject({ value: app, precision });
   });
 
   it('converts the start of a date to a timestamp for relations', () => {
@@ -103,7 +119,7 @@ describe('parseGedcom (fremde Datei)', () => {
     '1 TITL Kirchenbuch Mainz',
     '0 TRLR',
   ].join('\n');
-  const data = validateTransfer(parseGedcom(ged));
+  const data = validateTransfer(parseGedcom(ged, undefined, 'de'));
   const byName = (firstName: string) => data.persons.find((p) => p.firstName === firstName)!;
 
   it('maps individuals to persons', () => {
@@ -124,8 +140,13 @@ describe('parseGedcom (fremde Datei)', () => {
 
   it('turns standard events into timeline events and unknown fields into notes', () => {
     const johann = byName('Johann');
-    expect(johann.events).toEqual([expect.objectContaining({ category: 'BAPTISM', mediaIds: [], title: 'Taufe', date: '03.03.1850' })]);
-    expect(johann.notes.map((n) => n.text)).toEqual(['Lebte in\nMainz', 'Quelle: Kirchenbuch Mainz', 'TITL: Freiherr']);
+    expect(johann.events).toEqual([expect.objectContaining({ category: 'BAPTISM', mediaIds: [], citationIds: [], title: 'Taufe', date: '03.03.1850' })]);
+    expect(johann.notes.map((n) => n.text)).toEqual(['Lebte in\nMainz', 'TITL: Freiherr']);
+    // The source is no longer a note but a source of the library with a citation of the person
+    const [citation] = johann.citations;
+    expect(citation.fact).toBe('GENERAL');
+    const sourceId = data.citations.find((c) => c.id === citation.citationId)!.sourceId;
+    expect(data.sources.find((s) => s.id === sourceId)).toMatchObject({ title: 'Kirchenbuch Mainz' });
   });
 
   it('builds relations from families and associations', () => {
@@ -166,6 +187,7 @@ describe('GEDCOM roundtrip (Export → Import)', () => {
         title: 'Umzug nach Bonn',
         category: 'MOVE',
         mediaIds: [],
+        citationIds: [],
         date: '1980-1985',
         datePrecision: 'APPROXIMATE',
         place: 'Bonn',
@@ -187,6 +209,9 @@ describe('GEDCOM roundtrip (Export → Import)', () => {
       relation('r2', 'kind', 'mother', 'MOTHER', { label: 'Adoptivkind' }),
       relation('r3', 'father', 'kind', 'CHILD', { label: 'Adoptivkind' }),
       relation('r4', 'kind', 'pate', 'OTHER', { label: 'Pate' }),
+      // In the recycle bin: neither a family nor an association
+      relation('r5', 'mother', 'pate', 'HUSBAND', { active: false }),
+      relation('r6', 'father', 'pate', 'OTHER', { label: 'Nachbar', active: false }),
     ],
   );
 
@@ -195,7 +220,7 @@ describe('GEDCOM roundtrip (Export → Import)', () => {
     if (version === '5.5.1') {
       expect(ged.split('\r\n').every((l) => l.length <= 255)).toBe(true);
     }
-    const back = validateTransfer(parseGedcom(ged));
+    const back = validateTransfer(parseGedcom(ged, undefined, 'de'));
     expect(back.source).toBe(`GEDCOM ${version}`);
     // The recycle bin is not exported
     expect(back.persons.map((p) => p.firstName).sort()).toEqual(['Erika', 'Lea', 'Max', 'Paul']);
@@ -208,6 +233,7 @@ describe('GEDCOM roundtrip (Export → Import)', () => {
       title: 'Umzug nach Bonn',
       category: 'MOVE',
       mediaIds: [],
+      citationIds: [],
       date: '1980-1985',
       place: 'Bonn',
       description: 'mit Familie',
@@ -221,7 +247,57 @@ describe('GEDCOM roundtrip (Export → Import)', () => {
     expect(rel('Max', 'Lea')).toMatchObject({ type: 'CHILD', label: 'Adoptivkind' });
     expect(rel('Erika', 'Lea')).toMatchObject({ type: 'CHILD', label: 'Adoptivkind' });
     expect(rel('Lea', 'Paul')).toMatchObject({ type: 'OTHER', label: 'Pate' });
+    // Relations in the recycle bin are not exported
     expect(back.relations).toHaveLength(4);
+  });
+
+  it.each(['5.5.1', '7.0'] as const)('writes baptism, occupation and residence as standard tags and reads every kind back (GEDCOM %s)', (version) => {
+    const event = (id: string, title: string, category: string, date: string | null) => ({
+      id,
+      title,
+      category,
+      date,
+      datePrecision: date ? 'YEAR' : null,
+      mediaIds: [],
+      citationIds: [],
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const events = [
+      event('b', 'Taufe in St. Nikolai', 'BAPTISM', '1900'),
+      event('o', 'Schmied', 'OCCUPATION', '1920'),
+      event('m', 'Umzug nach Bonn', 'MOVE', '1930'),
+      event('s', 'Einschulung', 'SCHOOL_START', '1906'),
+      event('w', 'Hochzeit', 'WEDDING', '1925'),
+      event('x', 'Auswanderung', 'OTHER', null),
+    ];
+    const withJob = person('a', { firstName: 'Anna', occupation: 'Bäuerin', events });
+    // An occupation without a date and without an occupation of the person stays EVEN – the import would take it as that
+    const withoutJob = person('k', { firstName: 'Karl', events: [event('u', 'Knecht', 'OCCUPATION', null)] });
+    const ged = toGedcom(transfer([withJob, withoutJob], []), version);
+    const lines = (...l: string[]) => l.join('\r\n');
+    expect(ged).toContain(lines('1 BAPM', '2 TYPE Taufe in St. Nikolai', '2 DATE 1900'));
+    expect(ged).toContain(lines('1 OCCU Schmied', '2 DATE 1920'));
+    expect(ged).toContain(lines('1 RESI', '2 TYPE Umzug nach Bonn'));
+    expect(ged).toContain(lines('1 EVEN Hochzeit', '2 TYPE WEDDING'));
+    expect(ged).toContain(lines('1 EVEN Knecht', '2 TYPE OCCUPATION'));
+
+    const back = parseGedcom(ged, undefined, 'de');
+    const anna = back.persons.find((p) => p.firstName === 'Anna')!;
+    expect(anna.occupation).toBe('Bäuerin');
+    expect(anna.events.map((e) => [e.title, e.category, e.date])).toEqual(events.map((e) => [e.title, e.category, e.date]));
+    const karl = back.persons.find((p) => p.firstName === 'Karl')!;
+    expect(karl.occupation ?? null).toBeNull();
+    expect(karl.events.map((e) => [e.title, e.category])).toEqual([['Knecht', 'OCCUPATION']]);
+  });
+
+  it('takes an occupation with a date of another program as a life event', () => {
+    const ged = ['0 HEAD', '1 GEDC', '2 VERS 5.5.1', '0 @I1@ INDI', '1 NAME Anna /Muster/', '1 OCCU Magd', '2 DATE 1910', '1 OCCU Bäuerin', '0 TRLR'].join(
+      '\n',
+    );
+    const [anna] = parseGedcom(ged, undefined, 'de').persons;
+    expect(anna.occupation).toBe('Bäuerin');
+    expect(anna.events.map((e) => [e.title, e.category, e.date])).toEqual([['Magd', 'OCCUPATION', '1910']]);
   });
 
   it('writes a valid 7.0 header with documented extension tags', () => {

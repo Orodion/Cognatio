@@ -8,6 +8,7 @@ const EVENT_MEDIA = gql`
     fileName
     originalFileName
     mimeType
+    viewable
     sizeBytes
     type
     createdAt

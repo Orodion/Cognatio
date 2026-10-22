@@ -12,7 +12,15 @@ const media = (id: string) => ({
   createdAt: T1,
   updatedAt: T1,
 });
-const event = (id: string, mediaIds: string[] = []) => ({ id, title: 'Hochzeit', category: 'WEDDING', mediaIds, createdAt: T1, updatedAt: T1 });
+const event = (id: string, mediaIds: string[] = []) => ({
+  id,
+  title: 'Hochzeit',
+  category: 'WEDDING',
+  mediaIds,
+  citationIds: [],
+  createdAt: T1,
+  updatedAt: T1,
+});
 const note = (id: string) => ({ id, text: 'Notiz', createdAt: T1, updatedAt: T1 });
 
 // Anna and Otto, married; the wedding photo belongs to Anna and is also linked to Otto's event

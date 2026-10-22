@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
@@ -6,6 +7,8 @@ export interface BarListItem {
   key: string;
   label: string;
   value: number;
+  /** The persons behind the bar (a link to the person list) */
+  to?: string;
 }
 
 interface BarListProps {
@@ -20,7 +23,7 @@ interface BarListProps {
 
 /**
  * Horizontal bars for one series (one colour, common baseline).
- * Every value is shown at the end of its bar; hover/focus also shows the share.
+ * Every value is shown at the end of its bar; hover/focus also shows the share. A bar with `to` is a link to its persons.
  */
 export function BarList({ items, label, total, labelWidth = 'w-32' }: BarListProps) {
   const { t, i18n } = useTranslation();
@@ -35,17 +38,15 @@ export function BarList({ items, label, total, labelWidth = 'w-32' }: BarListPro
       {items.map((item) => {
         const isActive = active === item.key;
         const share = sum ? item.value / sum : 0;
-        return (
-          <li
-            key={item.key}
-            tabIndex={0}
-            className="relative flex items-center gap-3 rounded-md px-1 py-1 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-            onPointerEnter={() => setActive(item.key)}
-            onPointerLeave={() => setActive((a) => (a === item.key ? null : a))}
-            onFocus={() => setActive(item.key)}
-            onBlur={() => setActive((a) => (a === item.key ? null : a))}
-            aria-label={t('statistics.barAria', { label: item.label, value: number.format(item.value), share: percent.format(share) })}
-          >
+        const handlers = {
+          onPointerEnter: () => setActive(item.key),
+          onPointerLeave: () => setActive((a) => (a === item.key ? null : a)),
+          onFocus: () => setActive(item.key),
+          onBlur: () => setActive((a) => (a === item.key ? null : a)),
+          'aria-label': t('statistics.barAria', { label: item.label, value: number.format(item.value), share: percent.format(share) }),
+        };
+        const row: ReactNode = (
+          <>
             <span className={cn('shrink-0 truncate text-muted-foreground', labelWidth)} title={item.label}>
               {item.label}
             </span>
@@ -69,6 +70,19 @@ export function BarList({ items, label, total, labelWidth = 'w-32' }: BarListPro
                 </span>
               </span>
             )}
+          </>
+        );
+        const rowClass = 'relative flex items-center gap-3 rounded-md px-1 py-1 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
+        // Bars without persons stay plain: an empty list behind them would only disappoint
+        return item.to && item.value > 0 ? (
+          <li key={item.key}>
+            <Link to={item.to} className={cn(rowClass, 'hover:bg-accent')} {...handlers}>
+              {row}
+            </Link>
+          </li>
+        ) : (
+          <li key={item.key} tabIndex={0} className={rowClass} {...handlers}>
+            {row}
           </li>
         );
       })}

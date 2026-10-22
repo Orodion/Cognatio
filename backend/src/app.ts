@@ -2,7 +2,6 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import express from 'express';
 import cors from 'cors';
-import path from 'node:path';
 import helmet from 'helmet';
 import { typeDefs } from './schema/typeDefs.js';
 import { resolvers } from './resolvers/index.js';
@@ -11,10 +10,16 @@ import { logger } from './lib/logger.js';
 import { errorHandler, graphqlLogging, requestLogger } from './lib/requestLogging.js';
 import mediaRoutes from './routes/mediaRoutes.js';
 import transferRoutes from './routes/transferRoutes.js';
+import jobRoutes from './routes/jobRoutes.js';
+import { clearStagedUploads } from './lib/files/stagedUploads.js';
 import backupRoutes from './routes/backupRoutes.js';
 import logRoutes from './routes/logRoutes.js';
 import { uploadDir } from './lib/files/uploads.js';
-import { lazyTree, requestedTree, TREE_HEADER } from './lib/treeScope.js';
+import { contentDisposition, isViewable, plainTextType } from './lib/files/viewable.js';
+import { lazyTree, requestedTree, TREE_HEADER, type GraphQLContext } from './lib/treeScope.js';
+import { mcpRouter } from './lib/mcp/route.js';
+import { graphqlRunner } from './lib/mcp/graphql.js';
+import { rememberAppTree } from './lib/mcp/trees.js';
 import { accessToken, TOKEN_HEADER } from './lib/accessToken.js';
 import { frontendDir, serveFrontend } from './lib/frontend.js';
 import { hostCheck, sameOriginWrites } from './lib/requestGuard.js';
@@ -53,22 +58,28 @@ const strictCsp = helmet.contentSecurityPolicy({
 });
 
 /**
- * Any file type can be uploaded, but only types that cannot run code are shown by the browser (images, PDF, video,
- * audio). Everything else (HTML, SVG, ZIP, GPX, ...) is sent as a download and never interpreted under our address.
+ * Headers of an uploaded file: shown by the browser if it cannot run code (text files as plain text), else a download.
+ * `?name=` gives the original name – the title of a viewer and the name for "Save as".
  */
-const INLINE_EXTENSIONS = new Set([
-  ...['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.ico', '.pdf'],
-  ...['.mp4', '.m4v', '.webm', '.ogv', '.mov', '.mp3', '.m4a', '.wav', '.ogg', '.oga', '.opus', '.flac'],
-]);
-
-export function downloadUnlessSafe(res: express.Response, filePath: string) {
-  if (!INLINE_EXTENSIONS.has(path.extname(filePath).toLowerCase())) {
-    res.setHeader('Content-Disposition', 'attachment');
+export function uploadHeaders(res: express.Response, filePath: string) {
+  const name = typeof res.req.query.name === 'string' ? res.req.query.name : undefined;
+  if (!isViewable(filePath)) {
+    res.setHeader('Content-Disposition', contentDisposition('attachment', name));
+    return;
+  }
+  const text = plainTextType(filePath);
+  if (text) {
+    res.setHeader('Content-Type', text);
+  }
+  if (name) {
+    res.setHeader('Content-Disposition', contentDisposition('inline', name));
   }
 }
 
 /** Express app with GraphQL, REST and upload endpoints (without listen – see index.ts) */
 export async function createApp() {
+  // Import and backup files of an earlier run are no longer referred to
+  clearStagedUploads();
   const app = express();
   app.use(requestLogger(httpLog));
   // Only requests to this backend under its own address (DNS rebinding), changes only from its own page (or CORS_ORIGINS)
@@ -77,10 +88,7 @@ export async function createApp() {
   // Security headers (nosniff, frame protection, referrer policy …); HSTS is set by an HTTPS proxy in front
   app.use(helmet({ contentSecurityPolicy: false, strictTransportSecurity: false }));
   app.use(['/api', '/uploads'], strictCsp);
-  // Only with COGNATIO_ACCESS_TOKEN (Windows app): requests need the token of this start
-  app.use(accessToken());
-
-  const server = new ApolloServer({
+  const server = new ApolloServer<GraphQLContext>({
     typeDefs,
     resolvers,
     logger: graphqlLog,
@@ -89,13 +97,23 @@ export async function createApp() {
 
   await server.start();
 
+  // AI assistants (MCP): an own token and own permissions (settings → MCP), therefore before the token of the app
+  app.use('/mcp', mcpRouter(graphqlRunner(server, prisma)));
+  // Only with COGNATIO_ACCESS_TOKEN (Windows app): requests need the token of this start
+  app.use(accessToken());
+
   app.use(
     '/graphql',
     cors({ origin: allowedOrigins(), allowedHeaders: ['Content-Type', TREE_HEADER, TOKEN_HEADER] }),
     express.json(),
     expressMiddleware(server, {
       // Active family tree from the header – only checked when a resolver first accesses it
-      context: async ({ req }) => ({ prisma, treeId: lazyTree(prisma, requestedTree(req)) }),
+      context: async ({ req }) => {
+        const requested = requestedTree(req);
+        // An assistant that names no family tree works in the one the app shows
+        rememberAppTree(requested);
+        return { prisma, treeId: lazyTree(prisma, requested) };
+      },
     }),
   );
 
@@ -118,9 +136,11 @@ export async function createApp() {
   app.use('/api/v1', transferRoutes);
   // Backup of all family trees and restore
   app.use('/api/v1', backupRoutes);
+  // Progress of long operations (import, restore)
+  app.use('/api/v1', jobRoutes);
   // Log of the server: view and export
   app.use('/api/v1', logRoutes);
-  app.use('/uploads', express.static(uploadDir, { setHeaders: downloadUnlessSafe }));
+  app.use('/uploads', express.static(uploadDir, { setHeaders: uploadHeaders }));
 
   // Desktop app: the built frontend is served by the backend itself (FRONTEND_DIR)
   const webDir = frontendDir();

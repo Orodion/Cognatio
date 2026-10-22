@@ -1,18 +1,19 @@
 import { GraphQLError } from 'graphql';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { personInTree, type GraphQLContext } from '../lib/treeScope.js';
-import { EVENT_CATEGORIES, validateDatePrecision } from '../lib/personValues.js';
+import { EVENT_CATEGORIES, storedDateText, validateDatePrecision } from '../lib/personValues.js';
+import { appDateSortKey } from '../lib/transfer/gedcomDate.js';
 import { isoTimes } from './timestamps.js';
 
 interface EventInput {
   personId: string;
-  date?: string;
-  datePrecision?: string;
+  date?: string | null;
+  datePrecision?: string | null;
   title: string;
   category: string;
-  description?: string;
-  place?: string;
-  sortOrder?: number;
+  description?: string | null;
+  place?: string | null;
+  sortOrder?: number | null;
   /** Linked media (also of other persons); without a value the links stay unchanged */
   mediaIds?: string[] | null;
 }
@@ -67,14 +68,17 @@ async function assertEventInTree(prisma: PrismaClient, treeId: string, id: strin
 
 export const eventResolvers = {
   Query: {
-    // All events of a person, sorted chronologically
+    // All events of a person, sorted chronologically like the timeline: by the saved sort key, otherwise by the date as
+    // typed (the column is text, "14.09.1951" would come after "03.11.2025"); without a readable date last, equal ones
+    // in the order of creation
     getEvents: async (_: unknown, { personId }: { personId: string }, { prisma, treeId }: GraphQLContext) => {
       const events = await prisma.event.findMany({
         where: { personId, person: { familyTreeId: await treeId() } },
-        orderBy: [{ sortOrder: 'asc' }, { date: 'asc' }, { createdAt: 'asc' }],
+        orderBy: { createdAt: 'asc' },
         include: WITH_MEDIA,
       });
-      return events.map(withMediaList);
+      const key = (event: { sortOrder: number | null; date: string | null }) => event.sortOrder ?? appDateSortKey(event.date) ?? Infinity;
+      return events.sort((a, b) => (key(a) === key(b) ? 0 : key(a) - key(b))).map(withMediaList);
     },
   },
 
@@ -115,7 +119,7 @@ export const eventResolvers = {
           personId: data.personId,
           title: data.title.trim(),
           category: data.category,
-          date: data.date ?? null,
+          date: storedDateText(data.date) ?? null,
           datePrecision: data.datePrecision ?? null,
           description: data.description ?? null,
           place: data.place ?? null,
@@ -147,11 +151,12 @@ export const eventResolvers = {
         data: {
           title: data.title.trim(),
           category: data.category,
-          date: data.date ?? null,
-          datePrecision: data.datePrecision ?? null,
-          description: data.description ?? null,
-          place: data.place ?? null,
-          sortOrder: data.sortOrder ?? null,
+          // A field that is not passed keeps its value, null clears it
+          date: storedDateText(data.date),
+          datePrecision: data.datePrecision,
+          description: data.description,
+          place: data.place,
+          sortOrder: data.sortOrder,
           // Keep existing links (ordered by when they were linked), add missing ones
           ...(mediaIds
             ? {

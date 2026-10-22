@@ -6,27 +6,48 @@ import {
   isUnknownGivenName,
   TransferError,
   UNKNOWN_GIVEN_NAME,
+  type TransferCitation,
   type TransferData,
   type TransferMedia,
   type TransferPerson,
   type TransferRelation,
+  type TransferRepository,
+  type TransferSource,
 } from './format.js';
 import { EVENT_CATEGORIES } from '../personValues.js';
+import { SOURCE_TYPES } from '../sourceValues.js';
 import { languageCode } from './languages.js';
 import { fromGedcomDate, gedcomDateToIso, isoToGedcomDate, toGedcomDate } from './gedcomDate.js';
+import {
+  BIRTH_TITLE,
+  CHILD_LABELS,
+  DEATH_TITLE,
+  DEFAULT_IMPORT_LANGUAGE,
+  EVENT_TITLE,
+  fill,
+  MEDIUM_MISSING,
+  OCCUPATION_TITLE,
+  RESIDENCE_TITLE,
+  STANDARD_EVENTS,
+  WEDDING_IN,
+  type ImportLanguage,
+} from './languageTexts.js';
 
 export const GEDCOM_VERSIONS = ['5.5.1', '7.0'] as const;
 export type GedcomVersion = (typeof GEDCOM_VERSIONS)[number];
 
 // Custom extensions (GEDCOM allows tags starting with "_"); documented in the header via SCHMA in 7.0
 const EXTENSION_TAGS = {
-  _HOBBY: 'Hobbys',
-  _FAMSTAND: 'Familienstand',
-  _LANGUAGE: 'Sprache',
+  _HOBBY: 'Hobbies',
+  _FAMSTAND: 'Marital status (SINGLE, MARRIED, DIVORCED, WIDOWED, CIVIL_PARTNERSHIP)',
+  _LANGUAGE: 'Language spoken (language code)',
   _TYPE: 'Type of partnership (LIFE_PARTNER, PARTNER) or NONE for parents without a partnership',
   _ENDE: 'End of the relation',
   _LABEL: 'Label of the parent-child relation, e.g. adopted child',
   _PRIM: 'Main image of a person (profile picture), value Y',
+  _STYPE: 'Kind of a source (CHURCH_BOOK, CIVIL_REGISTER, CENSUS, NEWSPAPER, BOOK, LETTER, GRAVESTONE, WEBSITE, INTERVIEW, DOCUMENT, OTHER)',
+  _CALN: 'Call number of a source that names no archive',
+  _UID: 'Identifier of a source citation (one citation can support several facts)',
 } as const;
 
 /** Media type from the file extension (GEDCOM 5.5.1 only gives the extension under FORM) */
@@ -53,32 +74,6 @@ const extensionOf = (file: string) => (file.split('/').pop() ?? '').split('.').s
 const UID = /^\S{1,100}$/;
 
 const CATEGORIES: readonly string[] = EVENT_CATEGORIES;
-
-/** Standard events of other programs → category and title in the app */
-const STANDARD_EVENTS: Record<string, [category: string, title: string]> = {
-  BAPM: ['BAPTISM', 'Taufe'],
-  CHR: ['BAPTISM', 'Taufe'],
-  BARM: ['OTHER', 'Bar Mitzwa'],
-  BASM: ['OTHER', 'Bat Mitzwa'],
-  BLES: ['OTHER', 'Segnung'],
-  CONF: ['OTHER', 'Konfirmation'],
-  FCOM: ['OTHER', 'Erstkommunion'],
-  ORDN: ['OCCUPATION', 'Ordination'],
-  ADOP: ['OTHER', 'Adoption'],
-  BURI: ['OTHER', 'Beerdigung'],
-  CREM: ['OTHER', 'Einäscherung'],
-  EDUC: ['OTHER', 'Ausbildung'],
-  GRAD: ['OTHER', 'Abschluss'],
-  EMIG: ['MOVE', 'Auswanderung'],
-  IMMI: ['MOVE', 'Einwanderung'],
-  NATU: ['OTHER', 'Einbürgerung'],
-  CENS: ['OTHER', 'Volkszählung'],
-  RETI: ['OCCUPATION', 'Ruhestand'],
-  PROB: ['OTHER', 'Testamentseröffnung'],
-  WILL: ['OTHER', 'Testament'],
-  PROP: ['OTHER', 'Besitz'],
-  RELI: ['OTHER', 'Religion'],
-};
 
 /** Technical details without an equivalent that are not kept as a note */
 const IGNORED_TAGS = new Set(['CHAN', 'RIN', 'UID', '_UID', 'REFN', 'AFN', 'RFN', 'SUBM', 'ANCI', 'DESI', 'FAMC', 'FAMS', 'EXID', 'CREA']);
@@ -187,11 +182,18 @@ function timestampOf(date: GedcomNode): string | null {
   return Number.isNaN(result.getTime()) ? null : result.toISOString();
 }
 
+/** The media files of a GEDZIP file, as far as the conversion needs them (see ArchiveFiles) */
+export interface MediaFiles {
+  names: () => string[];
+  has: (name: string) => boolean;
+  size: (name: string) => number;
+}
+
 /**
  * Finds the file of a media entry in the GEDZIP file: path as given (also with "\", "./" or
  * URL-encoded), otherwise via the file name if it is unique.
  */
-export function resolveMediaFile(files: Map<string, Uint8Array>, raw: string): string | null {
+export function resolveMediaFile(files: MediaFiles, raw: string): string | null {
   let file = raw
     .trim()
     .replace(/\\/g, '/')
@@ -206,17 +208,17 @@ export function resolveMediaFile(files: Map<string, Uint8Array>, raw: string): s
     return file;
   }
   const name = file.split('/').pop()!.toLowerCase();
-  const candidates = [...files.keys()].filter((key) => key.split('/').pop()!.toLowerCase() === name);
+  const candidates = files.names().filter((key) => key.split('/').pop()!.toLowerCase() === name);
   return candidates.length === 1 ? candidates[0] : null;
 }
 
 /** DATE of an entry; in GEDCOM 7 free text is under DATE.PHRASE */
-function dateOf(node: GedcomNode) {
+function dateOf(node: GedcomNode, language: ImportLanguage) {
   const date = child(node, 'DATE');
   if (!date) {
     return null;
   }
-  return fromGedcomDate(date.value.trim() || (childValue(date, 'PHRASE') ? `(${childValue(date, 'PHRASE')})` : ''));
+  return fromGedcomDate(date.value.trim() || (childValue(date, 'PHRASE') ? `(${childValue(date, 'PHRASE')})` : ''), language);
 }
 
 /**
@@ -224,7 +226,7 @@ function dateOf(node: GedcomNode) {
  * UID (from an export of the app) keep their id, all others get new ones. `files` are the files
  * of a GEDZIP file: media whose file is included are taken over, otherwise recorded as a note.
  */
-export function parseGedcom(text: string, files?: Map<string, Uint8Array>): TransferData {
+export function parseGedcom(text: string, files?: MediaFiles, language: ImportLanguage = DEFAULT_IMPORT_LANGUAGE): TransferData {
   const roots = parseGedcomTree(text);
   const head = roots[0];
   const version = childValue(child(head, 'GEDC') ?? head, 'VERS') ?? 'unknown';
@@ -260,7 +262,7 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
       path: key,
       originalFileName: childValue(fileNode, 'TITL') ?? childValue(record, 'TITL') ?? key.split('/').pop()!,
       mimeType,
-      sizeBytes: files!.get(key)!.length,
+      sizeBytes: files!.size(key),
       type: /^y/i.test(childValue(record, '_PRIM') ?? '') ? 'PROFILE_PICTURE' : mimeType.startsWith('image/') ? 'PHOTO' : 'DOCUMENT',
       createdAt: now,
       updatedAt: now,
@@ -295,6 +297,153 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
     return { media: mediaByRecord.get(ref)!, owned: ownerOf.get(ref) === indiXref };
   };
 
+  // ---- Archives, sources and citations: one library for all family trees (see documentation/sources-concept.md, 5.4)
+  const noteTexts = (node: GedcomNode) => [...childrenOf(node, 'NOTE'), ...childrenOf(node, 'SNOTE')].map(noteText).filter(Boolean).join('\n') || null;
+  const repositories: TransferRepository[] = [];
+  const repositoryIds = new Map<string, string>();
+  for (const repo of roots.filter((n) => n.tag === 'REPO' && n.xref)) {
+    const id = freshId(uidOf(repo));
+    repositoryIds.set(repo.xref!, id);
+    const addr = child(repo, 'ADDR');
+    const at = changedAt(repo) ?? now;
+    repositories.push({
+      id,
+      name: childValue(repo, 'NAME') ?? repo.xref!,
+      address: addr
+        ? [addr.value, ...['ADR1', 'ADR2', 'POST', 'CITY', 'CTRY'].map((t) => childValue(addr, t))].filter(Boolean).join('\n').trim() || null
+        : null,
+      url: childValue(repo, 'WWW'),
+      email: childValue(repo, 'EMAIL'),
+      phone: childValue(repo, 'PHON'),
+      note: noteTexts(repo),
+      isDeleted: false,
+      createdAt: at,
+      updatedAt: at,
+    });
+  }
+
+  const sources: TransferSource[] = [];
+  const sourceIds = new Map<string, string>();
+  /** OBJE entries of sources and citations – resolved once the persons have taken their media */
+  const scanLinks: Array<{ record: { mediaIds: string[]; note?: string | null }; link: GedcomNode }> = [];
+  const newSource = (id: string, fields: Partial<TransferSource> & { title: string }, at = now): TransferSource => {
+    const source: TransferSource = {
+      id,
+      type: 'OTHER',
+      author: null,
+      publication: null,
+      abbreviation: null,
+      text: null,
+      repositoryId: null,
+      callNumber: null,
+      note: null,
+      mediaIds: [],
+      isDeleted: false,
+      createdAt: at,
+      updatedAt: at,
+      ...fields,
+    };
+    sources.push(source);
+    return source;
+  };
+  for (const record of roots.filter((n) => n.tag === 'SOUR' && n.xref)) {
+    const id = freshId(uidOf(record));
+    sourceIds.set(record.xref!, id);
+    // One archive per source; further ones are kept in the note
+    const [repo, ...further] = childrenOf(record, 'REPO');
+    const nameOf = (r: GedcomNode) => repositories.find((x) => x.id === repositoryIds.get(r.value.trim()))?.name ?? null;
+    const elsewhere = further.map((r) => `REPO: ${[nameOf(r), childValue(r, 'CALN')].filter(Boolean).join(', ')}`);
+    const type = childValue(record, '_STYPE')?.toUpperCase();
+    const source = newSource(
+      id,
+      {
+        type: type && (SOURCE_TYPES as readonly string[]).includes(type) ? type : 'OTHER',
+        title: childValue(record, 'TITL') ?? childValue(record, 'ABBR') ?? record.xref!,
+        author: childValue(record, 'AUTH'),
+        publication: childValue(record, 'PUBL'),
+        abbreviation: childValue(record, 'ABBR'),
+        text: childValue(record, 'TEXT'),
+        repositoryId: repo ? (repositoryIds.get(repo.value.trim()) ?? null) : null,
+        callNumber: (repo ? childValue(repo, 'CALN') : null) ?? childValue(record, '_CALN'),
+        note: [noteTexts(record), ...elsewhere].filter(Boolean).join('\n') || null,
+      },
+      changedAt(record) ?? now,
+    );
+    for (const link of childrenOf(record, 'OBJE')) {
+      scanLinks.push({ record: source, link });
+    }
+  }
+  // 5.5.1 also allows a source as text right at the fact ("1 SOUR Taufbuch Musterstadt"): one source per text
+  const inlineSources = new Map<string, string>();
+  const inlineSource = (value: string, text: string | null) => {
+    const firstLine = value.split('\n')[0].trim().slice(0, 200);
+    const key = `${value}|${text ?? ''}`;
+    let id = inlineSources.get(key);
+    if (!id) {
+      id = freshId(null);
+      inlineSources.set(key, id);
+      newSource(id, { title: firstLine || value.slice(0, 200), text: [value === firstLine ? null : value, text].filter(Boolean).join('\n') || null });
+    }
+    return id;
+  };
+
+  const citations: TransferCitation[] = [];
+  const citationIds = new Map<string, string>();
+  const normalized = (value: string | null | undefined) => (value ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+  /** A source citation; equal ones (same source, page, date and transcription) become one citation with several facts */
+  const citationOf = (node: GedcomNode): string | null => {
+    const ref = node.value.trim();
+    const sourceId = ref.startsWith('@') ? sourceIds.get(ref) : ref ? inlineSource(node.value.trim(), childValue(node, 'TEXT')) : null;
+    if (!sourceId) {
+      return null;
+    }
+    const data = child(node, 'DATA');
+    const date = data ? dateOf(data, language) : null;
+    const text =
+      (data
+        ? childrenOf(data, 'TEXT')
+            .map((t) => t.value.trim())
+            .filter(Boolean)
+            .join('\n')
+        : '') || null;
+    const page = childValue(node, 'PAGE');
+    const quay = childValue(node, 'QUAY');
+    const quality = quay !== null && /^[0-3]$/.test(quay) ? Number(quay) : null;
+    const uid = uidOf(node);
+    const key = uid ?? [sourceId, page, date?.value, text].map(normalized).join('|');
+    const known = citationIds.get(key);
+    if (known) {
+      return known;
+    }
+    const id = freshId(uid);
+    citationIds.set(key, id);
+    const citation: TransferCitation = {
+      id,
+      sourceId,
+      page,
+      date: date?.value ?? null,
+      datePrecision: date?.precision ?? null,
+      text,
+      quality,
+      note: noteTexts(node),
+      mediaIds: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    citations.push(citation);
+    for (const link of childrenOf(node, 'OBJE')) {
+      scanLinks.push({ record: citation, link });
+    }
+    return id;
+  };
+  /** The citations below a node (SOUR entries) */
+  const cite = (node: GedcomNode | undefined) =>
+    node
+      ? childrenOf(node, 'SOUR')
+          .map(citationOf)
+          .filter((id): id is string => !!id)
+      : [];
+
   const ids = new Map<string, string>();
   const persons: TransferPerson[] = [];
   const byXref = new Map<string, TransferPerson>();
@@ -307,6 +456,9 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
       records,
       mediaOf: (link) => mediaOf(link, indi.xref!),
       freshId,
+      cite,
+      citationOf,
+      language,
     });
     persons.push(person);
     byXref.set(indi.xref!, person);
@@ -314,7 +466,8 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
 
   const relations: TransferRelation[] = [];
   const relation = (personAId: string, personBId: string, type: string, extra: Partial<TransferRelation> = {}) =>
-    relations.push({ id: randomUUID(), personAId, personBId, type, active: true, createdAt: now, updatedAt: now, ...extra });
+    relations.push({ id: randomUUID(), personAId, personBId, type, active: true, citationIds: [], createdAt: now, updatedAt: now, ...extra });
+  const unique = (list: string[]) => [...new Set(list)];
 
   for (const fam of roots.filter((r) => r.tag === 'FAM')) {
     const partners = [...childrenOf(fam, 'HUSB'), ...childrenOf(fam, 'WIFE')].map((n) => ids.get(n.value.trim())).filter((id): id is string => !!id);
@@ -330,7 +483,9 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
       relation(a, b, type, {
         startDate: marr ? gedcomDateToIso(childValue(marr, 'DATE')) : null,
         endDate: gedcomDateToIso(childValue(fam, '_ENDE') ?? childValue(child(fam, 'DIV') ?? fam, 'DATE')),
-        note: [place ? `Hochzeit in ${place}` : null, note].filter(Boolean).join('\n') || null,
+        note: [place ? fill(WEDDING_IN[language], { place }) : null, note].filter(Boolean).join('\n') || null,
+        // The family, its marriage and its divorce are facts of the partnership
+        citationIds: unique([...cite(fam), ...cite(marr), ...cite(child(fam, 'DIV'))]),
       });
     }
 
@@ -343,10 +498,12 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
       const indi = roots.find((r) => r.xref === chil.value.trim());
       const famc = indi && childrenOf(indi, 'FAMC').find((f) => f.value.trim() === fam.xref);
       const pedi = famc ? childValue(famc, 'PEDI')?.toLowerCase() : null;
-      const label = (famc && childValue(famc, '_LABEL')) || { adopted: 'Adoptivkind', foster: 'Pflegekind' }[pedi ?? ''] || null;
+      const label = (famc && childValue(famc, '_LABEL')) || (pedi === 'adopted' || pedi === 'foster' ? CHILD_LABELS[pedi][language] : null) || null;
       const note = famc ? childrenOf(famc, 'NOTE').map(noteText).join('\n') || null : null;
+      // Citations below FAMC support each parent-child relation of this family
+      const citationIds = famc ? unique(cite(famc)) : [];
       for (const parentId of partners) {
-        relation(parentId, childId, 'CHILD', { label, note });
+        relation(parentId, childId, 'CHILD', { label, note, citationIds });
       }
     }
   }
@@ -363,7 +520,36 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
       const sibling = /^(geschwister|sibling|bruder|schwester|brother|sister)$/i.test(text.trim());
       relation(ids.get(indi.xref!)!, otherId, sibling ? 'SIBLING' : 'OTHER', {
         label: sibling || !text || /^(sonstige|other)$/i.test(text) ? null : text,
+        citationIds: unique(cite(asso)),
       });
+    }
+  }
+
+  // Scans of sources and citations: a file a person has taken already is linked, the others belong to the library
+  const libraryMedia: TransferMedia[] = [];
+  for (const { record, link } of scanLinks) {
+    const ref = link.value.trim();
+    const target = ref.startsWith('@') ? records.get(ref) : undefined;
+    let found: TransferMedia | string | null;
+    if (target) {
+      if (!mediaByRecord.has(ref)) {
+        const media = readMedia(target);
+        mediaByRecord.set(ref, media);
+        if (media && typeof media !== 'string') {
+          libraryMedia.push(media);
+        }
+      }
+      found = mediaByRecord.get(ref)!;
+    } else {
+      found = ref.startsWith('@') ? null : readMedia(link);
+      if (found && typeof found !== 'string') {
+        libraryMedia.push(found);
+      }
+    }
+    if (typeof found === 'string') {
+      record.note = [record.note, fill(MEDIUM_MISSING[language], { file: found })].filter(Boolean).join('\n');
+    } else if (found && !record.mediaIds.includes(found.id)) {
+      record.mediaIds.push(found.id);
     }
   }
 
@@ -376,6 +562,10 @@ export function parseGedcom(text: string, files?: Map<string, Uint8Array>): Tran
     source: `GEDCOM ${version}`,
     persons,
     relations,
+    repositories,
+    sources,
+    citations,
+    libraryMedia,
   };
 }
 
@@ -385,9 +575,15 @@ interface ParseContext {
   /** Medium of an OBJE entry and whether it belongs to this person (otherwise only linked) */
   mediaOf: (link: GedcomNode) => { media: TransferMedia | string | null; owned: boolean };
   freshId: (uid: string | null) => string;
+  /** The citations below a node (its SOUR entries) */
+  cite: (node: GedcomNode | undefined) => string[];
+  /** One SOUR entry as a citation */
+  citationOf: (node: GedcomNode) => string | null;
+  /** Language of the user: titles of standard events and words of approximate dates */
+  language: ImportLanguage;
 }
 
-function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, records, mediaOf, freshId }: ParseContext): TransferPerson {
+function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, mediaOf, freshId, cite, citationOf, language }: ParseContext): TransferPerson {
   const names = childrenOf(indi, 'NAME');
   const isBirthName = (n: GedcomNode) => /^(birth|maiden)$/i.test(childValue(n, 'TYPE') ?? '');
   const main = names.find((n) => !isBirthName(n)) ?? names[0];
@@ -424,13 +620,16 @@ function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, 
     events,
     notes,
     media,
+    citations: [],
   };
   const addNote = (text: string) => text.trim() && notes.push({ id: randomUUID(), text: text.trim(), createdAt: now, updatedAt: now });
+  /** Citations of a fact of the person (the person as a whole, name, birth, death) */
+  const addCitations = (citationIds: string[], fact: string) => person.citations.push(...citationIds.map((citationId) => ({ citationId, fact })));
   const addMedia = (link: GedcomNode, event?: TransferPerson['events'][number]) => {
     const { media: found, owned } = mediaOf(link);
     if (typeof found === 'string') {
       if (owned) {
-        addNote(`Medium (nicht übernommen): ${found}`);
+        addNote(fill(MEDIUM_MISSING[language], { file: found }));
       }
       return;
     }
@@ -451,7 +650,7 @@ function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, 
     }
   };
   const addEvent = (node: GedcomNode, category: string, title: string) => {
-    const date = dateOf(node);
+    const date = dateOf(node, language);
     const event: TransferPerson['events'][number] = {
       id: freshId(uidOf(node)),
       title,
@@ -461,6 +660,7 @@ function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, 
       place: childValue(node, 'PLAC'),
       description: childrenOf(node, 'NOTE').map(noteText).join('\n') || null,
       mediaIds: [],
+      citationIds: cite(node),
       createdAt: now,
       updatedAt: now,
     };
@@ -474,31 +674,37 @@ function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, 
   for (const node of indi.children) {
     switch (node.tag) {
       case 'NAME':
+        addCitations(cite(node), 'NAME');
+        break;
       case 'SEX':
       case 'ASSO':
         break;
       case 'BIRT':
       case 'DEAT': {
-        const key = node.tag === 'BIRT' ? 'geburt' : 'tod';
-        const date = dateOf(node);
-        if (key === 'geburt' && !person.birthDate && !person.birthPlace) {
+        const key = node.tag === 'BIRT' ? 'birth' : 'death';
+        const date = dateOf(node, language);
+        if (key === 'birth' && !person.birthDate && !person.birthPlace) {
           person.birthDate = date?.value ?? null;
           person.birthDatePrecision = date?.precision ?? null;
           person.birthPlace = childValue(node, 'PLAC');
-        } else if (key === 'tod' && !person.deathDate && !person.deathPlace) {
+          addCitations(cite(node), 'BIRTH');
+        } else if (key === 'death' && !person.deathDate && !person.deathPlace) {
           person.deathDate = date?.value ?? null;
           person.deathDatePrecision = date?.precision ?? null;
           person.deathPlace = childValue(node, 'PLAC');
+          addCitations(cite(node), 'DEATH');
         } else {
-          addEvent(node, key === 'geburt' ? 'BIRTH' : 'DEATH', key === 'geburt' ? 'Geburt' : 'Tod');
+          addEvent(node, key === 'birth' ? 'BIRTH' : 'DEATH', (key === 'birth' ? BIRTH_TITLE : DEATH_TITLE)[language]);
         }
         break;
       }
       case 'OCCU':
-        if (!person.occupation) {
+        // The occupation of the person; one with a date (or a further one) is a life event
+        if (!person.occupation && !child(node, 'DATE')) {
           person.occupation = node.value.trim() || null;
+          addCitations(cite(node), 'GENERAL');
         } else {
-          addEvent(node, 'OCCUPATION', node.value.trim() || 'Beruf');
+          addEvent(node, 'OCCUPATION', node.value.trim() || OCCUPATION_TITLE[language]);
         }
         break;
       case 'NATI':
@@ -515,7 +721,7 @@ function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, 
           person.phone ??= childValue(node, 'PHON');
           person.email ??= childValue(node, 'EMAIL');
         } else {
-          addEvent(node, 'MOVE', 'Wohnort');
+          addEvent(node, 'MOVE', childValue(node, 'TYPE') ?? RESIDENCE_TITLE[language]);
         }
         break;
       }
@@ -534,34 +740,37 @@ function parseIndividual(indi: GedcomNode, id: string, now: string, { noteText, 
       case '_LANGUAGE':
         if (node.value.trim()) {
           // Other programs write the name ("German") or a language tag ("de-DE"): store the code like the app does
-          const language = languageCode(node.value);
-          if (!person.languages.includes(language)) {
-            person.languages.push(language);
+          const code = languageCode(node.value);
+          if (!person.languages.includes(code)) {
+            person.languages.push(code);
           }
         }
         break;
       case 'NOTE':
       case 'SNOTE':
         addNote(noteText(node));
+        // A citation without a fact of its own belongs to the person
+        addCitations(cite(node), 'GENERAL');
         break;
       case 'EVEN': {
         const type = childValue(node, 'TYPE');
         const category = type && CATEGORIES.includes(type.toUpperCase()) ? type.toUpperCase() : 'OTHER';
-        addEvent(node, category, node.value.trim() || type || 'Ereignis');
+        addEvent(node, category, node.value.trim() || type || EVENT_TITLE[language]);
         break;
       }
       case 'SOUR': {
-        const source = node.value.startsWith('@') ? records.get(node.value.trim()) : undefined;
-        addNote(`Quelle: ${source ? (childValue(source, 'TITL') ?? source.value) : node.value}`);
+        const citation = citationOf(node);
+        addCitations(citation ? [citation] : [], 'GENERAL');
         break;
       }
       case 'OBJE':
         addMedia(node);
+        addCitations(cite(node), 'GENERAL');
         break;
       default:
         if (STANDARD_EVENTS[node.tag]) {
-          const [category, title] = STANDARD_EVENTS[node.tag];
-          addEvent(node, category, childValue(node, 'TYPE') ?? title);
+          const { category, title } = STANDARD_EVENTS[node.tag];
+          addEvent(node, category, childValue(node, 'TYPE') ?? title[language]);
         } else if (!IGNORED_TAGS.has(node.tag)) {
           // Details that cannot be mapped are kept as a note
           addNote(`${node.tag}: ${flatten(node)}`);
@@ -586,7 +795,9 @@ const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', '
 /**
  * Creates a GEDCOM file (without the recycle bin). With `media` the media are listed as OBJE records with
  * their path inside the GEDZIP file. Persons, events and media carry their id as UID,
- * persons the time of their last change (CHAN) – so a repeated import recognises them.
+ * persons the time of their last change (CHAN) – so a repeated import recognises them. Archives and sources become REPO
+ * and SOUR records; a citation is written out at every fact it supports (GEDCOM has no shared citations), with its id
+ * as _UID so the import makes it one citation again.
  */
 export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', now = new Date(), options: { media?: boolean } = {}): string {
   const v7 = version === '7.0';
@@ -642,6 +853,23 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
     }
   };
 
+  /**
+   * First lines of a life event: baptism, occupation and residence as the standard tags other programs know (the title
+   * as TYPE, for an occupation as its value), the other kinds as EVEN with the kind as TYPE. An occupation without a
+   * date stays EVEN when the person has no occupation of its own – the import would take it as that.
+   */
+  const pushEventHead = (e: { title: string; category: string; date?: string | null }, hasOccupation: boolean) => {
+    if (e.category === 'BAPTISM' || e.category === 'MOVE') {
+      push(1, e.category === 'BAPTISM' ? 'BAPM' : 'RESI');
+      push(2, 'TYPE', e.title);
+    } else if (e.category === 'OCCUPATION' && (e.date || hasOccupation)) {
+      push(1, 'OCCU', e.title);
+    } else {
+      push(1, 'EVEN', e.title);
+      push(2, 'TYPE', e.category);
+    }
+  };
+
   const pad = (n: number) => String(n).padStart(2, '0');
   const pushChanged = (level: number, iso: string) => {
     const d = new Date(iso);
@@ -653,13 +881,48 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
   const mediaXref = new Map<string, string>();
   const mediaRecords: TransferMedia[] = [];
   if (options.media) {
-    for (const p of data.persons.filter((person) => !person.isDeleted)) {
-      for (const m of p.media) {
-        mediaXref.set(m.id, `@M${mediaRecords.length + 1}@`);
-        mediaRecords.push(m);
-      }
+    for (const m of [...data.persons.filter((person) => !person.isDeleted).flatMap((p) => p.media), ...data.libraryMedia]) {
+      mediaXref.set(m.id, `@M${mediaRecords.length + 1}@`);
+      mediaRecords.push(m);
     }
   }
+
+  // Sources outside the recycle bin with their archives; citations of sources in the recycle bin are left out
+  const repositories = data.repositories.filter((r) => !r.isDeleted);
+  const repositoryXref = new Map(repositories.map((r, i) => [r.id, `@R${i + 1}@`]));
+  const sources = data.sources.filter((src) => !src.isDeleted);
+  const sourceXref = new Map(sources.map((src, i) => [src.id, `@S${i + 1}@`]));
+  const citationById = new Map(data.citations.map((c) => [c.id, c]));
+  const pushCitations = (level: number, citationIds: string[]) => {
+    for (const id of citationIds) {
+      const c = citationById.get(id);
+      const source = c && sourceXref.get(c.sourceId);
+      if (!c || !source) {
+        continue;
+      }
+      push(level, 'SOUR', source);
+      if (c.page) {
+        push(level + 1, 'PAGE', c.page);
+      }
+      if (c.date || c.text) {
+        push(level + 1, 'DATA');
+        pushDate(level + 2, c.date);
+        if (c.text) {
+          push(level + 2, 'TEXT', c.text);
+        }
+      }
+      if (c.quality !== null && c.quality !== undefined) {
+        push(level + 1, 'QUAY', String(c.quality));
+      }
+      for (const mediaId of c.mediaIds.filter((m) => mediaXref.has(m))) {
+        push(level + 1, 'OBJE', mediaXref.get(mediaId));
+      }
+      if (c.note) {
+        push(level + 1, 'NOTE', c.note);
+      }
+      push(level + 1, '_UID', c.id);
+    }
+  };
   push(0, 'HEAD');
   if (v7) {
     push(1, 'GEDC');
@@ -683,7 +946,8 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
 
   const persons = data.persons.filter((p) => !p.isDeleted);
   const xref = new Map(persons.map((p, i) => [p.id, `@I${i + 1}@`]));
-  const relations = data.relations.filter((r) => xref.has(r.personAId) && xref.has(r.personBId));
+  // Relations in the recycle bin stay out: a file read in again would bring them back as active ones
+  const relations = data.relations.filter((r) => r.active !== false && xref.has(r.personAId) && xref.has(r.personBId));
   const gender = new Map(persons.map((p) => [p.id, p.gender]));
 
   // Families: partnerships and parent couples (or single parents) with their children
@@ -739,7 +1003,17 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
   const siblingsViaFamily = (a: string, b: string) => !!childFamily.get(a) && childFamily.get(a) === childFamily.get(b);
   const associations = relations.filter((r) => r.type === 'OTHER' || (r.type === 'SIBLING' && !siblingsViaFamily(r.personAId, r.personBId)));
 
+  // Citations of a parent-child relation are written below FAMC of the child
+  const childCitations = new Map<string, string[]>();
+  for (const r of relations) {
+    const pc = parentChildOf(r);
+    if (pc && r.citationIds.length) {
+      childCitations.set(pc.childId, [...new Set([...(childCitations.get(pc.childId) ?? []), ...r.citationIds])]);
+    }
+  }
+
   for (const p of persons) {
+    const factCitations = (fact: string) => p.citations.filter((c) => c.fact === fact).map((c) => c.citationId);
     push(0, 'INDI', null, xref.get(p.id));
     const given = [isUnknownGivenName(p.firstName) ? null : p.firstName, p.middleName].filter(Boolean).join(' ');
     const nameValue = (surname: string) => [given, `/${surname}/`].filter(Boolean).join(' ');
@@ -756,25 +1030,30 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
     if (p.nickname) {
       push(2, 'NICK', p.nickname);
     }
+    pushCitations(2, factCitations('NAME'));
     if (p.birthName) {
       push(1, 'NAME', nameValue(p.birthName));
       push(2, 'TYPE', v7 ? 'BIRTH' : 'birth');
       push(2, 'SURN', p.birthName);
     }
     push(1, 'SEX', p.gender === 'MALE' ? 'M' : p.gender === 'FEMALE' ? 'F' : 'U');
-    if (p.birthDate || p.birthPlace) {
+    const birthCitations = factCitations('BIRTH');
+    if (p.birthDate || p.birthPlace || birthCitations.length) {
       push(1, 'BIRT');
       pushDate(2, p.birthDate);
       if (p.birthPlace) {
         push(2, 'PLAC', p.birthPlace);
       }
+      pushCitations(2, birthCitations);
     }
-    if (p.deathDate || p.deathPlace) {
+    const deathCitations = factCitations('DEATH');
+    if (p.deathDate || p.deathPlace || deathCitations.length) {
       push(1, 'DEAT');
       pushDate(2, p.deathDate);
       if (p.deathPlace) {
         push(2, 'PLAC', p.deathPlace);
       }
+      pushCitations(2, deathCitations);
     }
     if (p.occupation) {
       push(1, 'OCCU', p.occupation);
@@ -804,8 +1083,7 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
       push(1, '_LANGUAGE', s);
     }
     for (const e of p.events) {
-      push(1, 'EVEN', e.title);
-      push(2, 'TYPE', e.category);
+      pushEventHead(e, Boolean(p.occupation));
       pushDate(2, e.date);
       if (e.place) {
         push(2, 'PLAC', e.place);
@@ -817,6 +1095,7 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
       for (const id of e.mediaIds.filter((mediaId) => mediaXref.has(mediaId))) {
         push(2, 'OBJE', mediaXref.get(id));
       }
+      pushCitations(2, e.citationIds);
       push(2, uidTag, e.id);
     }
     // All own media at the person – so a repeated import knows who the file belongs to
@@ -829,15 +1108,17 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
     for (const n of p.notes) {
       push(1, 'NOTE', n.text);
     }
+    pushCitations(1, factCitations('GENERAL'));
     for (const r of associations.filter((a) => a.personAId === p.id)) {
       push(1, 'ASSO', xref.get(r.personBId));
-      const role = r.type === 'SIBLING' ? 'Geschwister' : r.label || 'Sonstige';
+      const role = r.type === 'SIBLING' ? 'Sibling' : r.label || 'Other';
       if (v7) {
         push(2, 'ROLE', 'OTHER');
         push(3, 'PHRASE', role);
       } else {
         push(2, 'RELA', role);
       }
+      pushCitations(2, r.citationIds);
     }
     const famc = childFamily.get(p.id);
     if (famc) {
@@ -849,6 +1130,7 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
       if (link?.note) {
         push(2, 'NOTE', link.note);
       }
+      pushCitations(2, childCitations.get(p.id) ?? []);
     }
     for (const fam of families.filter((f) => f.partners.includes(p.id))) {
       push(1, 'FAMS', fam.xref);
@@ -888,10 +1170,68 @@ export function toGedcom(data: TransferData, version: GedcomVersion = '5.5.1', n
       if (rel.note) {
         push(1, 'NOTE', rel.note);
       }
+      pushCitations(1, rel.citationIds);
     } else if (fam.partners.length === 2) {
       // Common children, but no recorded partnership
       push(1, '_TYPE', 'NONE');
     }
+  }
+
+  for (const r of repositories) {
+    push(0, 'REPO', null, repositoryXref.get(r.id));
+    push(1, 'NAME', r.name);
+    if (r.address) {
+      push(1, 'ADDR', r.address);
+    }
+    if (r.phone) {
+      push(1, 'PHON', r.phone);
+    }
+    if (r.email) {
+      push(1, 'EMAIL', r.email);
+    }
+    if (r.url) {
+      push(1, 'WWW', r.url);
+    }
+    if (r.note) {
+      push(1, 'NOTE', r.note);
+    }
+    push(1, uidTag, r.id);
+    pushChanged(1, r.updatedAt);
+  }
+
+  for (const src of sources) {
+    push(0, 'SOUR', null, sourceXref.get(src.id));
+    if (src.author) {
+      push(1, 'AUTH', src.author);
+    }
+    push(1, 'TITL', src.title);
+    if (src.abbreviation) {
+      push(1, 'ABBR', src.abbreviation);
+    }
+    if (src.publication) {
+      push(1, 'PUBL', src.publication);
+    }
+    if (src.text) {
+      push(1, 'TEXT', src.text);
+    }
+    const repo = src.repositoryId ? repositoryXref.get(src.repositoryId) : undefined;
+    if (repo) {
+      push(1, 'REPO', repo);
+      if (src.callNumber) {
+        push(2, 'CALN', src.callNumber);
+      }
+    } else if (src.callNumber) {
+      push(1, '_CALN', src.callNumber);
+    }
+    push(1, '_STYPE', src.type);
+    for (const mediaId of src.mediaIds.filter((m) => mediaXref.has(m))) {
+      push(1, 'OBJE', mediaXref.get(mediaId));
+    }
+    if (src.note) {
+      push(1, 'NOTE', src.note);
+    }
+    push(1, uidTag, src.id);
+    pushChanged(1, src.updatedAt);
   }
 
   for (const m of mediaRecords) {

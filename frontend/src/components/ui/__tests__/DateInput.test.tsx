@@ -30,6 +30,26 @@ describe('DateInput', () => {
     expect(screen.queryByText('form.detectedPrecision')).not.toBeInTheDocument();
   });
 
+  it('turns a written-out date into its numeric form when the field is left', () => {
+    const onChange = vi.fn();
+    render(<Controlled onChange={onChange} />);
+    const input = document.getElementById('date')!;
+    fireEvent.change(input, { target: { value: '2. Oktober 1951' } });
+    expect(screen.getByText('form.detectedPrecision')).toBeInTheDocument();
+
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenLastCalledWith('02.10.1951');
+    expect(input).toHaveValue('02.10.1951');
+  });
+
+  it('leaves a numeric date alone when the field is left', () => {
+    const onChange = vi.fn();
+    render(<Controlled initial="um 1980" onChange={onChange} />);
+    fireEvent.blur(document.getElementById('date')!);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('can hide the precision', () => {
     render(<Controlled initial="1980" showPrecision={false} />);
     expect(screen.queryByText('form.detectedPrecision')).not.toBeInTheDocument();

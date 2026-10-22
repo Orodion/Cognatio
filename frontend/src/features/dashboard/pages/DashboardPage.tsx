@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { getInitials, formatPersonName, formatLifeDates } from '@/features/persons/lib/personUtils';
 import { PersonFormDialog } from '@/features/persons/components/PersonFormDialog';
+import { AnniversariesCard } from '../components/AnniversariesCard';
 
 export function DashboardPage() {
   const { t } = useTranslation();
@@ -118,6 +119,8 @@ export function DashboardPage() {
 
       {/* Main Section */}
       <div className="grid gap-6 md:grid-cols-2">
+        <AnniversariesCard persons={persons} loading={loading} />
+
         {/* Recently Added */}
         <Card>
           <CardHeader>
@@ -152,7 +155,7 @@ export function DashboardPage() {
         </Card>
 
         {/* Quick Tips */}
-        <Card className="bg-muted/30 border-dashed">
+        <Card className="bg-muted/30 border-dashed md:col-span-2">
           <CardHeader>
             <CardTitle className="text-lg">{t('dashboard.tips.title')}</CardTitle>
           </CardHeader>

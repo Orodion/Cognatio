@@ -17,11 +17,15 @@ import { RelationFormDialog } from './RelationFormDialog';
 import { PersonRelationGraph } from './PersonRelationGraph';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatDay } from '@/lib/formatDate';
+import { CitationMark } from '@/features/sources/components/CitationMark';
+import { usePersonCitations } from '@/features/sources/lib/personFacts';
 
 interface PersonRelationsTabProps {
   person: Person;
   /** Words from the filter field of the page; list and graph show only matching relations */
   filter?: string;
+  /** Opens the sources of the person (the mark at a relation with citations) */
+  onShowSources?: () => void;
 }
 
 const ROLE_ICONS: Record<string, typeof Users> = {
@@ -48,8 +52,9 @@ const ROLE_TO_GROUP: Record<string, (typeof ROLE_GROUPS)[number]> = {
   SIBLING: 'SIBLING',
 };
 
-export function PersonRelationsTab({ person, filter = '' }: PersonRelationsTabProps) {
+export function PersonRelationsTab({ person, filter = '', onShowSources }: PersonRelationsTabProps) {
   const { t, i18n } = useTranslation();
+  const { countFor } = usePersonCitations(person.id);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const showGraph = useSettingsStore((s) => s.showRelationGraph);
   const setShowGraph = useSettingsStore((s) => s.setShowRelationGraph);
@@ -186,6 +191,11 @@ export function PersonRelationsTab({ person, filter = '' }: PersonRelationsTabPr
                                 <Badge variant="secondary" className="text-xs">
                                   {t(`relations.types.${rel.role}`, rel.role)}
                                 </Badge>
+                                <CitationMark
+                                  count={countFor({ relationId: rel.id })}
+                                  fact={t(`relations.types.${rel.role}`, rel.role)}
+                                  onClick={onShowSources}
+                                />
                                 {lifeDates && <span>{lifeDates}</span>}
                                 {(rel.startDate || rel.endDate) && (
                                   <span>

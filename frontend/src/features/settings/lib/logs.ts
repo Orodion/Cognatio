@@ -4,7 +4,8 @@ import { request, filenameFrom } from '@/features/transfer/lib/transfer';
 import { saveFile } from '@/lib/platform';
 import { clearClientLog, formatClientLog, getClientLog, logClient } from '@/lib/clientLog';
 
-export type LogLevelFilter = 'all' | 'warn' | 'error';
+/** Levels, or "mcp": only the entries of AI assistants (tool calls, refused tokens) */
+export type LogLevelFilter = 'all' | 'warn' | 'error' | 'mcp';
 
 export interface LogEntry {
   time: string | null;
@@ -33,8 +34,11 @@ export function parseLogLine(line: string): LogEntry {
 
 const RANK: Record<string, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
-/** Entries at least as severe as the filter */
+/** Entries at least as severe as the filter, or those of AI assistants */
 export function filterLog(entries: LogEntry[], filter: LogLevelFilter): LogEntry[] {
+  if (filter === 'mcp') {
+    return entries.filter((entry) => entry.component === 'mcp');
+  }
   const min = filter === 'all' ? 0 : RANK[filter];
   return entries.filter((entry) => (RANK[entry.level] ?? 1) >= min);
 }

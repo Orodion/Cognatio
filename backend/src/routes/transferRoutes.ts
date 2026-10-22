@@ -1,35 +1,71 @@
-import { createHash } from 'crypto';
 import express from 'express';
 import multer from 'multer';
 import { prisma } from '../lib/prisma.js';
-import { buildExport, createGedzip, createZip, exportFileName, familyName } from '../lib/transfer/exportData.js';
+import { buildExport, createGedzip, createZip, exportFileName } from '../lib/transfer/exportData.js';
 import { TransferError } from '../lib/transfer/format.js';
 import { GEDCOM_VERSIONS, toGedcom, type GedcomVersion } from '../lib/transfer/gedcom.js';
-import { readImportFile } from '../lib/transfer/readImport.js';
+import { importLanguage } from '../lib/transfer/languageTexts.js';
 import { importMaxBytes, toMb } from '../lib/transfer/limits.js';
 import { oneAtATime } from '../lib/transfer/oneAtATime.js';
-import { STRATEGIES, analyze, buildPlan, summarize, type Decision, type Strategy } from '../lib/transfer/plan.js';
-import { applyPlan, type ApplyResult } from '../lib/transfer/applyPlan.js';
-import { reconcileGedcom, type Recognition } from '../lib/transfer/reconcile.js';
+import type { JobAnswer } from '../lib/transfer/jobs.js';
+import { receiveFile, stageUpload, stagedUpload, stagingDir } from '../lib/files/stagedUploads.js';
+import { enoughSpaceFor } from '../lib/files/freeSpace.js';
+import { bufferOutput, type ZipOutput } from '../lib/files/zipWriter.js';
+import { sendAsJob } from '../lib/transfer/downloadJob.js';
+import { STRATEGIES, type Decision, type Strategy } from '../lib/transfer/plan.js';
+import { MAX_TREE_NAME, previewImport, startImportJob, transferErrorAnswer } from '../lib/transfer/importRun.js';
 import { logger } from '../lib/logger.js';
-import { emptyTransfer, foreignIds, remapIds } from '../lib/transfer/foreignIds.js';
-import { isTreeNotFound, requestedTree, resolveTree } from '../lib/treeScope.js';
+import { requestedTree, resolveTree } from '../lib/treeScope.js';
 
 const router = express.Router();
 const exportLog = logger.child({ component: 'export' });
 const importLog = logger.child({ component: 'import' });
 
-// Import files are processed in memory; upper limit (and the one for exports) adjustable in the settings or via IMPORT_MAX_MB
-const storage = multer.memoryStorage();
-const uploadFile: express.RequestHandler = (req, res, next) => multer({ storage, limits: { fileSize: importMaxBytes() } }).single('file')(req, res, next);
+const EXPOSED = 'Content-Disposition, X-Missing-Media';
 
-const attachment = (res: express.Response, filename: string) =>
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`).setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Missing-Media');
+// The decisions of a manual merge can be many (one per person)
+const json = express.json({ limit: '20mb' });
 
 /** Active family tree of the request (header or ?familyTree=) */
 const activeTree = (req: express.Request) => resolveTree(prisma, requestedTree(req));
 
-const MAX_TREE_NAME = 100;
+const errorAnswer = (err: unknown, context: string, log = importLog) => transferErrorAnswer(err, context, log);
+
+const send = (res: express.Response, answer: JobAnswer) => res.status(answer.status).json(answer.body);
+
+/**
+ * An export as a download, written while it is sent; the page follows it as a job (`?activity=`). With `?check=1`
+ * only the file name, the size and the missing media are answered (JSON): the page learns about errors before the
+ * download starts, which it cannot read.
+ */
+async function sendExport(
+  req: express.Request,
+  res: express.Response,
+  filename: string,
+  output: ZipOutput,
+  missing: string[],
+  kind: string,
+  contentType?: string,
+) {
+  if (missing.length) {
+    exportLog.warn('Media files are missing and were skipped', { missing });
+  }
+  if (req.query.check === '1') {
+    const size = await output.size;
+    output.stream.destroy();
+    res.json({ filename, size, missingMedia: missing.length });
+    return;
+  }
+  res.setHeader('Access-Control-Expose-Headers', EXPOSED).setHeader('X-Missing-Media', String(missing.length));
+  const sent = await sendAsJob(req, res, 'export', filename, output, {
+    contentType,
+    result: { missingMedia: missing.length },
+    failed: (error) => errorAnswer(error, `${kind} export`, exportLog),
+  });
+  if (sent) {
+    exportLog.info(`${kind} export sent`, { filename, missingMedia: missing.length });
+  }
+}
 
 router.get(
   '/export/zip',
@@ -37,23 +73,10 @@ router.get(
     try {
       const now = new Date();
       const { data, files } = await buildExport(prisma, await activeTree(req), now);
-      const { buffer, missing } = createZip(data, files, req.query.media !== '0');
-      if (missing.length) {
-        exportLog.warn('Media files are missing and were skipped', { missing });
-      }
-      attachment(res, `${exportFileName(data, now)}.zip`);
-      res.setHeader('X-Missing-Media', String(missing.length));
-      res.type('application/zip').send(buffer);
+      const { zip, missing } = createZip(data, files, req.query.media !== '0');
+      await sendExport(req, res, `${exportFileName(data, now)}.zip`, zip, missing, 'ZIP');
     } catch (err) {
-      if (isTreeNotFound(err)) {
-        return res.status(404).json({ error: 'Family tree not found', reason: 'TREE_NOT_FOUND' });
-      }
-      if (err instanceof TransferError) {
-        exportLog.warn(`ZIP export rejected: ${err.reason}`, { reason: err.reason, details: err.details });
-        return res.status(413).json({ error: err.reason, reason: err.reason, details: err.details, params: err.params });
-      }
-      exportLog.error('ZIP export failed', { err });
-      res.status(500).json({ error: 'Export failed', reason: 'EXPORT_FAILED' });
+      send(res, errorAnswer(err, 'ZIP export', exportLog));
     }
   }),
 );
@@ -68,27 +91,14 @@ router.get(
       const name = `${exportFileName(data, now)}_gedcom${version.replace('.', '')}`;
       if (req.query.media === '1') {
         // With media: GEDZIP (.gdz, GEDCOM 7) or a ZIP file with gedcom.ged and the media files
-        const { buffer, missing } = createGedzip(data, files, version, now);
-        if (missing.length) {
-          exportLog.warn('Media files are missing and were skipped', { missing });
-        }
-        attachment(res, `${name}.${version === '7.0' ? 'gdz' : 'zip'}`);
-        res.setHeader('X-Missing-Media', String(missing.length));
-        res.type('application/zip').send(buffer);
+        const { zip, missing } = createGedzip(data, files, version, now);
+        await sendExport(req, res, `${name}.${version === '7.0' ? 'gdz' : 'zip'}`, zip, missing, 'GEDZIP');
         return;
       }
-      attachment(res, `${name}.ged`);
-      res.type('text/vnd.familysearch.gedcom; charset=utf-8').send(toGedcom(data, version, now));
+      const text = bufferOutput(Buffer.from(toGedcom(data, version, now)));
+      await sendExport(req, res, `${name}.ged`, text, [], 'GEDCOM', 'text/vnd.familysearch.gedcom; charset=utf-8');
     } catch (err) {
-      if (isTreeNotFound(err)) {
-        return res.status(404).json({ error: 'Family tree not found', reason: 'TREE_NOT_FOUND' });
-      }
-      if (err instanceof TransferError) {
-        exportLog.warn(`GEDCOM export rejected: ${err.reason}`, { reason: err.reason, details: err.details });
-        return res.status(413).json({ error: err.reason, reason: err.reason, details: err.details, params: err.params });
-      }
-      exportLog.error('GEDCOM export failed', { err, version: req.query.version });
-      res.status(500).json({ error: 'Export failed', reason: 'EXPORT_FAILED' });
+      send(res, errorAnswer(err, 'GEDCOM export', exportLog));
     }
   }),
 );
@@ -98,169 +108,61 @@ async function importTarget(req: express.Request): Promise<string | null> {
   return req.body?.target === 'NEW' ? null : activeTree(req);
 }
 
-/**
- * Reads the import file and compares it with the data of the target family tree (empty for a new one).
- * GEDCOM persons are first matched with known persons (identifier or name and birth year) so
- * nothing is created twice. Ids already taken in another family tree are assigned anew.
- */
-async function prepareImport(file: Express.Multer.File | undefined, treeId: string | null) {
-  if (!file) {
-    throw new TransferError('NO_FILE');
-  }
-  const imported = readImportFile(file.buffer, file.originalname);
-  const existing = treeId ? (await buildExport(prisma, treeId)).data : emptyTransfer();
-  let recognized: Recognition | null = null;
-  if (imported.kind === 'GEDCOM' && treeId) {
-    const reconciled = reconcileGedcom(imported.data, existing);
-    imported.data = reconciled.data;
-    recognized = reconciled.recognized;
-  }
-  imported.data = remapIds(imported.data, await foreignIds(prisma, imported.data, existing));
-  const fileHash = createHash('sha256').update(file.buffer).digest('hex');
-  // Suggested name for a new family tree: most common last name, otherwise the file name
-  const suggestedTreeName = (familyName(imported.data) ?? file.originalname.replace(/\.[^.]+$/, '')).slice(0, MAX_TREE_NAME);
-  return { imported, recognized, fileHash, suggestedTreeName, analysis: analyze(imported.data, existing) };
-}
-
-/** Earlier imports of the same file (same content) into the target family tree or at all, newest first */
-const previousImports = (fileHash: string, treeId: string | null) =>
-  prisma.importRecord.findMany({
-    where: { fileHash, ...(treeId ? { familyTreeId: treeId } : {}) },
-    orderBy: { importedAt: 'desc' },
-    take: 3,
-    select: { importedAt: true, strategy: true, fileName: true },
-  });
-
-/** Entry in the import history; an error here does not undo the (already completed) import */
-async function recordImport(entry: {
-  file: Express.Multer.File;
-  fileHash: string;
-  kind: string;
-  source: string | null;
-  exportedAt: string;
-  strategy: string;
-  recognized: Recognition | null;
-  result: ApplyResult;
-}) {
-  try {
-    await prisma.importRecord.create({
-      data: {
-        familyTreeId: entry.result.familyTreeId,
-        fileName: entry.file.originalname,
-        fileHash: entry.fileHash,
-        kind: entry.kind,
-        source: entry.source,
-        exportedAt: new Date(entry.exportedAt),
-        strategy: entry.strategy,
-        createdPersons: entry.result.createdPersons,
-        updatedPersons: entry.result.updatedPersons,
-        removedPersons: entry.result.removedPersons,
-        recognizedPersons: entry.recognized ? entry.recognized.byId + entry.recognized.byName : 0,
-        createdRelations: entry.result.createdRelations,
-        createdEvents: entry.result.createdEvents,
-        createdNotes: entry.result.createdNotes,
-        createdMedia: entry.result.createdMedia,
-        missingFiles: entry.result.missingFiles.length,
-      },
-    });
-  } catch (err) {
-    importLog.error('Import could not be recorded in the history', { err });
-  }
-}
-
-function sendError(res: express.Response, err: unknown, context: string) {
-  if (isTreeNotFound(err)) {
-    return res.status(404).json({ error: 'Family tree not found', reason: 'TREE_NOT_FOUND' });
-  }
-  if (err instanceof TransferError) {
-    // Technical details go to the log, plus a short list for display
-    importLog.warn(`${context} rejected: ${err.reason}`, { reason: err.reason, details: err.details });
-    return res.status(err.reason.endsWith('TOO_LARGE') ? 413 : 400).json({ error: err.reason, reason: err.reason, details: err.details, params: err.params });
-  }
-  importLog.error(`${context} failed`, { err });
-  return res.status(500).json({ error: 'Import failed', reason: 'IMPORT_FAILED' });
-}
+/** Receives the import file once; preview and execution refer to it by `uploadId` */
+router.post(
+  '/import/upload',
+  enoughSpaceFor(stagingDir),
+  (req, res, next) => receiveFile('import', importMaxBytes())(req, res, next),
+  (req, res) => {
+    try {
+      const upload = stageUpload('import', req.file);
+      importLog.info('Import file received', { size: upload.size });
+      res.status(201).json({ uploadId: upload.id, size: upload.size });
+    } catch (err) {
+      send(res, errorAnswer(err, 'Upload'));
+    }
+  },
+);
 
 router.post(
   '/import/preview',
-  oneAtATime(
-    'import check',
-    async (req, res) => {
-      try {
-        const treeId = await importTarget(req);
-        const { imported, analysis, recognized, fileHash, suggestedTreeName } = await prepareImport(req.file, treeId);
-        const referenced = imported.data.persons.flatMap((p) => p.media.map((m) => m.path));
-        res.json({
-          kind: imported.kind,
-          source: imported.data.source ?? null,
-          exportedAt: imported.data.exportedAt,
-          recognized,
-          target: treeId ? 'CURRENT' : 'NEW',
-          suggestedTreeName,
-          previousImports: await previousImports(fileHash, treeId),
-          existingPersons: analysis.existingPersons,
-          importedPersons: analysis.importedPersons,
-          missingFiles: imported.kind === 'ZIP' ? referenced.filter((p) => !imported.files.has(p)) : [],
-          conflicts: analysis.conflicts,
-          summaries: Object.fromEntries(STRATEGIES.map((s) => [s, summarize(analysis, buildPlan(imported.data, analysis, s))])),
-        });
-      } catch (err) {
-        sendError(res, err, 'Preview');
-      }
-    },
-    uploadFile,
-  ),
+  json,
+  oneAtATime('import check', async (req, res) => {
+    try {
+      const upload = stagedUpload('import', req.body?.uploadId);
+      const treeId = await importTarget(req);
+      res.json(await previewImport(upload, treeId, importLanguage(req.body?.language)));
+    } catch (err) {
+      send(res, errorAnswer(err, 'Preview'));
+    }
+  }),
 );
 
-router.post(
-  '/import/execute',
-  oneAtATime(
-    'import',
-    async (req, res) => {
-      try {
-        const strategy = req.body.strategy as Strategy;
-        if (!STRATEGIES.includes(strategy)) {
-          throw new TransferError('INVALID_STRATEGY', [String(strategy)]);
-        }
-        let decisions: Record<string, Decision> = {};
-        try {
-          decisions = req.body.decisions ? JSON.parse(req.body.decisions) : {};
-        } catch {
-          throw new TransferError('INVALID_DECISIONS');
-        }
-        const treeId = await importTarget(req);
-        const { imported, analysis, recognized, fileHash, suggestedTreeName } = await prepareImport(req.file, treeId);
-        const plan = buildPlan(imported.data, analysis, strategy, decisions);
-        const treeName =
-          String(req.body.treeName ?? '')
-            .trim()
-            .slice(0, MAX_TREE_NAME) || suggestedTreeName;
-        const result = await applyPlan(prisma, plan, imported.files, treeId ? { treeId } : { newTreeName: treeName });
-        await recordImport({
-          file: req.file!,
-          fileHash,
-          kind: imported.kind,
-          source: imported.data.source ?? null,
-          exportedAt: imported.data.exportedAt,
-          strategy,
-          recognized,
-          result,
-        });
-        importLog.info(`${imported.kind} file imported`, {
-          kind: imported.kind,
-          exportedAt: imported.data.exportedAt,
-          strategy,
-          ...result,
-          missingFiles: result.missingFiles.length,
-        });
-        res.json({ ...result, summary: summarize(analysis, plan) });
-      } catch (err) {
-        sendError(res, err, 'Import');
-      }
-    },
-    uploadFile,
-  ),
-);
+/** Starts the import and answers at once with the job (202); the page follows it under /jobs/:id. The job waits for a running operation. */
+router.post('/import/execute', json, async (req, res) => {
+  let job: { id: string; finished: Promise<void> };
+  try {
+    const strategy = req.body?.strategy as Strategy;
+    if (!STRATEGIES.includes(strategy)) {
+      throw new TransferError('INVALID_STRATEGY', [String(strategy)]);
+    }
+    const decisions = req.body?.decisions ?? {};
+    if (typeof decisions !== 'object' || Array.isArray(decisions)) {
+      throw new TransferError('INVALID_DECISIONS');
+    }
+    const upload = stagedUpload('import', req.body?.uploadId);
+    const treeId = await importTarget(req);
+    const treeName = String(req.body?.treeName ?? '')
+      .trim()
+      .slice(0, MAX_TREE_NAME);
+    const language = importLanguage(req.body?.language);
+    job = startImportJob({ upload, strategy, decisions: decisions as Record<string, Decision>, treeId, treeName, language });
+  } catch (err) {
+    send(res, errorAnswer(err, 'Import'));
+    return;
+  }
+  res.status(202).json({ jobId: job.id });
+});
 
 // Report files that are too large (multer) with an understandable reason
 router.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {

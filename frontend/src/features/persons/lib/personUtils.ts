@@ -41,6 +41,9 @@ export function getInitials(person: Pick<Person, 'firstName' | 'lastName'>): str
   return (first + last).toUpperCase() || '?';
 }
 
+/** Living persons above this age without death data count as "probably deceased" (date of death missing). */
+export const MAX_PLAUSIBLE_AGE = 110;
+
 /** A person counts as deceased when a date or place of death is recorded */
 export const isDeceased = (p: Pick<Person, 'deathDate' | 'deathPlace'>) => !!(p.deathDate?.trim() || p.deathPlace?.trim());
 

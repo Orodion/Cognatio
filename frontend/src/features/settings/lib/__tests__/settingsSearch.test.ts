@@ -31,6 +31,6 @@ describe('SETTING_ENTRIES', () => {
   it('has a unique field for every entry and only known blocks', () => {
     const ids = SETTING_ENTRIES.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(new Set(SETTING_ENTRIES.map((e) => e.section))).toEqual(new Set(['system', 'fontColors', 'treeAppearance', 'treeBehaviour', 'data']));
+    expect(new Set(SETTING_ENTRIES.map((e) => e.section))).toEqual(new Set(['system', 'fontColors', 'treeAppearance', 'treeBehaviour', 'data', 'mcp']));
   });
 });

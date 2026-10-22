@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
+  Bot,
   CheckCircle2,
   DatabaseBackup,
   Download,
@@ -25,14 +26,19 @@ import { SizeLimits } from '@/features/settings/components/SizeLimits';
 import { LogViewerDialog } from '@/features/settings/components/LogViewerDialog';
 import { SettingsSearch } from '@/features/settings/components/SettingsSearch';
 import { UpdatesPanel } from '@/features/settings/components/UpdatesPanel';
+import { McpSection } from '@/features/settings/components/McpSection';
+import { useMcpSummary } from '@/features/settings/lib/mcpSummary';
 import { clearLogs, exportLogs } from '@/features/settings/lib/logs';
 import { SettingsSection } from '@/features/settings/components/SettingsSection';
 import { FontAndColorsSection, TreeAppearanceSection } from '@/features/settings/components/AppearanceSections';
 import { useAppearanceSummary } from '@/features/settings/lib/appearanceSummary';
+import { create } from 'zustand';
 import { ErrorBox } from '@/features/transfer/components/ErrorBox';
+import { TransferProgressBar } from '@/features/transfer/components/TransferProgressBar';
 import { formatMb, toError, type ErrorState } from '@/features/transfer/lib/transfer';
-import { downloadBackup } from '@/features/settings/lib/backup';
-import { useReloadAllData } from '@/features/family-trees/lib/useFamilyTrees';
+import { downloadBackupTracked } from '@/features/settings/lib/restoreSession';
+import { cancelActivity, runningProgress } from '@/lib/activity';
+import { useActivityStore } from '@/stores/activityStore';
 import { SET_LOG_LEVEL, SYSTEM_INFO } from '@/features/settings/graphql/systemQueries';
 import { apiErrorMessage } from '@/lib/apiErrors';
 import { GET_PERSONS } from '@/features/persons/graphql/personQueries';
@@ -69,7 +75,7 @@ const BACKUP_WARN_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The collapsible blocks in display order (the id is also the anchor, e.g. `/settings#data`) */
-const SECTIONS = ['fontColors', 'treeAppearance', 'treeBehaviour', 'data'] as const;
+const SECTIONS = ['fontColors', 'treeAppearance', 'treeBehaviour', 'data', 'mcp'] as const;
 
 /** "2 days ago" in the language of the app */
 function relativeTime(iso: string, locale: string) {
@@ -107,6 +113,7 @@ export function SettingsPage() {
   const treeSummary = useAppearanceSummary('tree');
   const behaviour = useBehaviourSummary();
   const dataSummary = useDataSummary(system);
+  const mcpSummary = useMcpSummary();
 
   return (
     <div className="max-w-5xl space-y-4">
@@ -141,6 +148,9 @@ export function SettingsPage() {
       </SettingsSection>
       <SettingsSection id="data" icon={DatabaseBackup} title={t('settings.sections.data')} summary={dataSummary}>
         <DataSection system={system} />
+      </SettingsSection>
+      <SettingsSection id="mcp" icon={Bot} title={t('settings.sections.mcp')} summary={mcpSummary}>
+        <McpSection />
       </SettingsSection>
     </div>
   );
@@ -471,27 +481,21 @@ function DataSection({ system }: { system: SystemState }) {
  * Download or restore the backup of all family trees. Unlike the export under Import/Export
  * it covers all data and replaces it completely on restore.
  */
+/** The backup download started here last – its progress and result also after leaving the page */
+const useBackupCard = create<{ activityId: string | null }>()(() => ({ activityId: null }));
+
 function ManualBackup() {
   const { t } = useTranslation();
-  const reloadAllData = useReloadAllData();
-  const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState<Awaited<ReturnType<typeof downloadBackup>> | null>(null);
-  const [error, setError] = useState<ErrorState | null>(null);
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const activityId = useBackupCard((state) => state.activityId);
+  const activity = useActivityStore((state) => state.activities.find((a) => a.id === activityId));
+  const progress = runningProgress(activity);
+  const busy = progress !== null;
+  const saved = activity?.state === 'done' ? activity.result : undefined;
+  const error = activity?.error ?? null;
 
-  const download = async () => {
-    setBusy(true);
-    setError(null);
-    setSaved(null);
-    try {
-      const result = await downloadBackup();
-      setSaved(result.saved ? result : null);
-    } catch (err) {
-      setError(toError(err));
-    } finally {
-      setBusy(false);
-    }
-  };
+  // The result and an error are shown from the activity
+  const download = () => void downloadBackupTracked((id) => useBackupCard.setState({ activityId: id })).catch(() => undefined);
 
   return (
     <div className="space-y-3 border-t pt-4">
@@ -507,22 +511,25 @@ function ManualBackup() {
           {t('settings.backup.restoreButton')}
         </Button>
       </div>
+      {progress && activity && (
+        <TransferProgressBar progress={progress} onCancel={activity.cancel ? () => cancelActivity(activity.id) : undefined} cancelling={activity.cancelling} />
+      )}
       {saved && (
         <p className="flex items-start gap-2" role="status">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="break-all">
-            {t('settings.backup.downloaded', { file: saved.filename })}
-            {saved.missingMedia > 0 && ` ${t('settings.backup.missingMedia', { count: saved.missingMedia })}`}
+            {t('settings.backup.downloaded', { file: saved.file })}
+            {Number(saved.missing) > 0 && ` ${t('settings.backup.missingMedia', { count: Number(saved.missing) })}`}
           </span>
         </p>
       )}
-      {saved?.overLimit && (
+      {saved?.overLimitSizeMb !== undefined && (
         <p className="flex items-start gap-2 text-amber-700 dark:text-amber-400" role="alert">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             {t('settings.backup.overLimit', {
-              size: formatMb(saved.overLimit.sizeMb),
-              limit: formatMb(saved.overLimit.limitMb),
+              size: formatMb(Number(saved.overLimitSizeMb)),
+              limit: formatMb(Number(saved.overLimitLimitMb)),
             })}
           </span>
         </p>
@@ -534,15 +541,8 @@ function ManualBackup() {
           {t('nav.importExport')}
         </Link>
       </p>
-      <RestoreBackupDialog
-        open={restoreOpen}
-        onClose={(restored) => {
-          setRestoreOpen(false);
-          if (restored) {
-            void reloadAllData();
-          }
-        }}
-      />
+      {/* After a restore the session reloads all data itself (also when the dialog was closed before the end) */}
+      <RestoreBackupDialog open={restoreOpen} onClose={() => setRestoreOpen(false)} />
     </div>
   );
 }

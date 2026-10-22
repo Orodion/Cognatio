@@ -39,9 +39,14 @@ export async function seedDemoTree(prisma: PrismaClient, env: NodeJS.ProcessEnv,
     const trees = await prisma.familyTree.count();
     let created = false;
     if (trees === 0) {
-      const imported = readImportFile(fs.readFileSync(file), 'Cognatio-Demo.zip');
-      const plan = buildPlan(imported.data, analyze(imported.data, emptyTransfer()), 'OVERWRITE', {});
-      const result = await applyPlan(prisma, plan, imported.files, { newTreeName: DEMO_TREE_NAME });
+      const imported = await readImportFile(file, 'Cognatio-Demo.zip');
+      let result;
+      try {
+        const plan = buildPlan(imported.data, analyze(imported.data, emptyTransfer()), 'OVERWRITE', {});
+        result = await applyPlan(prisma, plan, imported.files, { newTreeName: DEMO_TREE_NAME });
+      } finally {
+        imported.close();
+      }
       await prisma.familyTree.update({ where: { id: result.familyTreeId }, data: { description: DEMO_TREE_DESCRIPTION } });
       log.info('Example family tree created', { persons: result.createdPersons, media: result.createdMedia });
       created = true;

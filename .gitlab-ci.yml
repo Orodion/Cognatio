@@ -97,7 +97,7 @@ test:upgrade:
   stage: test
   needs: [lint:backend]
   services:
-    - name: postgres:16-alpine
+    - name: postgres:18-alpine
       alias: postgres
   variables:
     POSTGRES_USER: cognatio
@@ -137,7 +137,7 @@ test:e2e:
   # The browser version must match the @playwright/test version in e2e/package.json
   image: mcr.microsoft.com/playwright:v1.63.0-noble
   services:
-    - name: postgres:16-alpine
+    - name: postgres:18-alpine
       alias: postgres
   variables:
     POSTGRES_USER: cognatio
@@ -364,6 +364,8 @@ release:windows:
         - tools/postgres/
   script:
     - npm ci --prefer-offline
+    # PostgreSQL 18 source archives no longer contain the generated parser files: bison and flex are needed
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends bison flex
     - npm run postgres:fetch
     - npm run dist:linux -w desktop
 

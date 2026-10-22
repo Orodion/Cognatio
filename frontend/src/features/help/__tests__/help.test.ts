@@ -8,7 +8,7 @@ const helpDefault = HELP_CONTENT[DEFAULT_LANGUAGE];
 const helpDe = HELP_CONTENT.de;
 
 /** Pages of the app (App.tsx) the help may link to */
-const ROUTES = ['/', '/persons', '/tree', '/statistics', '/import-export', '/family-trees', '/trash', '/settings'];
+const ROUTES = ['/', '/persons', '/tree', '/sources', '/statistics', '/checks', '/reports', '/import-export', '/family-trees', '/trash', '/settings'];
 
 // Every help file found in help/content – a new language is checked automatically
 describe.each(Object.entries(HELP_CONTENT))('help content %s', (lang, sections) => {

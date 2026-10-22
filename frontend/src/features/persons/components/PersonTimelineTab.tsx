@@ -10,18 +10,23 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { MediaThumbnail } from '@/features/persons/components/MediaThumbnail';
 import { MediaDownloadLink } from '@/features/persons/components/MediaDownloadLink';
-import { mediaUrl, type Media } from '@/features/persons/types/media';
+import { MediaOpenLink } from '@/features/persons/components/MediaOpenLink';
+import type { Media } from '@/features/persons/types/media';
 import { formatShortName } from '@/features/persons/lib/personUtils';
 import { sortEvents } from '@/features/persons/lib/eventOrder';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { Highlight } from '@/components/ui/Highlight';
 import { matchesFilter } from '@/lib/textFilter';
+import { CitationMark } from '@/features/sources/components/CitationMark';
+import { usePersonCitations } from '@/features/sources/lib/personFacts';
 import { EventFormDialog } from './EventFormDialog';
 
 interface PersonTimelineTabProps {
   person: Person;
   /** Words from the filter field of the page; only matching events are shown */
   filter?: string;
+  /** Opens the sources of the person (the mark at an event with citations) */
+  onShowSources?: () => void;
 }
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -58,16 +63,14 @@ function EventMedia({
         const label = mediaLabel(media, personId, t);
         return (
           <li key={media.id} className="relative">
-            <a
-              href={mediaUrl(media)}
-              target="_blank"
-              rel="noreferrer"
+            <MediaOpenLink
+              media={media}
               title={label}
               aria-label={label}
               className="block rounded focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <MediaThumbnail media={media} className={thumbnail} />
-            </a>
+            </MediaOpenLink>
             <MediaDownloadLink media={media} compact />
           </li>
         );
@@ -76,8 +79,12 @@ function EventMedia({
   );
 }
 
-export function PersonTimelineTab({ person, filter = '' }: PersonTimelineTabProps) {
+export function PersonTimelineTab({ person, filter = '', onShowSources }: PersonTimelineTabProps) {
   const { t } = useTranslation();
+  const { countFor } = usePersonCitations(person.id);
+  const mark = (event: TimelineEvent, className?: string) => (
+    <CitationMark count={countFor({ eventId: event.id })} fact={event.title} onClick={onShowSources} className={className} />
+  );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
   const view = useSettingsStore((s) => s.timelineView);
@@ -239,6 +246,7 @@ export function PersonTimelineTab({ person, filter = '' }: PersonTimelineTabProp
                   </td>
                   <th scope="row" className="px-3 py-2 text-left font-semibold">
                     <Highlight text={event.title} query={filter} />
+                    {mark(event, 'ml-1')}
                   </th>
                   <td className="px-3 py-2">
                     <Badge variant="secondary" className="text-[10px]">
@@ -277,6 +285,7 @@ export function PersonTimelineTab({ person, filter = '' }: PersonTimelineTabProp
                       <Badge variant="secondary" className="text-[10px]">
                         {t(`timeline.categories.${event.category}`)}
                       </Badge>
+                      {mark(event)}
                     </div>
                     {(event.date || event.place) && (
                       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-2">

@@ -59,6 +59,14 @@ describe('PersonFormDialog', () => {
     expect(GENDER_OPTIONS).toEqual(['MALE', 'FEMALE', 'UNKNOWN']);
   });
 
+  it('suggests the places of the family tree in the birth and death place', () => {
+    setup([]);
+    for (const id of ['birthPlace', 'deathPlace']) {
+      expect(document.getElementById(id)).toHaveAttribute('list', 'place-suggestions');
+    }
+    expect(screen.getByTestId('place-suggestions')).toBeInTheDocument();
+  });
+
   it('does not save invalid input and shows the field errors', async () => {
     const { onCreate } = setup([]);
     type('birthDate', '1980');

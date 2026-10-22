@@ -1,5 +1,17 @@
 import { isSameRelation } from '../../resolvers/relationResolvers.js';
-import type { TransferData, TransferEvent, TransferMedia, TransferNote, TransferPerson, TransferRelation } from './format.js';
+import { ancestorCycles } from './cycles.js';
+import type {
+  TransferCitation,
+  TransferData,
+  TransferEvent,
+  TransferMedia,
+  TransferNote,
+  TransferPerson,
+  TransferRelation,
+  TransferRepository,
+  TransferSource,
+} from './format.js';
+import { emptyLibrary, type LibraryState } from './library.js';
 
 export const STRATEGIES = ['OVERWRITE', 'MERGE_NEWER', 'MERGE_MANUAL'] as const;
 export type Strategy = (typeof STRATEGIES)[number];
@@ -32,12 +44,28 @@ const PERSON_FIELDS = [
   'languages',
   'profilePictureId',
   'isDeleted',
+  'citations',
 ] as const satisfies ReadonlyArray<keyof PersonFields>;
-const EVENT_FIELDS = ['date', 'datePrecision', 'title', 'category', 'description', 'place', 'sortOrder', 'mediaIds'] as const;
+const EVENT_FIELDS = ['date', 'datePrecision', 'title', 'category', 'description', 'place', 'sortOrder', 'mediaIds', 'citationIds'] as const;
 const NOTE_FIELDS = ['text'] as const;
 // The path inside the ZIP file is not content – it is assigned anew with every export
 const MEDIA_FIELDS = ['originalFileName', 'mimeType', 'sizeBytes', 'type'] as const;
-const RELATION_FIELDS = ['personAId', 'personBId', 'type', 'label', 'active', 'note', 'startDate', 'endDate'] as const;
+const RELATION_FIELDS = ['personAId', 'personBId', 'type', 'label', 'active', 'note', 'startDate', 'endDate', 'citationIds'] as const;
+const REPOSITORY_FIELDS = ['name', 'address', 'url', 'email', 'phone', 'note', 'isDeleted'] as const;
+const SOURCE_FIELDS = [
+  'type',
+  'title',
+  'author',
+  'publication',
+  'abbreviation',
+  'text',
+  'repositoryId',
+  'callNumber',
+  'note',
+  'mediaIds',
+  'isDeleted',
+] as const;
+const CITATION_FIELDS = ['sourceId', 'page', 'date', 'datePrecision', 'text', 'quality', 'note', 'mediaIds'] as const;
 
 const norm = (v: unknown) => (v === undefined || v === '' ? null : v);
 const equal = (a: unknown, b: unknown) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
@@ -73,6 +101,19 @@ interface RecordDiff<T> {
   changed: Array<{ personId: string; record: T; existing: T }>;
 }
 
+/** Records of the library: new ones and ones that exist with another content */
+interface LibraryDiff<T> {
+  created: T[];
+  changed: Array<{ record: T; existing: T }>;
+}
+
+export interface LibraryAnalysis {
+  repositories: LibraryDiff<TransferRepository>;
+  sources: LibraryDiff<TransferSource>;
+  citations: LibraryDiff<TransferCitation>;
+  media: LibraryDiff<TransferMedia>;
+}
+
 export interface Analysis {
   existingPersons: number;
   importedPersons: number;
@@ -86,10 +127,27 @@ export interface Analysis {
   notes: RecordDiff<TransferNote>;
   media: RecordDiff<TransferMedia>;
   relations: { created: TransferRelation[]; changed: Array<{ record: TransferRelation; existing: TransferRelation }>; duplicates: number };
+  library: LibraryAnalysis;
 }
 
-/** Compares imported data with the existing data – identical records are recognised by their id. */
-export function analyze(imported: TransferData, existing: TransferData): Analysis {
+function diffLibrary<T extends { id: string }>(records: T[], known: Map<string, T>, fields: ReadonlyArray<keyof T>): LibraryDiff<T> {
+  const diff: LibraryDiff<T> = { created: [], changed: [] };
+  for (const record of records) {
+    const old = known.get(record.id);
+    if (!old) {
+      diff.created.push(record);
+    } else if (changedFields(old, record, fields).length) {
+      diff.changed.push({ record, existing: old });
+    }
+  }
+  return diff;
+}
+
+/**
+ * Compares imported data with the existing data – identical records are recognised by their id. `library`: the
+ * records of the library (shared by all family trees) the file refers to.
+ */
+export function analyze(imported: TransferData, existing: TransferData, library: LibraryState = emptyLibrary()): Analysis {
   const existingPersons = new Map(existing.persons.map((p) => [p.id, p]));
   const importedIds = new Set(imported.persons.map((p) => p.id));
   const conflicts = new Map<string, PersonConflict>();
@@ -105,6 +163,12 @@ export function analyze(imported: TransferData, existing: TransferData): Analysi
     notes: { created: [], changed: [] },
     media: { created: [], changed: [] },
     relations: { created: [], changed: [], duplicates: 0 },
+    library: {
+      repositories: diffLibrary(imported.repositories, library.repositories, REPOSITORY_FIELDS),
+      sources: diffLibrary(imported.sources, library.sources, SOURCE_FIELDS),
+      citations: diffLibrary(imported.citations, library.citations, CITATION_FIELDS),
+      media: diffLibrary(imported.libraryMedia, library.media, MEDIA_FIELDS),
+    },
   };
 
   const conflictOf = (imp: TransferPerson, ex: TransferPerson) => {
@@ -231,6 +295,15 @@ export interface ImportPlan {
   updateMedia: Array<{ personId: string; record: TransferMedia }>;
   createRelations: TransferRelation[];
   updateRelations: TransferRelation[];
+  /** The library: never deleted by an import, only added to and updated */
+  createRepositories: TransferRepository[];
+  updateRepositories: TransferRepository[];
+  createSources: TransferSource[];
+  updateSources: TransferSource[];
+  createCitations: TransferCitation[];
+  updateCitations: TransferCitation[];
+  createLibraryMedia: Array<{ record: TransferMedia }>;
+  updateLibraryMedia: Array<{ record: TransferMedia }>;
 }
 
 export interface PlanSummary {
@@ -244,6 +317,8 @@ export interface PlanSummary {
   newEvents: number;
   newNotes: number;
   newMedia: number;
+  newSources: number;
+  newCitations: number;
 }
 
 /**
@@ -251,6 +326,8 @@ export interface PlanSummary {
  * - OVERWRITE: delete the existing data, import everything
  * - MERGE_NEWER: create new records; where data differs the newer state wins per record
  * - MERGE_MANUAL: create new records; for conflicts the user decides per person (no decision: keep)
+ * The library is shared by all family trees: new archives, sources and citations are added; for existing ones
+ * overwriting takes the file, both kinds of merging the newer state.
  */
 export function buildPlan(imported: TransferData, analysis: Analysis, strategy: Strategy, decisions: Record<string, Decision> = {}): ImportPlan {
   const plan: ImportPlan = {
@@ -266,6 +343,7 @@ export function buildPlan(imported: TransferData, analysis: Analysis, strategy: 
     updateMedia: [],
     createRelations: [],
     updateRelations: [],
+    ...libraryPlan(analysis.library, strategy),
   };
 
   if (strategy === 'OVERWRITE') {
@@ -317,6 +395,21 @@ export function buildPlan(imported: TransferData, analysis: Analysis, strategy: 
   return plan;
 }
 
+function libraryPlan(library: LibraryAnalysis, strategy: Strategy) {
+  const update = <T extends { updatedAt: string }>(diff: LibraryDiff<T>) =>
+    diff.changed.filter((c) => strategy === 'OVERWRITE' || time(c.record.updatedAt) > time(c.existing.updatedAt)).map((c) => c.record);
+  return {
+    createRepositories: library.repositories.created,
+    updateRepositories: update(library.repositories),
+    createSources: library.sources.created,
+    updateSources: update(library.sources),
+    createCitations: library.citations.created,
+    updateCitations: update(library.citations),
+    createLibraryMedia: library.media.created.map((record) => ({ record })),
+    updateLibraryMedia: update(library.media).map((record) => ({ record })),
+  };
+}
+
 /** Numbers for the summary before confirming */
 export function summarize(analysis: Analysis, plan: ImportPlan): PlanSummary {
   const updated = new Set([
@@ -336,6 +429,8 @@ export function summarize(analysis: Analysis, plan: ImportPlan): PlanSummary {
       newEvents: plan.createEvents.length,
       newNotes: plan.createNotes.length,
       newMedia: plan.createMedia.length,
+      newSources: plan.createSources.length,
+      newCitations: plan.createCitations.length,
     };
   }
   return {
@@ -349,5 +444,18 @@ export function summarize(analysis: Analysis, plan: ImportPlan): PlanSummary {
     newEvents: plan.createEvents.length,
     newNotes: plan.createNotes.length,
     newMedia: plan.createMedia.length,
+    newSources: plan.createSources.length,
+    newCitations: plan.createCitations.length,
   };
+}
+
+/**
+ * Persons that would be their own ancestors after the import (names per group) – warned about in the preview,
+ * the import still runs. Overwriting keeps only the imported relations, merging adds them to the existing ones.
+ */
+export function planCycles(imported: TransferData, existing: TransferData, plan: ImportPlan): string[][] {
+  const updated = new Map(plan.updateRelations.map((r) => [r.id, r]));
+  const relations = plan.replaceAll ? plan.createRelations : [...existing.relations.map((r) => updated.get(r.id) ?? r), ...plan.createRelations];
+  const names = new Map([...(plan.replaceAll ? [] : existing.persons), ...imported.persons].map((p) => [p.id, personName(p)]));
+  return ancestorCycles(relations).map((ids) => ids.map((id) => names.get(id) ?? id));
 }

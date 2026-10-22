@@ -8,7 +8,7 @@ Why: Cognatio is released under GPL-3.0-or-later, and every contributor keeps th
 
 ## Setup
 
-Requirements: Node.js 22 or newer, a local PostgreSQL 16 (`npm run postgres:fetch` and `npm run db:start` provide one on Windows and Linux). See the [README](README.md) for the full setup.
+Requirements: Node.js 22 or newer, a local PostgreSQL 18 (`npm run postgres:fetch` and `npm run db:start` provide one on Windows and Linux). See the [README](README.md) for the full setup.
 
 ```bash
 npm install          # installs backend, frontend, e2e and desktop in one go (npm workspaces)

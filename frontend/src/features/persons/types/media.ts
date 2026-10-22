@@ -10,6 +10,8 @@ export interface Media {
   mimeType: string;
   sizeBytes: number;
   type: 'PROFILE_PICTURE' | 'DOCUMENT' | 'PHOTO' | 'OTHER';
+  /** True if the browser shows the file (image, PDF, video, audio, text); else it is offered as a download */
+  viewable?: boolean;
   createdAt: string;
   updatedAt: string;
   /** Owner – for linked media of other persons, for the hint "from …" */
@@ -19,6 +21,8 @@ export interface Media {
 }
 
 export const mediaUrl = (media: Pick<Media, 'fileName'>) => apiUrl(`/uploads/${encodeURIComponent(media.fileName)}`);
+/** Opens the file in a viewer; the original name is the title of the window and the name for "Save as" */
+export const mediaViewUrl = (media: Pick<Media, 'fileName' | 'originalFileName'>) => `${mediaUrl(media)}?name=${encodeURIComponent(media.originalFileName)}`;
 /** Download under the original file name; a link sends no header, so the family tree goes along as parameter */
 export const mediaDownloadUrl = (media: Pick<Media, 'id'>) => {
   const { treeId } = useActiveTreeStore.getState();

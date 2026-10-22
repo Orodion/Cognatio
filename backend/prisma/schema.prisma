@@ -10,6 +10,7 @@ datasource db {
 
 /// A family tree: a separately managed set of data. Every person belongs to exactly one family tree;
 /// relations, life events and notes hang off the person, media and imports carry the family tree themselves.
+/// Archives, sources and citations belong to no family tree: one library for all of them.
 model FamilyTree {
   id          String    @id @default(uuid())
   name        String
@@ -18,6 +19,11 @@ model FamilyTree {
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  /// Possible errors the user marked as right (keys of lib/plausibility/checks.ts)
+  checkedIssues String[] @default([])
+  /// Home person: the start of the ancestor figures, the reports and the family tree page. No foreign key – the family
+  /// trees are restored before their persons; a deleted person counts as none
+  homePersonId  String?
 
   persons Person[]
   media   Media[]
@@ -57,12 +63,13 @@ model Person {
   updatedAt          DateTime  @updatedAt
 
   // Relationen
-  familyTree   FamilyTree @relation(fields: [familyTreeId], references: [id])
-  relationsAsA Relation[] @relation("PersonA")
-  relationsAsB Relation[] @relation("PersonB")
+  familyTree   FamilyTree       @relation(fields: [familyTreeId], references: [id])
+  relationsAsA Relation[]       @relation("PersonA")
+  relationsAsB Relation[]       @relation("PersonB")
   events       Event[]
   notes        Note[]
   media        Media[]
+  citations    PersonCitation[]
 
   @@index([phonetics], type: Gin)
   @@index([familyTreeId])
@@ -84,6 +91,8 @@ model Relation {
   personA Person @relation("PersonA", fields: [personAId], references: [id])
   personB Person @relation("PersonB", fields: [personBId], references: [id])
 
+  citations RelationCitation[]
+
   // PostgreSQL does not index foreign keys automatically – without an index every query
   // or every deletion of a person scans the whole table
   @@index([personAId])
@@ -103,9 +112,10 @@ model Event {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  person Person       @relation(fields: [personId], references: [id])
+  person    Person          @relation(fields: [personId], references: [id])
   // Linked files (map, photo, certificate …) – also media of other persons, e.g. a group photo
-  media  EventMedia[]
+  media     EventMedia[]
+  citations EventCitation[]
 
   @@index([personId])
 }
@@ -122,22 +132,26 @@ model Note {
   @@index([personId])
 }
 
+/// A file. Media of a person or an event belong to its family tree; scans of sources and citations belong to the
+/// library (no family tree, no person).
 model Media {
   id               String   @id @default(uuid())
-  familyTreeId     String
+  familyTreeId     String?
   /// Person the file belongs to (media tab); it can be linked with events of any person
   personId         String?
   fileName         String
   originalFileName String
   mimeType         String
-  sizeBytes        Int
+  sizeBytes        BigInt
   type             String // "PROFILE_PICTURE", "DOCUMENT", "PHOTO", "OTHER"
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  familyTree FamilyTree   @relation(fields: [familyTreeId], references: [id])
-  person     Person?      @relation(fields: [personId], references: [id])
+  familyTree FamilyTree?     @relation(fields: [familyTreeId], references: [id], onDelete: Restrict)
+  person     Person?         @relation(fields: [personId], references: [id])
   events     EventMedia[]
+  sources    SourceMedia[]
+  citations  CitationMedia[]
 
   @@index([personId])
   @@index([familyTreeId])
@@ -184,4 +198,142 @@ model ImportRecord {
   @@index([fileHash])
   @@index([importedAt])
   @@index([familyTreeId])
+}
+
+/// Archive, library, registry office, website … where sources are kept (GEDCOM REPO); shared by all family trees
+model Repository {
+  id        String    @id @default(uuid())
+  name      String
+  address   String?
+  url       String?
+  email     String?
+  phone     String?
+  note      String?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  sources Source[]
+}
+
+/// A document or work (GEDCOM SOUR record); shared by all family trees
+model Source {
+  id           String    @id @default(uuid())
+  type         String    @default("OTHER") // CHURCH_BOOK, CIVIL_REGISTER, CENSUS, NEWSPAPER, BOOK, LETTER, GRAVESTONE, WEBSITE, INTERVIEW, DOCUMENT, OTHER
+  title        String
+  author       String?
+  /// Publisher, place and year – or the address of a website
+  publication  String?
+  /// Short title for lists
+  abbreviation String?
+  /// Transcription of the whole source
+  text         String?
+  repositoryId String?
+  /// Shelf mark, film or record number in the archive
+  callNumber   String?
+  note         String?
+  isDeleted    Boolean   @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  repository Repository?   @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  citations  Citation[]
+  media      SourceMedia[]
+
+  @@index([repositoryId])
+}
+
+/// One entry of a source (page, transcription, quality); supports any number of facts, also in several family trees
+model Citation {
+  id            String   @id @default(uuid())
+  sourceId      String
+  /// Page, entry number, folio or the address of the single record
+  page          String?
+  /// Date of the entry, flexible like all dates of the app
+  date          String?
+  datePrecision String?
+  /// Transcription of the entry
+  text          String?
+  /// GEDCOM QUAY: 0 unreliable, 1 questionable, 2 secondary, 3 primary
+  quality       Int?
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  source    Source             @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  media     CitationMedia[]
+  persons   PersonCitation[]
+  events    EventCitation[]
+  relations RelationCitation[]
+
+  @@index([sourceId])
+}
+
+/// Link source ↔ medium (scan of the whole source)
+model SourceMedia {
+  sourceId  String
+  mediaId   String
+  createdAt DateTime @default(now())
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  media  Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, mediaId])
+  @@index([mediaId])
+}
+
+/// Link citation ↔ medium (scan of the single page or entry)
+model CitationMedia {
+  citationId String
+  mediaId    String
+  createdAt  DateTime @default(now())
+
+  citation Citation @relation(fields: [citationId], references: [id], onDelete: Cascade)
+  media    Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([citationId, mediaId])
+  @@index([mediaId])
+}
+
+/// A citation supports a fact of a person: GENERAL (the person as a whole), NAME, BIRTH or DEATH – birth and death are
+/// fields of the person, not events
+model PersonCitation {
+  personId   String
+  citationId String
+  fact       String   @default("GENERAL")
+  createdAt  DateTime @default(now())
+
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  citation Citation @relation(fields: [citationId], references: [id], onDelete: Cascade)
+
+  @@id([personId, citationId, fact])
+  @@index([citationId])
+}
+
+/// A citation supports a life event
+model EventCitation {
+  eventId    String
+  citationId String
+  createdAt  DateTime @default(now())
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  citation Citation @relation(fields: [citationId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, citationId])
+  @@index([citationId])
+}
+
+/// A citation supports a relation (e.g. a marriage, a parent and a child)
+model RelationCitation {
+  relationId String
+  citationId String
+  createdAt  DateTime @default(now())
+
+  relation Relation @relation(fields: [relationId], references: [id], onDelete: Cascade)
+  citation Citation @relation(fields: [citationId], references: [id], onDelete: Cascade)
+
+  @@id([relationId, citationId])
+  @@index([citationId])
 }

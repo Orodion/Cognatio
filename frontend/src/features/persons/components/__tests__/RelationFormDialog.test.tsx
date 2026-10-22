@@ -94,6 +94,51 @@ describe('RelationFormDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('asks before saving a relation that looks wrong and saves it only when confirmed', async () => {
+    const implausible = {
+      errors: [
+        new GraphQLError('looks wrong', {
+          extensions: { reason: 'IMPLAUSIBLE', issues: [{ code: 'ROLE_GENDER', personIds: ['p3', 'self'], role: 'MOTHER', gender: 'MALE' }] },
+        }),
+      ],
+    };
+    const confirmed = vi.fn();
+    const mocks: MockedResponse[] = [
+      { request: { query: GET_PERSONS, variables: { includeDeleted: false } }, result: { data: { getPersons: persons } }, maxUsageCount: Infinity },
+      { request: { query: CREATE_RELATION }, variableMatcher: (vars: { confirmed: boolean }) => !vars.confirmed, result: implausible, maxUsageCount: 2 },
+      {
+        request: { query: CREATE_RELATION },
+        variableMatcher: (vars: { confirmed: boolean }) => {
+          confirmed(vars.confirmed);
+          return vars.confirmed;
+        },
+        result: { data: { createRelation: { __typename: 'Relation', id: 'r1' } } },
+      },
+    ];
+    const onSuccess = vi.fn();
+    const ask = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(
+      <MockedProvider mocks={mocks}>
+        <RelationFormDialog open onClose={vi.fn()} currentPersonId="self" onSuccess={onSuccess} />
+      </MockedProvider>,
+    );
+    fireEvent.click(await screen.findByRole('option', { name: /Otto/ }));
+    fireEvent.change(screen.getByLabelText(/relations.form.type/), { target: { value: 'MOTHER' } });
+
+    // Declined: nothing saved, no error shown, the dialog stays open
+    fireEvent.click(save());
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(1));
+    expect(ask).toHaveBeenLastCalledWith('plausibility.confirmSave');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    // Confirmed: saved again with the confirmation
+    fireEvent.click(save());
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(confirmed).toHaveBeenCalledWith(true);
+    ask.mockRestore();
+  });
+
   it('creates a new person and the relation to it in one go', async () => {
     const { onRelation, onPerson, onSuccess } = setup({ data: { createRelation: { __typename: 'Relation', id: 'r1' } } });
     fireEvent.click(screen.getByRole('button', { name: 'relations.form.newPerson' }));

@@ -1,36 +1,35 @@
-import path from 'path';
-import { unzipSync, strFromU8 } from 'fflate';
-import { MAX_MEDIA_BYTES, TransferError, validateTransfer, type TransferData } from './format.js';
+import path from 'node:path';
+import { ArchiveFiles, RECORDS_MAX_BYTES, looksLikeZip, openArchive, readWholeFile } from '../files/archive.js';
+import { TransferError, validateTransfer, type TransferData } from './format.js';
 import { parseGedcom } from './gedcom.js';
-import { importMaxUnpackedBytes, toMb } from './limits.js';
+import { DEFAULT_IMPORT_LANGUAGE, type ImportLanguage } from './languageTexts.js';
+import { importMaxUnpackedBytes } from './limits.js';
 
 export interface ImportFile {
   data: TransferData;
-  /** Files from media/, key = path as in persons.json */
-  files: Map<string, Uint8Array>;
+  /** Files from media/, key = path as in persons.json; read from the archive only when they are taken over */
+  files: ArchiveFiles;
   kind: 'ZIP' | 'GEDCOM';
+  /** Closes the import file */
+  close: () => void;
 }
 
-const isZip = (buf: Buffer) => buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b;
-
-/** Refuses files the database cannot record as a medium (larger than `maxBytes`, 2 GiB) – before anything is written */
-export function assertMediaSizes(files: Record<string, Uint8Array>, maxBytes = MAX_MEDIA_BYTES) {
-  const tooLarge = Object.entries(files)
-    .filter(([, content]) => content.length > maxBytes)
-    .map(([name]) => name);
-  if (tooLarge.length) {
-    throw new TransferError('MEDIA_TOO_LARGE', tooLarge.slice(0, 20), { limitMb: toMb(maxBytes) });
+/**
+ * Reads an uploaded import file on disk: ZIP export of the app, GEDZIP or GEDCOM (.ged). Texts that GEDCOM does not
+ * give (titles of standard events, words of approximate dates) come in `language`.
+ */
+export async function readImportFile(filePath: string, filename: string, language: ImportLanguage = DEFAULT_IMPORT_LANGUAGE): Promise<ImportFile> {
+  if (looksLikeZip(filePath)) {
+    return readZip(filePath, language);
   }
-}
-
-/** Reads an uploaded import file: ZIP export of the app or GEDCOM (.ged). */
-export function readImportFile(buffer: Buffer, filename: string): ImportFile {
-  if (isZip(buffer)) {
-    return readZip(buffer);
+  // A GEDCOM file holds only text: it is read as a whole
+  const content = readWholeFile(filePath);
+  if (!content) {
+    throw new TransferError('UNSUPPORTED_FILE', [`File ${filename} is larger than ${RECORDS_MAX_BYTES} bytes and no ZIP file`]);
   }
-  const text = decodeText(buffer);
+  const text = decodeText(content);
   if (/\.ged$/i.test(filename) || /^\s*0\s+HEAD/.test(text)) {
-    return { data: validateTransfer(parseGedcom(text)), files: new Map(), kind: 'GEDCOM' };
+    return { data: validateTransfer(parseGedcom(text, undefined, language)), files: ArchiveFiles.fromBuffers({}), kind: 'GEDCOM', close: () => {} };
   }
   throw new TransferError('UNSUPPORTED_FILE', [`File ${filename} is neither ZIP nor GEDCOM`]);
 }
@@ -57,56 +56,42 @@ function decodeText(buffer: Buffer): string {
   return buffer.toString('utf8').replace(/^\uFEFF/, '');
 }
 
-function readZip(buffer: Buffer): ImportFile {
-  let entries: Record<string, Uint8Array>;
-  let unpacked = 0;
-  const limit = importMaxUnpackedBytes();
+async function readZip(filePath: string, language: ImportLanguage): Promise<ImportFile> {
+  const archive = await openArchive(filePath, 'INVALID_ZIP', importMaxUnpackedBytes());
   try {
-    entries = unzipSync(buffer, {
-      filter: (file) => {
-        unpacked += file.originalSize;
-        if (unpacked > limit) {
-          throw new TransferError('UNPACKED_TOO_LARGE', [`Unpacked larger than ${limit} bytes`], { limitMb: toMb(limit) });
-        }
-        return !file.name.endsWith('/');
-      },
-    });
+    const entries = archive.files;
+    // persons.json in the root folder – or in a subfolder if the export was repacked
+    const jsonPath = entries
+      .names()
+      .filter((name) => path.posix.basename(name) === 'persons.json')
+      .sort((a, b) => a.length - b.length)[0];
+    if (!jsonPath) {
+      const gedcom = await readGedzip(entries, language);
+      if (gedcom) {
+        return { ...gedcom, close: archive.close };
+      }
+      throw new TransferError('MISSING_PERSONS_JSON', entries.names().slice(0, 10));
+    }
+    const prefix = jsonPath.slice(0, -'persons.json'.length);
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse((await entries.read(jsonPath)).toString('utf8').replace(/^\uFEFF/, ''));
+    } catch (err) {
+      throw err instanceof TransferError ? err : new TransferError('INVALID_JSON', [(err as Error).message]);
+    }
+    const data = validateTransfer(raw);
+    const files = entries.view(
+      entries
+        .names()
+        .filter((name) => name.startsWith(prefix) && name !== jsonPath)
+        .map((name) => [name.slice(prefix.length), name]),
+    );
+    return { data, files, kind: 'ZIP', close: archive.close };
   } catch (err) {
-    if (err instanceof TransferError) {
-      throw err;
-    }
-    throw new TransferError('INVALID_ZIP', [(err as Error).message]);
+    archive.close();
+    throw err;
   }
-  assertMediaSizes(entries);
-
-  // persons.json in the root folder – or in a subfolder if the export was repacked
-  const jsonPath = Object.keys(entries)
-    .filter((name) => path.posix.basename(name) === 'persons.json')
-    .sort((a, b) => a.length - b.length)[0];
-  if (!jsonPath) {
-    const gedcom = readGedzip(entries);
-    if (gedcom) {
-      return gedcom;
-    }
-    throw new TransferError('MISSING_PERSONS_JSON', Object.keys(entries).slice(0, 10));
-  }
-  const prefix = jsonPath.slice(0, -'persons.json'.length);
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(strFromU8(entries[jsonPath]).replace(/^\uFEFF/, ''));
-  } catch (err) {
-    throw new TransferError('INVALID_JSON', [(err as Error).message]);
-  }
-  const data = validateTransfer(raw);
-
-  const files = new Map<string, Uint8Array>();
-  for (const [name, content] of Object.entries(entries)) {
-    if (name.startsWith(prefix) && name !== jsonPath) {
-      files.set(name.slice(prefix.length), content);
-    }
-  }
-  return { data, files, kind: 'ZIP' };
 }
 
 /**
@@ -114,26 +99,37 @@ function readZip(buffer: Buffer): ImportFile {
  * a GEDCOM file (5.5.1) and media are read the same way. Media paths are relative to the root of the
  * ZIP file; if the GEDCOM file is in a subfolder, also relative to that folder.
  */
-function readGedzip(entries: Record<string, Uint8Array>): ImportFile | null {
-  const gedPath = Object.keys(entries)
+async function readGedzip(entries: ArchiveFiles, language: ImportLanguage): Promise<Omit<ImportFile, 'close'> | null> {
+  const gedPath = entries
+    .names()
     .filter((name) => /\.ged$/i.test(name))
     .sort((a, b) => Number(path.posix.basename(b) === 'gedcom.ged') - Number(path.posix.basename(a) === 'gedcom.ged') || a.length - b.length)[0];
   if (!gedPath) {
     return null;
   }
   const folder = gedPath.slice(0, gedPath.length - path.posix.basename(gedPath).length);
-  const files = new Map<string, Uint8Array>();
-  for (const [name, content] of Object.entries(entries)) {
+  const names: Array<[string, string]> = [];
+  for (const name of entries.names()) {
     if (name === gedPath) {
       continue;
     }
-    files.set(name, content);
+    names.push([name, name]);
     if (folder && name.startsWith(folder)) {
-      files.set(name.slice(folder.length), content);
+      names.push([name.slice(folder.length), name]);
     }
   }
-  const data = validateTransfer(parseGedcom(decodeText(Buffer.from(entries[gedPath])), files));
+  const files = entries.view(names);
+  const data = validateTransfer(parseGedcom(decodeText(await entries.read(gedPath)), files, language));
   // Keep only the files that are actually used
-  const used = new Set(data.persons.flatMap((p) => p.media.map((m) => m.path)));
-  return { data, files: new Map([...files].filter(([name]) => used.has(name))), kind: 'GEDCOM' };
+  const used = new Set([...data.persons.flatMap((p) => p.media), ...data.libraryMedia].map((m) => m.path));
+  return {
+    data,
+    files: files.view(
+      files
+        .names()
+        .filter((name) => used.has(name))
+        .map((name) => [name, name]),
+    ),
+    kind: 'GEDCOM',
+  };
 }

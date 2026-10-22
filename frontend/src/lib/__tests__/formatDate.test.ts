@@ -9,7 +9,7 @@ describe('formatDay', () => {
   it('shows a day stored as midnight UTC as the same day west of UTC', () => {
     // Brazil (UTC-3): local time of 1950-05-01T00:00Z is still 30 April
     process.env.TZ = 'America/Sao_Paulo';
-    expect(formatDay('1950-05-01T00:00:00.000Z', 'de')).toBe('1.5.1950');
+    expect(formatDay('1950-05-01T00:00:00.000Z', 'de')).toBe('01.05.1950');
     expect(formatDay('1950-05-01', 'pt-BR')).toBe('01/05/1950');
   });
 

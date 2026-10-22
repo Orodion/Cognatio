@@ -5,7 +5,6 @@ import { Check, File as FileIcon, Link2, Loader2, Upload, X } from 'lucide-react
 import { GET_PERSON_MEDIA } from '@/features/persons/graphql/mediaQueries';
 import type { Media } from '@/features/persons/types/media';
 import type { Person } from '@/features/persons/types/person';
-import { MAX_UPLOAD_BYTES } from '@/features/persons/lib/uploadMedia';
 import { formatPersonName, formatShortName } from '@/features/persons/lib/personUtils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -33,16 +32,12 @@ export function EventMediaSection({ personId, linked, onLinkedChange, pending, o
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
 
   const handleFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])];
     event.target.value = '';
-    const tooLarge = files.filter((f) => f.size > MAX_UPLOAD_BYTES);
-    setFileError(tooLarge.length ? t('timeline.media.tooLarge', { names: tooLarge.map((f) => f.name).join(', ') }) : null);
-    const accepted = files.filter((f) => f.size <= MAX_UPLOAD_BYTES);
-    if (accepted.length) {
-      onPendingChange([...pending, ...accepted]);
+    if (files.length) {
+      onPendingChange([...pending, ...files]);
     }
   };
 
@@ -105,12 +100,6 @@ export function EventMediaSection({ personId, linked, onLinkedChange, pending, o
             </li>
           ))}
         </ul>
-      )}
-
-      {fileError && (
-        <p className="text-xs text-destructive" role="alert">
-          {fileError}
-        </p>
       )}
 
       <div className="flex flex-wrap gap-2">

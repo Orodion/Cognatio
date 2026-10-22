@@ -43,6 +43,7 @@ export const SETTING_ENTRIES: SettingEntry[] = [
   { id: 'settings-backup-restore', label: 'settings.backup.restoreButton', section: 'data' },
   { id: 'settings-limit-import', label: 'settings.limits.import', section: 'data' },
   { id: 'settings-limit-backup', label: 'settings.limits.backup', section: 'data' },
+  { id: 'settings-mcp-enabled', label: 'settings.mcp.enable', section: 'mcp' },
 ];
 
 /** Lower case without accents, so "schrift" finds "Schriftgröße" and "cafe" finds "café" */

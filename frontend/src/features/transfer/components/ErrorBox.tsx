@@ -4,9 +4,10 @@ import { formatMb, type ErrorState } from '@/features/transfer/lib/transfer';
 /** Errors of import/export and backup: message (importExport.errors.<reason>) with technical details */
 export function ErrorBox({ error }: { error: ErrorState }) {
   const { t } = useTranslation();
-  // Limit and size of a file that is too large are written into the message
-  const { limitMb, sizeMb } = error.params ?? {};
-  const values = { limit: limitMb ? formatMb(limitMb) : '', size: sizeMb ? formatMb(sizeMb) : '' };
+  // Limit and size of a file that is too large, or the space needed and free on the drive, are written into the message
+  const { limitMb, sizeMb, neededMb, freeMb } = error.params ?? {};
+  const mb = (value: number | undefined) => (value !== undefined ? formatMb(value) : '');
+  const values = { limit: mb(limitMb), size: mb(sizeMb), needed: mb(neededMb), free: mb(freeMb) };
   return (
     <div className="space-y-2 rounded-md bg-destructive/15 p-3 text-sm text-destructive" role="alert">
       <p>{t(`importExport.errors.${error.reason}`, { ...values, defaultValue: t('importExport.errors.UNKNOWN') })}</p>

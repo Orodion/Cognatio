@@ -260,3 +260,28 @@
 .react-flow .react-flow__attribution a {
   color: hsl(var(--muted-foreground));
 }
+
+/* Reports: while a report is printed (print dialog or PDF of the desktop app) only its copy in #report-print-root is
+   on paper – navigation, buttons and the preview stay out. On screen the copy is never visible. */
+#report-print-root {
+  display: none;
+}
+@media print {
+  html.report-printing body > :not(#report-print-root) {
+    display: none !important;
+  }
+  html.report-printing #report-print-root {
+    display: block;
+  }
+  html.report-printing,
+  html.report-printing body {
+    background: #fff !important;
+  }
+}
+/* Every sheet of a report starts on a new page */
+.report-sheet + .report-sheet {
+  break-before: page;
+}
+.report-keep {
+  break-inside: avoid;
+}

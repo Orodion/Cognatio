@@ -10,6 +10,10 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { useIncrementalList } from '@/features/persons/lib/useIncrementalList';
 import { PersonFormDialog } from '@/features/persons/components/PersonFormDialog';
+import { SourceSearchHits } from '@/features/sources/components/SourceSearchHits';
+import { GET_STATISTICS_PERSONS } from '@/features/statistics/graphql/statisticsQueries';
+import { readScope, scopeVariables } from '@/features/statistics/lib/scope';
+import { StatisticsFilterChip } from '@/features/statistics/components/StatisticsFilterChip';
 
 /** Navigation state after deleting a person (for "undo") */
 export interface DeletedPersonState {
@@ -20,6 +24,9 @@ export function PersonListPage() {
   const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q')?.trim() ?? '';
+  // The persons behind a figure of the statistics (with its scope); combined with a search, the hits among them
+  const filter = searchParams.get('filter')?.trim() ?? '';
+  const scope = readScope(searchParams);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -45,17 +52,42 @@ export function PersonListPage() {
   const { data, loading, error, refetch } = useQuery<{ getPersons: Person[] } | { search: SearchResult[] }>(query ? SEARCH : GET_PERSONS, {
     // The server sorts equally relevant hits in the alphabet of the language of the app
     variables: query ? { query, language: i18n.language } : { includeDeleted: false },
+    skip: !!filter && !query,
+  });
+  const filtered = useQuery<{ statisticsPersons: Person[] }>(GET_STATISTICS_PERSONS, {
+    variables: { filter, scope: scopeVariables(scope) },
+    skip: !filter,
+    fetchPolicy: 'cache-and-network',
   });
 
   const results = query ? (data as { search?: SearchResult[] })?.search : undefined;
-  const persons: Person[] = useMemo(
-    () => (query ? (results?.map((r) => r.person) ?? []) : ((data as { getPersons?: Person[] })?.getPersons ?? [])),
-    [query, results, data],
-  );
+  const filterPersons = filtered.data?.statisticsPersons;
+  const persons: Person[] = useMemo(() => {
+    if (filter && !query) {
+      return filterPersons ?? [];
+    }
+    const found = query ? (results?.map((r) => r.person) ?? []) : ((data as { getPersons?: Person[] })?.getPersons ?? []);
+    if (!filter) {
+      return found;
+    }
+    const ids = new Set(filterPersons?.map((p) => p.id));
+    return found.filter((p) => ids.has(p.id));
+  }, [filter, query, filterPersons, results, data]);
+  const isLoading = loading || (filtered.loading && !filterPersons);
+  const listError = error ?? filtered.error;
+  const reload = () => {
+    if (!filter || query) {
+      void refetch();
+    }
+    if (filter) {
+      void filtered.refetch();
+    }
+  };
+  const clearFilter = () => navigate(query ? `/persons?q=${encodeURIComponent(query)}` : '/persons');
   // For a search: how the person was found (hint on the card)
   const matchedIn = useMemo(() => new Map(results?.map((r) => [r.person.id, r.matchedIn])), [results]);
   // Render large data step by step – all cards at once make the page sluggish from ~1000 persons
-  const { visible, hasMore, showMore, sentinelRef, remaining } = useIncrementalList(persons, 60, query);
+  const { visible, hasMore, showMore, sentinelRef, remaining } = useIncrementalList(persons, 60, `${query}|${filter}`);
 
   return (
     <div className="space-y-6">
@@ -64,7 +96,7 @@ export function PersonListPage() {
           <h1 className="text-2xl font-bold">{t('persons.title')}</h1>
           {/* The status region stays in place so screen readers announce the new number of hits after a search */}
           <p className="min-h-5 text-sm text-muted-foreground" role="status">
-            {!loading && t('persons.count', { count: persons.length })}
+            {!isLoading && t('persons.count', { count: persons.length })}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -113,29 +145,33 @@ export function PersonListPage() {
         </div>
       )}
 
-      {loading && (
+      {filter && <StatisticsFilterChip filter={filter} scope={scope} onClear={clearFilter} />}
+
+      {query && <SourceSearchHits query={query} />}
+
+      {isLoading && (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('persons.loading')}
         </div>
       )}
 
-      {error && (
+      {listError && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
           <p className="text-destructive">{t('persons.error')}</p>
-          <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+          <Button variant="outline" className="mt-4" onClick={reload}>
             {t('common.retry')}
           </Button>
         </div>
       )}
 
-      {!loading && !error && persons.length === 0 && (
+      {!isLoading && !listError && persons.length === 0 && (
         <div className="rounded-xl border bg-card p-12 text-center">
-          <p className="text-muted-foreground">{query ? t('persons.emptySearch', { query }) : t('persons.empty')}</p>
+          <p className="text-muted-foreground">{query ? t('persons.emptySearch', { query }) : filter ? t('statistics.filter.empty') : t('persons.empty')}</p>
         </div>
       )}
 
-      {!loading && !error && persons.length > 0 && (
+      {!isLoading && !listError && persons.length > 0 && (
         <div className={cn(viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex flex-col gap-3')}>
           {visible.map((person) => (
             <PersonCard key={person.id} person={person} viewMode={viewMode} matchedIn={matchedIn.get(person.id)} />
@@ -143,7 +179,7 @@ export function PersonListPage() {
         </div>
       )}
 
-      {!loading && !error && hasMore && (
+      {!isLoading && !listError && hasMore && (
         <div ref={sentinelRef} className="flex justify-center">
           <Button variant="outline" onClick={showMore}>
             {t('persons.showMore', { count: remaining })}
@@ -151,7 +187,7 @@ export function PersonListPage() {
         </div>
       )}
 
-      <PersonFormDialog open={isFormOpen} onClose={() => setIsFormOpen(false)} person={selectedPerson} onSuccess={() => refetch()} />
+      <PersonFormDialog open={isFormOpen} onClose={() => setIsFormOpen(false)} person={selectedPerson} onSuccess={reload} />
     </div>
   );
 }

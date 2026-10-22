@@ -2,12 +2,22 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery } from '@apollo/client';
 import { useTranslation } from 'react-i18next';
-import { Library, Loader2, RotateCcw, Trash2 } from 'lucide-react';
+import { BookMarked, Landmark, Library, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { GET_DELETED_PERSONS, RESTORE_PERSON, HARD_DELETE_PERSON } from '@/features/persons/graphql/personQueries';
 import { GET_DELETED_FAMILY_TREES, HARD_DELETE_FAMILY_TREE, RESTORE_FAMILY_TREE } from '@/features/family-trees/graphql/familyTreeQueries';
 import type { FamilyTree } from '@/features/family-trees/types/familyTree';
 import { useFamilyTrees } from '@/features/family-trees/lib/useFamilyTrees';
 import type { Person } from '@/features/persons/types/person';
+import {
+  GET_DELETED_REPOSITORIES,
+  GET_DELETED_SOURCES,
+  HARD_DELETE_REPOSITORY,
+  HARD_DELETE_SOURCE,
+  RESTORE_REPOSITORY,
+  RESTORE_SOURCE,
+  LIBRARY_CHANGED,
+} from '@/features/sources/graphql/sourceQueries';
+import type { Repository, Source } from '@/features/sources/types/source';
 import { formatPersonName, formatLifeDates, getInitials } from '@/features/persons/lib/personUtils';
 import { formatDate } from '@/lib/formatDate';
 import { apiErrorMessage } from '@/lib/apiErrors';
@@ -123,8 +133,119 @@ export function TrashPage() {
         </section>
       )}
 
+      {active && <DeletedLibrary />}
       <DeletedTrees />
     </div>
+  );
+}
+
+/** Sources and archives in the recycle bin – they belong to all family trees; only shown if there are any */
+function DeletedLibrary() {
+  const { t, i18n } = useTranslation();
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const { data: sources } = useQuery<{ deletedSources: Source[] }>(GET_DELETED_SOURCES, { fetchPolicy: 'cache-and-network' });
+  const { data: repositories } = useQuery<{ deletedRepositories: Repository[] }>(GET_DELETED_REPOSITORIES, { fetchPolicy: 'cache-and-network' });
+  const [restoreSource] = useMutation(RESTORE_SOURCE, LIBRARY_CHANGED);
+  const [hardDeleteSource] = useMutation(HARD_DELETE_SOURCE, LIBRARY_CHANGED);
+  const [restoreRepository] = useMutation(RESTORE_REPOSITORY, LIBRARY_CHANGED);
+  const [hardDeleteRepository] = useMutation(HARD_DELETE_REPOSITORY, LIBRARY_CHANGED);
+  const deletedSources = sources?.deletedSources ?? [];
+  const deletedRepositories = repositories?.deletedRepositories ?? [];
+  if (!deletedSources.length && !deletedRepositories.length) {
+    return null;
+  }
+
+  const run = async (id: string, action: () => Promise<unknown>) => {
+    setError(null);
+    setBusyId(id);
+    try {
+      await action();
+    } catch (err) {
+      setError(apiErrorMessage(err, t));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const entries = [
+    ...deletedSources.map((s) => ({
+      id: s.id,
+      icon: BookMarked,
+      name: s.title,
+      details: t('trash.library.sourceDetails', { citations: s.citationCount, links: s.linkCount }),
+      deletedAt: s.deletedAt,
+      restore: () => restoreSource({ variables: { id: s.id } }),
+      confirm: t('trash.library.deleteSourceConfirm', { name: s.title, citations: s.citationCount, links: s.linkCount }),
+      remove: () => hardDeleteSource({ variables: { id: s.id } }),
+    })),
+    ...deletedRepositories.map((r) => ({
+      id: r.id,
+      icon: Landmark,
+      name: r.name,
+      details: t('trash.library.repositoryDetails', { count: r.sourceCount ?? 0 }),
+      deletedAt: r.deletedAt,
+      restore: () => restoreRepository({ variables: { id: r.id } }),
+      confirm: t('trash.library.deleteRepositoryConfirm', { name: r.name }),
+      remove: () => hardDeleteRepository({ variables: { id: r.id } }),
+    })),
+  ];
+
+  return (
+    <section className="space-y-3" aria-labelledby="deleted-library">
+      <h2 id="deleted-library" className="text-lg font-semibold">
+        {t('trash.library.title')}
+      </h2>
+      <p className="text-sm text-muted-foreground">{t('trash.library.description')}</p>
+      {error && (
+        <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive" role="alert">
+          {error}
+        </div>
+      )}
+      <ul className="space-y-3">
+        {entries.map((entry) => {
+          const busy = busyId === entry.id;
+          const Icon = entry.icon;
+          return (
+            <li key={entry.id} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-xs sm:flex-row sm:items-center">
+              <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{entry.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {[entry.details, entry.deletedAt && t('trash.deletedAt', { date: formatDate(entry.deletedAt, i18n.language) })].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  aria-label={t('trash.library.restoreLabel', { name: entry.name })}
+                  onClick={() => run(entry.id, entry.restore)}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {t('trash.restore')}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy}
+                  aria-label={t('trash.library.deleteForeverLabel', { name: entry.name })}
+                  onClick={() => {
+                    if (window.confirm(entry.confirm)) {
+                      void run(entry.id, entry.remove);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t('trash.deleteForever')}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

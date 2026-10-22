@@ -54,7 +54,7 @@ export async function systemInfo(db: PrismaClient) {
       db.media.aggregate({ _count: { _all: true }, _sum: { sizeBytes: true } }),
       db.importRecord.findFirst({ orderBy: { importedAt: 'desc' }, select: { importedAt: true } }),
     ]);
-    counts = { trees, persons, deletedPersons, media: media._count._all, mediaBytes: media._sum.sizeBytes ?? 0 };
+    counts = { trees, persons, deletedPersons, media: media._count._all, mediaBytes: Number(media._sum.sizeBytes ?? 0) };
     lastImportAt = lastImport?.importedAt.toISOString() ?? null;
   } catch (err) {
     database = 'unreachable';

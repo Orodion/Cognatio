@@ -25,9 +25,16 @@ beforeEach(() => {
 });
 afterEach(() => fs.rmSync(dataDir, { recursive: true, force: true }));
 
+/** The example file as the app reads it (only the records; the media are listed) */
+async function readDemo() {
+  const file = await readImportFile(demoFile, 'demo.zip');
+  file.close();
+  return file;
+}
+
 describe('the shipped example file', () => {
-  it('is a valid Cognatio export with the whole story', () => {
-    const { data, files } = readImportFile(fs.readFileSync(demoFile), 'demo.zip');
+  it('is a valid Cognatio export with the whole story', async () => {
+    const { data, files } = await readDemo();
     expect(data.persons).toHaveLength(10);
     expect(data.relations).toHaveLength(15);
     expect(data.persons.flatMap((p) => p.events)).toHaveLength(32);
@@ -39,8 +46,8 @@ describe('the shipped example file', () => {
     expect(data.persons.find((p) => p.firstName === 'Thomas')?.profilePictureId).toBeTruthy();
   });
 
-  it('contains no date in the future (the app rejects those)', () => {
-    const { data } = readImportFile(fs.readFileSync(demoFile), 'demo.zip');
+  it('contains no date in the future (the app rejects those)', async () => {
+    const { data } = await readDemo();
     const years = data.persons
       .flatMap((p) => [p.birthDate, p.deathDate, ...p.events.map((e) => e.date)])
       .flatMap((d) => (d ? [...d.matchAll(/\d{4}/g)].map((m) => Number(m[0])) : []));
@@ -49,8 +56,8 @@ describe('the shipped example file', () => {
 });
 
 describe('the events of the shipped example file', () => {
-  it('carry the sort order of their date, so the timeline is chronological', () => {
-    const { data } = readImportFile(fs.readFileSync(demoFile), 'demo.zip');
+  it('carry the sort order of their date, so the timeline is chronological', async () => {
+    const { data } = await readDemo();
     const thomas = data.persons.find((p) => p.firstName === 'Thomas');
     const keys = (thomas?.events ?? []).map((e) => e.sortOrder);
     expect(keys.every((key) => typeof key === 'number')).toBe(true);

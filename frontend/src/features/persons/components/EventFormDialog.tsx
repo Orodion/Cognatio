@@ -15,6 +15,7 @@ import { DateInput } from '@/components/ui/DateInput';
 import { apiErrorMessage } from '@/lib/apiErrors';
 import { uploadMedia, uploadTypeOf } from '@/features/persons/lib/uploadMedia';
 import { EventMediaSection } from './EventMediaSection';
+import { PlaceSuggestions, PLACE_LIST_ID } from './PlaceSuggestions';
 import { dateKey, parseFlexibleDate, isoToDisplay } from '@/lib/dateParsing';
 
 interface EventFormDialogProps {
@@ -80,15 +81,16 @@ export function EventFormDialog({ open, onClose, currentPersonId, event, onSucce
     }
     const parsedDate = parsed?.ok ? parsed.value : null;
 
-    // The person of an event cannot be changed, so only a new event carries it
+    // The person of an event cannot be changed, so only a new event carries it. An empty field is sent as null:
+    // the backend keeps a field that is not sent.
     const data = {
       title: title.trim(),
       category,
-      date: date.trim() || undefined,
-      datePrecision: parsedDate?.precision,
-      sortOrder: parsedDate ? dateKey(parsedDate.start) : undefined,
-      place: place.trim() || undefined,
-      description: description.trim() || undefined,
+      date: date.trim() || null,
+      datePrecision: parsedDate?.precision ?? null,
+      sortOrder: parsedDate ? dateKey(parsedDate.start) : null,
+      place: place.trim() || null,
+      description: description.trim() || null,
       mediaIds: linkedMedia.map((m) => m.id),
     };
 
@@ -130,6 +132,7 @@ export function EventFormDialog({ open, onClose, currentPersonId, event, onSucce
   return (
     <Dialog open={open} onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col">
+        <PlaceSuggestions />
         <DialogHeader>
           <DialogTitle>{isEditing ? t('timeline.form.editTitle') : t('timeline.form.createTitle')}</DialogTitle>
         </DialogHeader>
@@ -168,7 +171,7 @@ export function EventFormDialog({ open, onClose, currentPersonId, event, onSucce
 
           <div className="space-y-2">
             <Label htmlFor="place">{t('timeline.form.location')}</Label>
-            <Input id="place" value={place} onChange={(e) => setPlace(e.target.value)} />
+            <Input id="place" value={place} onChange={(e) => setPlace(e.target.value)} list={PLACE_LIST_ID} autoComplete="off" />
           </div>
 
           <div className="space-y-2">

@@ -21,7 +21,8 @@ function idsOf(data: TransferData) {
 /**
  * Ids of the import file that are already taken in the database but not in the target family tree – e.g.
  * when the same export is imported into a second family tree. Records of the target family tree (`existing`)
- * do not count: they are updated on purpose during the import.
+ * do not count: they are updated on purpose during the import. Archives, sources, citations and their scans do not
+ * count either: the library is shared, the same id is the same record.
  */
 export async function foreignIds(db: Db, data: TransferData, existing: TransferData): Promise<Set<string>> {
   const own = new Set(Object.values(idsOf(existing)).flat());
@@ -46,7 +47,7 @@ export async function foreignIds(db: Db, data: TransferData, existing: TransferD
 
 /**
  * Assigns new ids for the given ids and adjusts all references (relations, profile picture, media at
- * events). Without affected ids the file stays unchanged.
+ * events, sources and citations). Without affected ids the file stays unchanged.
  */
 export function remapIds(data: TransferData, ids: Set<string>, newId: () => string = randomUUID): TransferData {
   if (!ids.size) {
@@ -65,6 +66,9 @@ export function remapIds(data: TransferData, ids: Set<string>, newId: () => stri
       media: p.media.map((m) => ({ ...m, id: to(m.id) })),
     })),
     relations: data.relations.map((r) => ({ ...r, id: to(r.id), personAId: to(r.personAId), personBId: to(r.personBId) })),
+    // Sources and citations may link files of persons
+    sources: data.sources.map((src) => ({ ...src, mediaIds: src.mediaIds.map(to).sort() })),
+    citations: data.citations.map((c) => ({ ...c, mediaIds: c.mediaIds.map(to).sort() })),
   };
 }
 
@@ -75,4 +79,8 @@ export const emptyTransfer = (): TransferData => ({
   exportedAt: new Date().toISOString(),
   persons: [],
   relations: [],
+  repositories: [],
+  sources: [],
+  citations: [],
+  libraryMedia: [],
 });

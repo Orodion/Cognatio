@@ -5,15 +5,19 @@
  * safety copy before migrations, so nothing may get lost on the way.
  */
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { collect, fileWith, removeTestDir, testDir } from '../../../test/archives.js';
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cognatio-roundtrip-'));
-jest.mock('../../files/uploads.js', () => ({ uploadDir: tmpDir }));
+const tmpDir = testDir('roundtrip');
+const work = testDir('roundtrip-work');
+jest.mock('../../files/uploads.js', () => ({ ...jest.requireActual('../../files/uploads.js'), uploadDir: tmpDir }));
 
 import { createBackup, readBackup, restoreBackup } from '../backup.js';
 
-afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+afterAll(() => {
+  removeTestDir(tmpDir);
+  removeTestDir(work);
+});
 
 interface Field {
   name: string;
@@ -48,6 +52,14 @@ const TABLES: Record<string, string> = {
   Media: 'media',
   EventMedia: 'eventMedia',
   ImportRecord: 'imports',
+  Repository: 'repositories',
+  Source: 'sources',
+  Citation: 'citations',
+  SourceMedia: 'sourceMedia',
+  CitationMedia: 'citationMedia',
+  PersonCitation: 'personCitations',
+  EventCitation: 'eventCitations',
+  RelationCitation: 'relationCitations',
 };
 
 /** References between the tables, so the integrity check of the backup accepts the data */
@@ -59,9 +71,24 @@ const REFERENCES: Record<string, string> = {
   eventId: 'e1',
   mediaId: 'm1',
   profilePictureId: 'm1',
+  repositoryId: 'rep1',
+  sourceId: 's1',
+  citationId: 'c1',
+  relationId: 'r1',
   fileName: 'photo.jpg',
 };
-const IDS: Record<string, string> = { FamilyTree: 't1', Person: 'p1', Relation: 'r1', Event: 'e1', Note: 'n1', Media: 'm1', ImportRecord: 'i1' };
+const IDS: Record<string, string> = {
+  FamilyTree: 't1',
+  Person: 'p1',
+  Relation: 'r1',
+  Event: 'e1',
+  Note: 'n1',
+  Media: 'm1',
+  ImportRecord: 'i1',
+  Repository: 'rep1',
+  Source: 's1',
+  Citation: 'c1',
+};
 
 /** A value that differs from every default: optional fields are filled, so a dropped field shows up */
 function value(model: string, field: Field, index: number) {
@@ -77,6 +104,9 @@ function value(model: string, field: Field, index: number) {
         return `${model}.${field.name}`;
       case 'Int':
         return 7 + index;
+      case 'BigInt':
+        // Above 32 bits (a medium larger than 4 GiB); Prisma reads it as a bigint
+        return BigInt(5_000_000_000 + index);
       case 'Boolean':
         return true;
       case 'DateTime':
@@ -125,12 +155,17 @@ describe('backup round trip', () => {
     fs.writeFileSync(path.join(tmpDir, 'photo.jpg'), 'image');
     const original = fullData();
 
-    const { buffer } = await createBackup(fakeDb(original).db);
+    const buffer = await collect((await createBackup(fakeDb(original).db)).zip);
     const target = fakeDb({});
-    await restoreBackup(target.db, readBackup(buffer));
+    const backup = await readBackup(fileWith(work, buffer));
+    await restoreBackup(target.db, backup);
+    backup.close();
 
+    // A bigint comes back as a number (exact up to 2^53); Prisma takes both
+    const plain = (rows: unknown[]) =>
+      rows.map((row) => Object.fromEntries(Object.entries(row as object).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])));
     for (const key of Object.values(TABLES)) {
-      expect({ table: key, rows: target.inserted[key] }).toEqual({ table: key, rows: original[key] });
+      expect({ table: key, rows: target.inserted[key] }).toEqual({ table: key, rows: plain(original[key]) });
     }
     expect(fs.readFileSync(path.join(tmpDir, 'photo.jpg'), 'utf8')).toBe('image');
   });

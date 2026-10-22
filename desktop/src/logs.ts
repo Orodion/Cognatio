@@ -57,6 +57,8 @@ export function errorSummary(stderr: string, maxLength = 300): string | null {
     .map((line) => line.trim())
     .filter(Boolean)
     .reverse();
+  // Other output than the entries of the logger: a crash before the logger exists, a message of Node itself
+  const plain: string[] = [];
   for (const line of lines) {
     try {
       const entry = JSON.parse(line) as Entry;
@@ -64,9 +66,10 @@ export function errorSummary(stderr: string, maxLength = 300): string | null {
         return describeEntry(entry).slice(0, maxLength);
       }
     } catch {
-      // no JSON line
+      plain.push(line);
     }
   }
-  const line = lines.find((l) => /error|cannot find module|EADDRINUSE|ENOENT/i.test(l) && !l.startsWith('at ')) ?? lines[0];
+  // A warning of the logger (e.g. a refused request) says nothing about why the backend ended
+  const line = plain.find((l) => /error|cannot find module|EADDRINUSE|ENOENT/i.test(l) && !l.startsWith('at ')) ?? plain[0];
   return line ? line.slice(0, maxLength) : null;
 }

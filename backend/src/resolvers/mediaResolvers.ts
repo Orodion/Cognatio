@@ -1,5 +1,7 @@
 import { GraphQLError } from 'graphql';
 import { removeUploadedFile } from '../lib/files/uploads.js';
+import { isViewable } from '../lib/files/viewable.js';
+import { linkableMedia } from '../lib/libraryMedia.js';
 import { logger } from '../lib/logger.js';
 import type { GraphQLContext } from '../lib/treeScope.js';
 import { isoTimes } from './timestamps.js';
@@ -26,6 +28,9 @@ export const mediaResolvers = {
 
   Media: {
     ...isoTimes('createdAt', 'updatedAt'),
+    // 64 bits in the database; as a GraphQL Float exact up to 8 PiB
+    sizeBytes: (media: { sizeBytes: bigint | number }) => Number(media.sizeBytes),
+    viewable: (media: { fileName: string }) => isViewable(media.fileName),
     // Owner of the file (for the hint "from …" at linked media)
     person: (media: { personId?: string | null }, _: unknown, { prisma }: GraphQLContext) =>
       media.personId ? prisma.person.findUnique({ where: { id: media.personId } }) : null,
@@ -43,7 +48,8 @@ export const mediaResolvers = {
   Mutation: {
     deleteMedia: async (_: unknown, { id }: { id: string }, { prisma, treeId }: GraphQLContext) => {
       try {
-        const media = await prisma.media.findFirst({ where: { id, familyTreeId: await treeId() } });
+        // Files of the active family tree and scans of the library
+        const media = await prisma.media.findFirst({ where: { id, ...linkableMedia(await treeId()) } });
         if (!media) {
           throw new GraphQLError(`Medium with id ${id} not found`, {
             extensions: { code: 'NOT_FOUND', reason: 'MEDIA_NOT_FOUND' },

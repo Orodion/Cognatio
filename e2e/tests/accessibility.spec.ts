@@ -73,7 +73,7 @@ test('Main pages and dialogs without WCAG 2.1 AA violations (light and dark)', a
     await check(`${mode}: Dialog Person anlegen – Dublettenhinweis`);
     await page.keyboard.press('Escape');
 
-    for (const tab of ['Übersicht', 'Lebenslauf', 'Beziehungen', 'Notizen', 'Medien']) {
+    for (const tab of ['Übersicht', 'Lebenslauf', 'Beziehungen', 'Notizen', 'Medien', 'Quellen']) {
       await page.goto(`/persons/${person}`);
       await page.getByRole('navigation', { name: 'Bereiche der Person' }).getByRole('button', { name: tab }).click();
       await page.waitForLoadState('networkidle');
@@ -85,13 +85,37 @@ test('Main pages and dialogs without WCAG 2.1 AA violations (light and dark)', a
     await check(`${mode}: Dialog Beziehung`);
     await page.keyboard.press('Escape');
 
+    await page.getByRole('navigation', { name: 'Bereiche der Person' }).getByRole('button', { name: 'Quellen' }).click();
+    await page.getByRole('button', { name: 'Quelle zitieren' }).click();
+    await page.getByRole('dialog').getByRole('radio', { name: 'Neue Quelle…' }).check();
+    await check(`${mode}: Dialog Quelle zitieren`);
+    await page.keyboard.press('Escape');
+
+    await page.goto('/sources');
+    await expect(page.getByRole('heading', { name: 'Quellen', level: 1 })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await check(`${mode}: Quellen`);
+    await page.getByRole('button', { name: 'Neue Quelle' }).click();
+    await expect(page.getByRole('dialog', { name: 'Neue Quelle' })).toBeVisible();
+    await check(`${mode}: Dialog Quelle anlegen`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Archive' }).click();
+    await page.waitForLoadState('networkidle');
+    await check(`${mode}: Archive`);
+
     await page.goto(`/tree?person=${person}`);
     await expect(page.locator('.react-flow__node').first()).toBeVisible();
     await check(`${mode}: Stammbaum`);
 
     await page.goto('/statistics');
-    await expect(page.getByRole('table')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Personen' })).toBeVisible();
     await check(`${mode}: Statistiken`);
+    await page.goto('/statistics?tab=names');
+    await expect(page.getByRole('list', { name: 'Häufigste Nachnamen' })).toBeVisible();
+    await check(`${mode}: Statistiken, Namen & Orte`);
+    await page.goto('/statistics?tab=ancestors');
+    await expect(page.getByRole('table', { name: 'Generationenübersicht' })).toBeVisible();
+    await check(`${mode}: Statistiken, Ahnen`);
 
     await page.goto('/import-export');
     await expect(page.getByRole('heading', { name: 'Exportieren' })).toBeVisible();
@@ -112,6 +136,10 @@ test('Main pages and dialogs without WCAG 2.1 AA violations (light and dark)', a
     await page.goto('/trash');
     await page.waitForLoadState('networkidle');
     await check(`${mode}: Papierkorb`);
+
+    await page.goto('/activity');
+    await expect(page.getByRole('heading', { name: 'Vorgänge', level: 1 })).toBeVisible();
+    await check(`${mode}: Vorgänge`);
 
     await page.goto('/settings');
     await expect(page.getByTestId('backend-version')).toBeVisible();

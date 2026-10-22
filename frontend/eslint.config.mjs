@@ -7,21 +7,28 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 // Feature boundaries (documentation/code-guidelines.md, "Frontend features"): a feature may import another feature only where
 // FEATURE_DEPENDENCIES allows it, and only its `lib`, `types` and `graphql` files plus the components listed in PUBLIC_COMPONENTS;
 // other `components` and `pages` of a feature are private. `persons` and `tree` use each other on purpose: the person page draws the
-// relation graph with the tree component, and the tree draws persons.
+// relation graph with the tree component, and the tree draws persons. Likewise `persons` and `statistics`: the statistics pick
+// persons, and the person list shows the persons behind a figure of the statistics.
 const FEATURE_DEPENDENCIES = {
+  // settings: the queries of the section "MCP" (changes of AI assistants appear under "Activity")
+  activity: ['settings', 'transfer'],
   dashboard: ['persons'],
+  reports: ['family-trees', 'persons', 'sources', 'statistics'],
   'family-trees': [],
   help: [],
-  persons: ['family-trees', 'tree'],
+  persons: ['family-trees', 'sources', 'statistics', 'tree'],
   settings: ['family-trees', 'persons', 'transfer', 'tree'],
-  statistics: ['persons', 'tree'],
+  sources: ['family-trees', 'persons'],
+  statistics: ['family-trees', 'persons', 'sources', 'tree'],
   transfer: ['family-trees'],
-  trash: ['family-trees', 'persons'],
-  tree: ['persons'],
+  trash: ['family-trees', 'persons', 'sources'],
+  tree: ['family-trees', 'persons'],
 };
 const PUBLIC_COMPONENTS = {
-  persons: ['MourningRibbon', 'PersonFormDialog'],
-  transfer: ['ErrorBox'],
+  persons: ['MediaOpenLink', 'MourningRibbon', 'PersonFormDialog', 'PersonPicker'],
+  sources: ['CitationMark', 'PersonSourcesTab', 'SourceSearchHits'],
+  statistics: ['ScopeBar', 'StatisticsFilterChip'],
+  transfer: ['ErrorBox', 'TransferProgressBar'],
   tree: ['FamilyTree'],
 };
 

@@ -1,6 +1,6 @@
 {
   "name": "cognatio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "GPL-3.0-or-later",
   "private": true,
   "description": "Cognatio – family tree application (monorepo: backend, frontend, e2e, desktop)",
@@ -26,6 +26,7 @@
     "db:status": "node scripts/dev-db.mjs status",
     "db:backup": "node scripts/dev-db.mjs backup",
     "db:restore": "node scripts/dev-db.mjs restore",
+    "db:upgrade": "node scripts/dev-db.mjs upgrade",
     "version": "node scripts/sync-version.mjs && git add backend/package.json frontend/package.json e2e/package.json desktop/package.json package-lock.json",
     "notices": "node scripts/third-party-notices.mjs",
     "notices:check": "node scripts/third-party-notices.mjs --check",

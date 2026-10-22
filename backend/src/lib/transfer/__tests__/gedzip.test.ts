@@ -1,19 +1,24 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { unzipSync, strFromU8, zipSync, strToU8 } from 'fflate';
+import { unzipSync, strFromU8 } from 'fflate';
+import { collect, fileWith, removeTestDir, testDir, zipFileWith } from '../../../test/archives.js';
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cognatio-gedzip-'));
+const tmpDir = testDir('gedzip');
+const work = testDir('gedzip-work');
 jest.mock('../../files/uploads.js', () => ({ ...jest.requireActual('../../files/uploads.js'), uploadDir: tmpDir }));
 
 import { createGedzip } from '../exportData.js';
 import { parseGedcom, resolveMediaFile, toGedcom } from '../gedcom.js';
 import { readImportFile } from '../readImport.js';
 import { validateTransfer, type TransferMedia } from '../format.js';
+import { ArchiveFiles } from '../../files/archive.js';
 import { person, transfer } from '../../../test/transferFixtures.js';
 
-afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+afterAll(() => {
+  removeTestDir(tmpDir);
+  removeTestDir(work);
+});
 
 const stamp = '2026-03-04T05:06:07.890Z';
 const media = (id: string, mediaPath: string, overrides: Partial<TransferMedia> = {}): TransferMedia => ({
@@ -35,7 +40,7 @@ describe('GEDCOM identifiers and change dates', () => {
     person(personId, {
       firstName: 'Anna',
       updatedAt: stamp,
-      events: [{ id: eventId, title: 'Taufe', category: 'BAPTISM', mediaIds: [], date: '1950', createdAt: stamp, updatedAt: stamp }],
+      events: [{ id: eventId, title: 'Taufe', category: 'BAPTISM', mediaIds: [], citationIds: [], date: '1950', createdAt: stamp, updatedAt: stamp }],
     }),
   ]);
 
@@ -89,7 +94,7 @@ describe('media in GEDCOM', () => {
     person(personId, {
       firstName: 'Anna',
       profilePictureId: portrait,
-      events: [{ id: eventId, title: 'Taufe', category: 'BAPTISM', mediaIds: [urkunde], createdAt: stamp, updatedAt: stamp }],
+      events: [{ id: eventId, title: 'Taufe', category: 'BAPTISM', mediaIds: [urkunde], citationIds: [], createdAt: stamp, updatedAt: stamp }],
       media: [
         media(portrait, 'media/Muster_Anna/muster_anna_profilbild_1.jpg', { type: 'PROFILE_PICTURE' }),
         media(urkunde, 'media/Muster_Anna/muster_anna_taufe_1.pdf', {
@@ -100,10 +105,10 @@ describe('media in GEDCOM', () => {
       ],
     }),
   ]);
-  const files = new Map<string, Uint8Array>([
-    ['media/Muster_Anna/muster_anna_profilbild_1.jpg', new Uint8Array([1, 2, 3])],
-    ['media/Muster_Anna/muster_anna_taufe_1.pdf', new Uint8Array([4, 5, 6, 7])],
-  ]);
+  const files = ArchiveFiles.fromBuffers({
+    'media/Muster_Anna/muster_anna_profilbild_1.jpg': new Uint8Array([1, 2, 3]),
+    'media/Muster_Anna/muster_anna_taufe_1.pdf': new Uint8Array([4, 5, 6, 7]),
+  });
 
   it.each(['5.5.1', '7.0'] as const)('writes media records and reads them back with the files (GEDCOM %s)', (version) => {
     const ged = toGedcom(data, version, new Date(), { media: true });
@@ -131,7 +136,7 @@ describe('media in GEDCOM', () => {
       ...data.persons,
       person(otherId, {
         firstName: 'Karl',
-        events: [{ id: wedding, title: 'Hochzeit', category: 'WEDDING', mediaIds: [portrait, urkunde], createdAt: stamp, updatedAt: stamp }],
+        events: [{ id: wedding, title: 'Hochzeit', category: 'WEDDING', mediaIds: [portrait, urkunde], citationIds: [], createdAt: stamp, updatedAt: stamp }],
       }),
     ]);
     const ged = toGedcom(shared, '7.0', new Date(), { media: true });
@@ -179,25 +184,25 @@ describe('media in GEDCOM', () => {
     const ged = toGedcom(data, '7.0', new Date(), { media: true });
     const back = parseGedcom(ged);
     expect(back.persons[0].media).toEqual([]);
-    expect(back.persons[0].notes.map((n) => n.text)).toContain('Medium (nicht übernommen): media/Muster_Anna/muster_anna_profilbild_1.jpg');
+    expect(back.persons[0].notes.map((n) => n.text)).toContain('Medium (not taken over): media/Muster_Anna/muster_anna_profilbild_1.jpg');
   });
 
   it('finds files of other programs by relative, Windows or URL-encoded path and by unique name', () => {
-    const zipped = new Map<string, Uint8Array>([
-      ['bilder/Oma Anna.jpg', new Uint8Array([1])],
-      ['scans/urkunde.pdf', new Uint8Array([2])],
-      ['a/doppelt.jpg', new Uint8Array([3])],
-      ['b/doppelt.jpg', new Uint8Array([4])],
-    ]);
+    const zipped = ArchiveFiles.fromBuffers({
+      'bilder/Oma Anna.jpg': new Uint8Array([1]),
+      'scans/urkunde.pdf': new Uint8Array([2]),
+      'a/doppelt.jpg': new Uint8Array([3]),
+      'b/doppelt.jpg': new Uint8Array([4]),
+    });
     expect(resolveMediaFile(zipped, './bilder/Oma%20Anna.jpg')).toBe('bilder/Oma Anna.jpg');
     expect(resolveMediaFile(zipped, 'C:\\Users\\Ahnen\\Scans\\URKUNDE.pdf')).toBe('scans/urkunde.pdf');
     expect(resolveMediaFile(zipped, 'doppelt.jpg')).toBeNull();
     expect(resolveMediaFile(zipped, 'fehlt.jpg')).toBeNull();
   });
 
-  it('exports a GEDZIP file that can be imported again', () => {
+  it('exports a GEDZIP file that can be imported again', async () => {
     fs.writeFileSync(path.join(tmpDir, 'p.jpg'), Buffer.from([1, 2, 3]));
-    const { buffer, missing } = createGedzip(
+    const { zip, missing } = createGedzip(
       data,
       [
         { zipPath: 'media/Muster_Anna/muster_anna_profilbild_1.jpg', diskName: 'p.jpg' },
@@ -207,23 +212,27 @@ describe('media in GEDCOM', () => {
       new Date(),
     );
     expect(missing).toEqual(['media/Muster_Anna/muster_anna_taufe_1.pdf']);
+    const buffer = await collect(zip);
     const entries = unzipSync(buffer);
     expect(Object.keys(entries).sort()).toEqual(['gedcom.ged', 'media/Muster_Anna/muster_anna_profilbild_1.jpg']);
     // The missing file does not appear in the GEDCOM file
     expect(strFromU8(entries['gedcom.ged'])).not.toContain('Taufschein');
 
-    const imported = readImportFile(buffer, 'familie.gdz');
+    const imported = await readImportFile(fileWith(work, buffer), 'familie.gdz');
+    imported.close();
     expect(imported.kind).toBe('GEDCOM');
     expect(imported.data.persons[0].media.map((m) => m.id)).toEqual([portrait]);
-    expect([...imported.files.keys()]).toEqual(['media/Muster_Anna/muster_anna_profilbild_1.jpg']);
+    expect(imported.files.names()).toEqual(['media/Muster_Anna/muster_anna_profilbild_1.jpg']);
   });
 
-  it('reads ZIP files of other programs with the GEDCOM file in a subfolder', () => {
+  it('reads ZIP files of other programs with the GEDCOM file in a subfolder', async () => {
     const ged = ['0 HEAD', '1 GEDC', '2 VERS 5.5.1', '0 @I1@ INDI', '1 NAME Oma /Alt/', '1 OBJE', '2 FILE photos/oma.png', '0 TRLR'].join('\r\n');
-    const zip = Buffer.from(zipSync({ 'export/tree.ged': strToU8(ged), 'export/photos/oma.png': new Uint8Array([9, 9]) }));
-    const imported = readImportFile(zip, 'export.zip');
+    const imported = await readImportFile(zipFileWith(work, { 'export/tree.ged': ged, 'export/photos/oma.png': new Uint8Array([9, 9]) }), 'export.zip');
     const [m] = imported.data.persons[0].media;
     expect(m).toMatchObject({ mimeType: 'image/png', type: 'PHOTO', originalFileName: 'oma.png', sizeBytes: 2 });
-    expect(imported.files.get(m.path)).toEqual(new Uint8Array([9, 9]));
+    const target = path.join(work, 'oma.png');
+    await imported.files.copyTo(m.path, target);
+    imported.close();
+    expect([...fs.readFileSync(target)]).toEqual([9, 9]);
   });
 });

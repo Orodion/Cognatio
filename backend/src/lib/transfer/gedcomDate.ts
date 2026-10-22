@@ -4,6 +4,8 @@
  * The input formats match frontend/src/lib/dateParsing.ts.
  */
 
+import { DATE_WORDS, DEFAULT_IMPORT_LANGUAGE, qualifierWords, type ImportLanguage } from './languageTexts.js';
+
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 interface Parts {
@@ -12,10 +14,15 @@ interface Parts {
   day?: number;
 }
 
+const escapeRegExp = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const wordsPattern = (key: 'about' | 'after' | 'before') => qualifierWords(key).map(escapeRegExp).join('|');
+
+/** The words of every language of the interface, like the form ("um 1880", "vers 1880", "przed 1900") */
 const QUALIFIERS: Array<{ gedcom: 'ABT' | 'AFT' | 'BEF'; pattern: RegExp }> = [
-  { gedcom: 'ABT', pattern: /^(um|ca\.?|circa|etwa|ungefähr|about|around|approx\.?|abt\.?|около|примерно|~)\s*/i },
-  { gedcom: 'AFT', pattern: /^(nach|after|aft\.?|после)\s+/i },
-  { gedcom: 'BEF', pattern: /^(vor|before|bef\.?|до)\s+/i },
+  // "~" works in every language; "about" may be directly followed by the year ("ca.1880")
+  { gedcom: 'ABT', pattern: new RegExp(`^(~|${wordsPattern('about')})\\s*`, 'i') },
+  { gedcom: 'AFT', pattern: new RegExp(`^(${wordsPattern('after')})\\s+`, 'i') },
+  { gedcom: 'BEF', pattern: new RegExp(`^(${wordsPattern('before')})\\s+`, 'i') },
 ];
 
 function parseAppSingle(s: string): Parts | null {
@@ -36,6 +43,29 @@ function parseAppSingle(s: string): Parts | null {
     return { year: Number(m[1]) };
   }
   return null;
+}
+
+/**
+ * An exact date as the form accepts it ("04.01.1980", "4.1.1980", "1980-01-04") at midnight UTC; null for a month,
+ * a year, an approximate or an impossible date.
+ */
+export function exactAppDate(value: string | null | undefined): Date | null {
+  const parts = parseAppSingle((value ?? '').trim());
+  if (!parts?.day || !parts.month) {
+    return null;
+  }
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  return date.getUTCMonth() === parts.month - 1 && date.getUTCDate() === parts.day ? date : null;
+}
+
+/**
+ * Sort key YYYYMMDD of the earliest point of a date as typed ("14.09.1951", "about 1925", "1969-1970"), like
+ * `dateSortKey` of the frontend; null if it cannot be read
+ */
+export function appDateSortKey(value: string | null | undefined): number | null {
+  const gedcom = toGedcomDate(value);
+  const start = gedcom && 'date' in gedcom ? fromGedcomDate(gedcom.date)?.start : undefined;
+  return start ? start.year * 10000 + (start.month ?? 1) * 100 + (start.day ?? 1) : null;
 }
 
 const gedcomSingle = (p: Parts) => [p.day, p.month ? MONTHS[p.month - 1] : undefined, p.year].filter((x) => x !== undefined).join(' ');
@@ -107,8 +137,8 @@ export interface AppDate {
   start?: Parts;
 }
 
-/** GEDCOM date → app date. Unknown calendars and free text are kept as text. */
-export function fromGedcomDate(value: string | null | undefined): AppDate | null {
+/** GEDCOM date → app date ("ABT 1880" → "about 1880" in the language of the user). Unknown calendars and free text are kept as text. */
+export function fromGedcomDate(value: string | null | undefined, language: ImportLanguage = DEFAULT_IMPORT_LANGUAGE): AppDate | null {
   let s = (value ?? '').trim().replace(/\s+/g, ' ');
   if (!s) {
     return null;
@@ -135,7 +165,8 @@ export function fromGedcomDate(value: string | null | undefined): AppDate | null
   if (qualified) {
     const single = parseGedcomSingle(qualified[2]);
     if (single) {
-      const prefix = { ABT: 'um', CAL: 'um', EST: 'um', AFT: 'nach', FROM: 'nach', BEF: 'vor', TO: 'vor' }[qualified[1]]!;
+      const key = ({ ABT: 'about', CAL: 'about', EST: 'about', AFT: 'after', FROM: 'after', BEF: 'before', TO: 'before' } as const)[qualified[1]]!;
+      const prefix = DATE_WORDS[language][key][0];
       return { value: `${prefix} ${appSingle(single.parts)}`, precision: 'APPROXIMATE', start: single.parts };
     }
   }

@@ -164,7 +164,8 @@ export function assignGenerations(index: FamilyIndex, ids: Set<string>, focusId:
       }
     }
     if (!(hasFocus && start === focusId)) {
-      const min = Math.min(...component.map((id) => generation.get(id)!));
+      // A loop, not Math.min(...): a family group of more than about 125,000 persons would exceed the stack
+      const min = component.reduce((lowest, id) => Math.min(lowest, generation.get(id)!), Infinity);
       for (const id of component) {
         generation.set(id, generation.get(id)! - min);
       }

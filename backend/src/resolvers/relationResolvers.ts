@@ -1,6 +1,8 @@
 import { GraphQLError } from 'graphql';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import type { GraphQLContext } from '../lib/treeScope.js';
+import { exactAppDate } from '../lib/transfer/gedcomDate.js';
+import { implausibleError, relationWarnings } from '../lib/plausibility/plausibility.js';
 
 /**
  * Semantics of a relation: "personB is <type> of personA".
@@ -69,11 +71,11 @@ interface RelationInput {
   personAId: string;
   personBId: string;
   type: string;
-  label?: string;
-  active?: boolean;
-  note?: string;
-  startDate?: string;
-  endDate?: string;
+  label?: string | null;
+  active?: boolean | null;
+  note?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 function validateType(type: string) {
@@ -98,7 +100,7 @@ async function assertPersonsExist(prisma: PrismaClient, treeId: string, personAI
   }
 }
 
-function parseOptionalDate(value: string | undefined, field: string): Date | null {
+function parseOptionalDate(value: string | null | undefined, field: string): Date | null {
   if (!value) {
     return null;
   }
@@ -112,32 +114,26 @@ function parseOptionalDate(value: string | undefined, field: string): Date | nul
 }
 
 function validateDates(data: RelationInput) {
-  const von = parseOptionalDate(data.startDate, 'startDate');
-  const bis = parseOptionalDate(data.endDate, 'endDate');
-  if (von && bis && bis < von) {
+  const start = parseOptionalDate(data.startDate, 'startDate');
+  const end = parseOptionalDate(data.endDate, 'endDate');
+  if (start && end && end < start) {
     throw new GraphQLError('The end date must not be before the start date.', {
       extensions: { code: 'BAD_USER_INPUT', reason: 'DATE_ORDER' },
     });
   }
 }
 
-/** Exact date of birth "DD.MM.YYYY" as a date (start of a parent-child relation); otherwise null */
-export function birthDateOf(birthDate: string | null | undefined): Date | null {
-  const m = birthDate?.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (!m) {
-    return null;
-  }
-  const date = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
-  return date.getUTCDate() === Number(m[1]) ? date : null;
-}
+/** Exact date of birth in every form the form accepts as a date (start of a parent-child relation); otherwise null */
+export const birthDateOf = (birthDate: string | null | undefined): Date | null => exactAppDate(birthDate);
 
 /**
- * Derives further relations after a parent-child relation has been created:
- * - Partners of the parent also become parents of the child (as long as the child has < 2 parents);
- *   the relation starts with the child's birth if the date of birth is known exactly
+ * Derives further relations after a parent-child relation has been created (in the same transaction):
+ * - The partner of the parent also becomes a parent of the child – only if the parent has exactly one active partner
+ *   and the child has no second parent yet; with several partners nobody is guessed, the user adds the second parent.
+ *   The relation starts with the child's birth if the date of birth is known exactly.
  * - Other children of the parent become siblings of the child
  */
-async function inferFromParentChild(prisma: PrismaClient, parentId: string, childId: string) {
+async function inferFromParentChild(prisma: Pick<PrismaClient, 'relation' | 'person'>, parentId: string, childId: string) {
   const related =
     (await prisma.relation.findMany({
       where: {
@@ -172,8 +168,10 @@ async function inferFromParentChild(prisma: PrismaClient, parentId: string, chil
   childParents.add(parentId);
 
   const toCreate: Array<RelationLike & { startDate?: Date; active: boolean }> = [];
-  // At most one partner becomes the second parent (a child has two parents at most)
-  const secondParent = childParents.size < 2 ? [...parentPartners].find((id) => id !== childId && !childParents.has(id)) : undefined;
+  // A child has two parents at most; the second one only when it is clear who it is
+  parentPartners.delete(childId);
+  const [onlyPartner] = parentPartners.size === 1 ? parentPartners : [];
+  const secondParent = childParents.size < 2 && onlyPartner && !childParents.has(onlyPartner) ? onlyPartner : undefined;
   if (secondParent) {
     const child = await prisma.person.findUnique({ where: { id: childId }, select: { birthDate: true } });
     const born = birthDateOf(child?.birthDate);
@@ -189,6 +187,73 @@ async function inferFromParentChild(prisma: PrismaClient, parentId: string, chil
   // One statement: the derived relations are written all together or not at all
   if (toCreate.length) {
     await prisma.relation.createMany({ data: toCreate });
+  }
+}
+
+/** Parents of every person by the active parent-child relations of the family tree */
+async function activeParents(prisma: Pick<PrismaClient, 'relation'>, treeId: string) {
+  const relations =
+    (await prisma.relation.findMany({
+      where: { active: true, type: { in: [...PARENT_TYPES, ...CHILD_TYPES] }, personA: { familyTreeId: treeId } },
+      select: { personAId: true, personBId: true, type: true },
+    })) ?? [];
+  const parentsOf = new Map<string, Set<string>>();
+  for (const rel of relations) {
+    const pc = parentChildOf(rel);
+    if (pc) {
+      parentsOf.set(pc.childId, (parentsOf.get(pc.childId) ?? new Set()).add(pc.parentId));
+    }
+  }
+  return parentsOf;
+}
+
+/** Sibling relations between `childId` and any of `siblingIds`, in both recording directions */
+const siblingsOf = (childId: string, siblingIds: string[]) => ({
+  type: 'SIBLING',
+  OR: [
+    { personAId: childId, personBId: { in: siblingIds } },
+    { personBId: childId, personAId: { in: siblingIds } },
+  ],
+});
+
+/**
+ * After a parent-child relation has ended (deleted or changed to other persons): children of the parent that shared
+ * no other parent with the child are no siblings of it any more – their sibling relation goes into the recycle bin as
+ * well. Siblings with another common parent and siblings entered without a common parent stay.
+ */
+async function releaseSiblings(prisma: Pick<PrismaClient, 'relation'>, treeId: string, parentId: string, childId: string) {
+  const parentsOf = await activeParents(prisma, treeId);
+  const childParents = parentsOf.get(childId) ?? new Set<string>();
+  const former = [...parentsOf]
+    .filter(([id, parents]) => id !== childId && parents.has(parentId) && ![...parents].some((p) => childParents.has(p)))
+    .map(([id]) => id);
+  if (former.length) {
+    await prisma.relation.updateMany({ where: { active: true, ...siblingsOf(childId, former) }, data: { active: false } });
+  }
+}
+
+/**
+ * After a parent-child relation came back from the recycle bin: the sibling relations to the other children of the
+ * parent that are in the recycle bin come back too (one per pair, and only where no active one exists).
+ */
+async function restoreSiblings(prisma: Pick<PrismaClient, 'relation'>, treeId: string, parentId: string, childId: string) {
+  const parentsOf = await activeParents(prisma, treeId);
+  const fellows = [...parentsOf].filter(([id, parents]) => id !== childId && parents.has(parentId)).map(([id]) => id);
+  if (!fellows.length) {
+    return;
+  }
+  const relations = (await prisma.relation.findMany({ where: siblingsOf(childId, fellows), orderBy: { updatedAt: 'desc' } })) ?? [];
+  const other = (rel: RelationLike) => (rel.personAId === childId ? rel.personBId : rel.personAId);
+  const linked = new Set(relations.filter((rel) => rel.active).map(other));
+  const back: string[] = [];
+  for (const rel of relations) {
+    if (!rel.active && !linked.has(other(rel))) {
+      linked.add(other(rel));
+      back.push(rel.id);
+    }
+  }
+  if (back.length) {
+    await prisma.relation.updateMany({ where: { id: { in: back } }, data: { active: true } });
   }
 }
 
@@ -254,6 +319,20 @@ async function assertRelationAllowed(prisma: PrismaClient, treeId: string, rel: 
   }
 }
 
+/**
+ * A relation that looks wrong (e.g. a man as mother, a partner who is also a child) is refused with its possible
+ * errors (IMPLAUSIBLE) unless the user confirmed it; the frontend asks and saves again with `confirmed`.
+ */
+async function assertPlausible(prisma: PrismaClient, treeId: string, rel: RelationLike & { id?: string; startDate?: Date | null }, confirmed?: boolean) {
+  if (confirmed) {
+    return;
+  }
+  const issues = await relationWarnings(prisma, treeId, rel);
+  if (issues.length) {
+    throw await implausibleError(prisma, issues);
+  }
+}
+
 /** Relation of the active family tree (both persons are in the same family tree) */
 async function assertRelationInTree(prisma: PrismaClient, treeId: string, id: string) {
   const relation = await prisma.relation.findFirst({ where: { id, personA: { familyTreeId: treeId } } });
@@ -265,6 +344,7 @@ async function assertRelationInTree(prisma: PrismaClient, treeId: string, id: st
   return relation;
 }
 
+/** Fields of a new relation: what is not given stays empty, a new relation is active */
 function toPrismaData(data: RelationInput) {
   return {
     ...data,
@@ -273,6 +353,21 @@ function toPrismaData(data: RelationInput) {
     active: data.active ?? true,
     startDate: data.startDate ? new Date(data.startDate) : null,
     endDate: data.endDate ? new Date(data.endDate) : null,
+  };
+}
+
+/** Fields of a changed relation: a field that is not passed keeps its value, null (or an empty date) clears it */
+function toPrismaUpdate(data: RelationInput) {
+  const date = (value: string | null | undefined) => (value === undefined ? undefined : value ? new Date(value) : null);
+  return {
+    personAId: data.personAId,
+    personBId: data.personBId,
+    type: data.type,
+    label: data.label,
+    note: data.note,
+    active: data.active ?? undefined,
+    startDate: date(data.startDate),
+    endDate: date(data.endDate),
   };
 }
 
@@ -354,7 +449,7 @@ export const relationResolvers = {
 
   Mutation: {
     // Create a new relation
-    createRelation: async (_: unknown, { data }: { data: RelationInput }, { prisma, treeId }: GraphQLContext) => {
+    createRelation: async (_: unknown, { data, confirmed }: { data: RelationInput; confirmed?: boolean }, { prisma, treeId }: GraphQLContext) => {
       if (!data.personAId || !data.personBId) {
         throw new GraphQLError('Both persons (personAId, personBId) must be given.', {
           extensions: { code: 'BAD_USER_INPUT', reason: 'PERSONS_REQUIRED' },
@@ -370,57 +465,99 @@ export const relationResolvers = {
       const tree = await treeId();
       await assertPersonsExist(prisma, tree, data.personAId, data.personBId);
       await assertRelationAllowed(prisma, tree, data);
+      await assertPlausible(prisma, tree, { ...data, startDate: data.startDate ? new Date(data.startDate) : null }, confirmed);
 
-      const relation = await prisma.relation.create({
-        data: toPrismaData(data),
+      // The relation and what it derives are written together or not at all
+      const relation = await prisma.$transaction(async (tx) => {
+        const created = await tx.relation.create({
+          data: toPrismaData(data),
+        });
+        const pc = parentChildOf(created);
+        if (pc) {
+          await inferFromParentChild(tx, pc.parentId, pc.childId);
+        }
+        return created;
       });
-
-      const pc = parentChildOf(relation);
-      if (pc) {
-        await inferFromParentChild(prisma, pc.parentId, pc.childId);
-      }
 
       return toGraphQLRelation(relation);
     },
 
     // Update a relation
-    updateRelation: async (_: unknown, { id, data }: { id: string; data: RelationInput }, { prisma, treeId }: GraphQLContext) => {
+    updateRelation: async (
+      _: unknown,
+      { id, data, confirmed }: { id: string; data: RelationInput; confirmed?: boolean },
+      { prisma, treeId }: GraphQLContext,
+    ) => {
       const tree = await treeId();
       const before = await assertRelationInTree(prisma, tree, id);
       if (data.type) {
         validateType(data.type);
       }
-      validateDates(data);
+      // A date that is not passed keeps its value – the order is checked with it
+      const kept = (value: string | null | undefined, stored: Date | null) => (value === undefined ? stored?.toISOString() : value);
+      validateDates({ ...data, startDate: kept(data.startDate, before.startDate), endDate: kept(data.endDate, before.endDate) });
       if (data.personAId && data.personBId && data.personAId === data.personBId) {
         throw new GraphQLError('PersonA and PersonB must not be identical.', {
           extensions: { code: 'BAD_USER_INPUT', reason: 'SELF_RELATION' },
         });
       }
       await assertPersonsExist(prisma, tree, data.personAId, data.personBId);
-      if (data.active !== false) {
+      if ((data.active ?? before.active) !== false) {
         await assertRelationAllowed(prisma, tree, data, id);
+        // Only a change of the persons, the kind or the start is checked again – editing a note does not ask twice
+        const after = {
+          id,
+          personAId: data.personAId ?? before.personAId,
+          personBId: data.personBId ?? before.personBId,
+          type: data.type ?? before.type,
+          startDate: data.startDate === undefined ? before.startDate : data.startDate ? new Date(data.startDate) : null,
+        };
+        const changed =
+          after.personAId !== before.personAId ||
+          after.personBId !== before.personBId ||
+          after.type !== before.type ||
+          after.startDate?.getTime() !== before.startDate?.getTime() ||
+          before.active === false;
+        if (changed) {
+          await assertPlausible(prisma, tree, after, confirmed);
+        }
       }
 
-      const relation = await prisma.relation.update({
-        where: { id },
-        data: toPrismaData(data),
+      const relation = await prisma.$transaction(async (tx) => {
+        const updated = await tx.relation.update({
+          where: { id },
+          data: toPrismaUpdate(data),
+        });
+        // Only a new parent-child pairing derives further relations; editing a note must not bring back what was deleted.
+        // An ended pairing takes the siblings along that came only through it
+        const was = parentChildOf(before);
+        const now = updated.active ? parentChildOf(updated) : null;
+        const pairingChanged = was?.parentId !== now?.parentId || was?.childId !== now?.childId;
+        if (was && before.active && pairingChanged) {
+          await releaseSiblings(tx, tree, was.parentId, was.childId);
+        }
+        if (now && pairingChanged) {
+          await inferFromParentChild(tx, now.parentId, now.childId);
+        }
+        return updated;
       });
-
-      // Only a new parent-child pairing derives further relations; editing a note must not bring back what was deleted
-      const was = parentChildOf(before);
-      const now = relation.active ? parentChildOf(relation) : null;
-      if (now && (was?.parentId !== now.parentId || was?.childId !== now.childId)) {
-        await inferFromParentChild(prisma, now.parentId, now.childId);
-      }
       return toGraphQLRelation(relation);
     },
 
     // Deactivate a relation (soft delete)
     deleteRelation: async (_: unknown, { id }: { id: string }, { prisma, treeId }: GraphQLContext) => {
-      await assertRelationInTree(prisma, await treeId(), id);
-      await prisma.relation.update({
-        where: { id },
-        data: { active: false },
+      const tree = await treeId();
+      const before = await assertRelationInTree(prisma, tree, id);
+      // Together with the siblings that were derived from it, or not at all
+      await prisma.$transaction(async (tx) => {
+        await tx.relation.update({
+          where: { id },
+          data: { active: false },
+        });
+        const pc = before.active ? parentChildOf(before) : null;
+        if (pc) {
+          await releaseSiblings(tx, tree, pc.parentId, pc.childId);
+        }
       });
       return true;
     },
@@ -430,9 +567,16 @@ export const relationResolvers = {
       const tree = await treeId();
       const before = await assertRelationInTree(prisma, tree, id);
       await assertRelationAllowed(prisma, tree, before, id);
-      const relation = await prisma.relation.update({
-        where: { id },
-        data: { active: true },
+      const relation = await prisma.$transaction(async (tx) => {
+        const restored = await tx.relation.update({
+          where: { id },
+          data: { active: true },
+        });
+        const pc = before.active ? null : parentChildOf(before);
+        if (pc) {
+          await restoreSiblings(tx, tree, pc.parentId, pc.childId);
+        }
+        return restored;
       });
       return toGraphQLRelation(relation);
     },

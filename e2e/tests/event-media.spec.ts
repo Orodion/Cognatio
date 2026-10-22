@@ -46,6 +46,8 @@ test('Link an event with a new file and the group photo of another person', asyn
   await dialog.getByRole('button', { name: 'Vorhandene verknüpfen' }).click();
   await expect(dialog.getByText('Keine Medien vorhanden.')).toBeVisible();
   await dialog.getByRole('button', { name: 'Medien anderer Personen' }).click();
+  // The picker lists the first 50 persons only – the test database holds more, so search
+  await dialog.getByPlaceholder('Name eingeben...').fill(`Karl${suffix}`);
   await dialog.getByRole('option', { name: new RegExp(`Karl${suffix} Umzug`) }).click();
   await dialog.getByRole('button', { name: /groupPhoto\.png/ }).click();
   await expect(dialog.getByText(`von Karl${suffix} Umzug`, { exact: true })).toBeVisible();

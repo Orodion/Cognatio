@@ -2,18 +2,24 @@ import type { Request, RequestHandler, Response } from 'express';
 
 /** The operation that is running (null: none); shared by import, export, backup and restore */
 let running: string | null = null;
+/** Jobs waiting for the guard, in order */
+const waiting: Array<() => void> = [];
 
 type Work = (req: Request, res: Response) => unknown;
 
+function release() {
+  running = null;
+  waiting.shift()?.();
+}
+
 /**
- * Import, export, backup and restore hold whole files in memory and read or replace much of the data: only one of
- * them runs at a time. Another one is answered at once with 409 (OPERATION_IN_PROGRESS) instead of doubling the memory
- * or interleaving its changes with the running one.
+ * Import, export, backup and restore read or replace much of the data and keep the disk busy: only one of them runs
+ * at a time. A request (download, check) is answered at once with 409 (OPERATION_IN_PROGRESS) instead of
+ * interleaving its work with the running one; a job waits instead (see `exclusive`).
  *
- * The guard is taken before the upload (`upload`, e.g. multer), so a refused request is not read into memory: its
- * body is read and dropped, then the 409 follows. It is released only when the work has finished and
- * the response is closed – a client that cancels does not stop an import that is still writing, and a large
- * response is still held in memory while it is sent.
+ * With `upload` (e.g. multer) the guard is taken before the upload, so a refused request is not stored: its body is
+ * read and dropped, then the 409 follows. It is released only when the work has finished and the response is closed –
+ * a download holds it while it is sent.
  */
 export const oneAtATime =
   (operation: string, work: Work, upload?: RequestHandler): RequestHandler =>
@@ -43,7 +49,32 @@ export const oneAtATime =
       }
       await work(req, res);
     })().catch(next);
-    void Promise.all([done, closed]).then(() => {
-      running = null;
-    });
+    void Promise.all([done, closed]).then(release);
   };
+
+/**
+ * Takes the guard for a job (import, restore): waits until the running operation has finished – e.g. the download
+ * of the current state that the page started just before a restore. `onWait` is called once if it has to wait;
+ * `checkpoint` may throw while waiting (the user cancelled). Returns the release.
+ */
+export async function exclusive(operation: string, onWait?: () => void, checkpoint?: () => void): Promise<() => void> {
+  if (running) {
+    onWait?.();
+  }
+  while (running) {
+    await new Promise<void>((resolve) => {
+      waiting.push(resolve);
+      // Look again now and then: a cancelled job must not wait for the end of a long download
+      setTimeout(() => {
+        const index = waiting.indexOf(resolve);
+        if (index >= 0) {
+          waiting.splice(index, 1);
+          resolve();
+        }
+      }, 1000);
+    });
+    checkpoint?.();
+  }
+  running = operation;
+  return release;
+}

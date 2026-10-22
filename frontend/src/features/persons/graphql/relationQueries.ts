@@ -22,8 +22,8 @@ export const GET_PERSON_RELATIONS = gql`
 `;
 
 export const CREATE_RELATION = gql`
-  mutation CreateRelation($data: RelationInput!) {
-    createRelation(data: $data) {
+  mutation CreateRelation($data: RelationInput!, $confirmed: Boolean) {
+    createRelation(data: $data, confirmed: $confirmed) {
       id
       personAId
       personBId

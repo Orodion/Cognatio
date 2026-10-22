@@ -1,6 +1,6 @@
 {
   "name": "cognatio-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "description": "Backend of Cognatio (GraphQL API, REST routes, Prisma)",
@@ -17,6 +17,7 @@
   "dependencies": {
     "@apollo/server": "^5.0.0",
     "@as-integrations/express4": "^1.1.2",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "cors": "^2.8.5",
@@ -27,6 +28,8 @@
     "helmet": "^8.3.0",
     "multer": "^2.4.0",
     "pg": "^8.22.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -39,6 +42,8 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.1",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
     "eslint": "^10.12.0",
     "jest": "^30.5.2",
     "jest-junit": "^17.0.0",

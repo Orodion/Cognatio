@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql';
 import type { PrismaClient } from '../generated/prisma/client.js';
 import { personInTree, type GraphQLContext } from '../lib/treeScope.js';
+import { MAX_NOTE_LENGTH } from '../lib/personValues.js';
 import { isoTimes } from './timestamps.js';
 
 interface NoteInput {
@@ -10,8 +11,7 @@ interface NoteInput {
 
 type UpdateNoteInput = Omit<NoteInput, 'personId'>;
 
-/** Upper limit of a note in characters; the frontend limits the field to the same length */
-export const MAX_NOTE_LENGTH = 10_000;
+export { MAX_NOTE_LENGTH };
 
 /** The text of a note without surrounding blanks: not empty and not longer than the limit */
 function noteText(text: string | undefined) {

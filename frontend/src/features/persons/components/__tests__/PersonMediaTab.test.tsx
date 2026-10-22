@@ -23,6 +23,7 @@ const media = (id: string, originalFileName: string, mimeType: string, extra: Re
   fileName: `${id}.bin`,
   originalFileName,
   mimeType,
+  viewable: mimeType.startsWith('image/') || mimeType === 'application/pdf',
   sizeBytes: 1024 * 1024,
   type: 'PHOTO',
   createdAt: '1',
@@ -96,11 +97,11 @@ describe('PersonMediaTab', () => {
   });
 
   it('shows why an upload failed', async () => {
-    vi.mocked(uploadMedia).mockResolvedValue({ ok: false, reason: 'FILE_TOO_LARGE' });
+    vi.mocked(uploadMedia).mockResolvedValue({ ok: false, reason: 'NOT_ENOUGH_SPACE', values: { needed: '6 GB', free: '1 GB' } });
     setup();
     await screen.findByTitle('urkunde.pdf');
     fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [new File(['x'], 'riesig.png', { type: 'image/png' })] } });
-    expect(await screen.findByRole('alert')).toHaveTextContent('media.fileTooLarge');
+    expect(await screen.findByRole('alert')).toHaveTextContent('apiErrors.NOT_ENOUGH_SPACE');
   });
 
   it('shows which events a file is linked with and warns before deleting it', async () => {
@@ -125,7 +126,7 @@ describe('PersonMediaTab', () => {
     setup([], [gruppe]);
 
     const section = (await screen.findByRole('heading', { name: 'media.linkedTitle' })).closest('section')!;
-    expect(within(section).getByRole('link', { name: 'groupPhoto.jpg' })).toHaveAttribute('href', '/uploads/gruppe.bin');
+    expect(within(section).getByRole('link', { name: 'groupPhoto.jpg' })).toHaveAttribute('href', '/uploads/gruppe.bin?name=groupPhoto.jpg');
     expect(within(section).getByText('timeline.media.from')).toBeInTheDocument();
     // Only the events of this person, no actions for foreign files – but they can be saved
     expect(within(section).getByTitle('media.linkedWith')).toBeInTheDocument();

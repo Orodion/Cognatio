@@ -9,6 +9,8 @@
     "persons": "Persons",
     "tree": "Family Tree",
     "statistics": "Statistics",
+    "plausibility": "Possible errors",
+    "plausibilityOpen": "Open possible errors: {{count}}",
     "importExport": "Import/Export",
     "settings": "Settings",
     "familyTrees": "Family trees",
@@ -16,7 +18,18 @@
     "trashCount_one": "{{count}} item",
     "trashCount_other": "{{count}} items",
     "help": "Help",
-    "quit": "Quit"
+    "quit": "Quit",
+    "activity": "Activity",
+    "activityFailed": "An operation has failed",
+    "activityRunning_one": "{{count}} running",
+    "activityRunning_other": "{{count}} running",
+    "sources": "Sources",
+    "reports": "Reports",
+    "groups": {
+      "record": "Record",
+      "evaluate": "Analyse",
+      "manage": "Manage"
+    }
   },
   "header": {
     "searchPlaceholder": "Search persons…",
@@ -47,6 +60,7 @@
     "showMore_other": "Show more ({{count, number}} remaining)"
   },
   "personDetail": {
+    "report": "Report",
     "notFound": "Person not found.",
     "loading": "Loading person…",
     "edit": "Edit",
@@ -59,7 +73,8 @@
       "timeline": "Timeline",
       "relations": "Relations",
       "notes": "Notes",
-      "media": "Media"
+      "media": "Media",
+      "sources": "Sources"
     },
     "sections": {
       "personal": "Personal data",
@@ -85,7 +100,9 @@
       "hobbies": "Hobbies",
       "maritalStatus": "Marital status",
       "nationality": "Nationality",
-      "languages": "Languages"
+      "languages": "Languages",
+      "citations": "Citations",
+      "citationIds": "Citations"
     },
     "tabsLabel": "Person sections",
     "filter": {
@@ -93,10 +110,14 @@
         "timeline": "Filter the timeline…",
         "relations": "Filter the relations…",
         "notes": "Filter the notes…",
-        "media": "Filter the media…"
+        "media": "Filter the media…",
+        "sources": "Filter the sources…"
       },
       "noMatches": "No hits for “{{query}}”."
-    }
+    },
+    "homePerson": "Home person",
+    "homePersonSet": "Make this the home person of the family tree – statistics, reports and family tree then start with it",
+    "homePersonRemove": "Home person of the family tree – a click removes that"
   },
   "gender": {
     "MALE": "Male",
@@ -301,7 +322,6 @@
       "unlink": "Unlink “{{name}}”",
       "removeFile": "Do not upload “{{name}}”",
       "uploadOnSave": "Uploaded when saving",
-      "tooLarge": "Too large (max. 50 MB): {{names}}",
       "uploadFailed": "The event was saved, but the following files could not be uploaded: {{names}}"
     }
   },
@@ -324,7 +344,6 @@
     "downloadButton": "Download",
     "uploading": "Uploading...",
     "empty": "No media found. Upload an image or document.",
-    "fileTooLarge": "File is too large (Max 50MB)",
     "uploadError": "Error uploading file",
     "confirmDelete": "Do you really want to delete this file?",
     "profilePicture": "Profile picture",
@@ -404,6 +423,27 @@
       "searchText": "Filter persons by first or last name using the search field in the top bar.",
       "datesTitle": "Uncertain dates:",
       "datesText": "Enter historical dates as you know them – e.g. \"1880\", \"05.1880\", \"about 1880\" or \"1880-1885\". The precision is detected automatically."
+    },
+    "anniversaries": {
+      "title": "Anniversaries",
+      "hint_one": "Birthdays, days of death and wedding days of the next {{count}} day",
+      "hint_other": "Birthdays, days of death and wedding days of the next {{count}} days",
+      "none_one": "No anniversaries in the next {{count}} day. They need an exact date with day, month and year.",
+      "none_other": "No anniversaries in the next {{count}} days. They need an exact date with day, month and year.",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays_one": "In {{count}} day",
+      "inDays_other": "In {{count}} days",
+      "BIRTHDAY_one": "Turns {{count}}",
+      "BIRTHDAY_other": "Turns {{count}}",
+      "BIRTH_one": "Born {{count}} year ago",
+      "BIRTH_other": "Born {{count}} years ago",
+      "DEATH_one": "Died {{count}} year ago",
+      "DEATH_other": "Died {{count}} years ago",
+      "WEDDING_one": "Married {{count}} year ago",
+      "WEDDING_other": "Married {{count}} years ago",
+      "more_one": "and {{count}} more anniversary",
+      "more_other": "and {{count}} more anniversaries"
     }
   },
   "apiErrors": {
@@ -417,7 +457,7 @@
     "DATE_ORDER": "The end date must not be before the start date.",
     "DUPLICATE": "This relation already exists.",
     "CYCLE": "A person cannot be their own ancestor.",
-    "INVALID_LIMIT": "The size limit must be a whole number of megabytes (64 MB to 1 TB).",
+    "INVALID_LIMIT": "The size limit must be a whole number of megabytes (64 MB to 16 TB), or empty for no limit.",
     "INVALID_CATEGORY": "Invalid category.",
     "TITLE_REQUIRED": "Please enter a title.",
     "NOTE_TEXT_REQUIRED": "The note text must not be empty.",
@@ -437,8 +477,30 @@
     "NOTE_NOT_FOUND": "The note does not exist (anymore).",
     "NOTE_TOO_LONG": "A note can be at most 10,000 characters long.",
     "INVALID_GENDER": "Invalid gender.",
+    "INVALID_MARITAL_STATUS": "Invalid marital status.",
     "INVALID_DATE_PRECISION": "Invalid date precision.",
-    "PERSON_IN_TRASH": "The person is in the trash – restore them first to add files."
+    "PERSON_IN_TRASH": "The person is in the trash – restore them first to add files.",
+    "FILE_CONTENT_MISMATCH": "The file is not what its name says – e.g. no picture although it ends in “.jpg”.",
+    "IMPLAUSIBLE": "The relation looks wrong and was not saved.",
+    "ISSUE_NOT_FOUND": "This possible error does not exist any more.",
+    "NOT_ENOUGH_SPACE": "Not enough free space on the drive: about {{needed}} are needed, {{free}} are free. Free up space and try again.",
+    "SOURCE_NOT_FOUND": "The source does not exist (anymore).",
+    "SOURCE_TITLE_REQUIRED": "Please enter a title for the source.",
+    "INVALID_SOURCE_TYPE": "Unknown kind of source.",
+    "REPOSITORY_NOT_FOUND": "The archive does not exist (anymore).",
+    "REPOSITORY_NAME_REQUIRED": "Please enter a name for the archive.",
+    "CITATION_NOT_FOUND": "The citation does not exist (anymore).",
+    "INVALID_QUALITY": "The reliability must be one of the four levels.",
+    "INVALID_FACT": "Unknown fact of a person.",
+    "INVALID_CITATION_TARGET": "A citation is linked with exactly one person, event or relation at a time.",
+    "TEXT_TOO_LONG": "A text is too long: title, page and similar fields take up to 1,000 characters, transcriptions and notes up to 20,000.",
+    "SOURCE_NOT_DELETED": "Only sources in the recycle bin can be deleted permanently.",
+    "REPOSITORY_NOT_DELETED": "Only archives in the recycle bin can be deleted permanently.",
+    "INVALID_MEDIA_TARGET": "A scan belongs to one source or one citation.",
+    "MCP_DISABLED": "AI assistants are switched off.",
+    "MCP_SETTINGS_FORBIDDEN": "The settings for AI assistants can only be changed in the app.",
+    "BAD_SCOPE": "This scope of the statistics cannot be used.",
+    "BAD_FILTER": "This selection of the statistics does not exist."
   },
   "trash": {
     "title": "Trash",
@@ -452,7 +514,17 @@
     "deletedOn": "This person was deleted on {{date}} and is in the trash.",
     "deletedAt": "deleted on {{date}}",
     "personsTitle": "Persons from “{{name}}”",
-    "emptyPersons": "No deleted persons in this family tree."
+    "emptyPersons": "No deleted persons in this family tree.",
+    "library": {
+      "title": "Sources and archives",
+      "description": "They belong to all family trees. A source in the recycle bin takes its citations with it; restoring it brings them back to all facts.",
+      "sourceDetails": "Source · citations: {{citations}}, supported facts: {{links}}",
+      "repositoryDetails": "Archive · sources: {{count}}",
+      "restoreLabel": "Restore {{name}}",
+      "deleteForeverLabel": "Delete {{name}} permanently",
+      "deleteSourceConfirm": "Permanently delete the source “{{name}}”? Its citations (citations: {{citations}}) and their links to facts (facts: {{links}}) in all family trees are deleted as well, and so are scans nothing else uses. This cannot be undone.",
+      "deleteRepositoryConfirm": "Permanently delete the archive “{{name}}”? Its sources stay, without archive. This cannot be undone."
+    }
   },
   "importExport": {
     "subtitle": "Back up data, move it to another computer or exchange it with other genealogy programs",
@@ -477,12 +549,12 @@
       "title": "Import",
       "description": "ZIP export of this application or GEDCOM file (5.5.1 / 7.0, also as ZIP/GEDZIP with media). You will see what changes before importing.",
       "file": "Choose file",
-      "checking": "Checking file…",
       "fileZip": "Export from {{source}} of {{date}}",
       "fileGedcom": "{{source}} file from {{date}}",
       "counts": "{{imported}} persons in the file, {{existing}} persons present",
       "missingFiles_one": "{{count}} media file is missing in the ZIP file and will be skipped.",
       "missingFiles_other": "{{count}} media files are missing in the ZIP file and will be skipped.",
+      "cycles": "Cycle in the parent-child relations: {{names}} – someone would be their own ancestor. The import runs anyway; correct the relations by hand afterwards.",
       "backupHint": "There is existing data. Download a backup before importing so you can restore it if needed.",
       "backupButton": "Download backup",
       "backupDone": "Backup downloaded",
@@ -499,7 +571,8 @@
       "targetCurrent": "the open family tree “{{name}}”",
       "targetNew": "a new family tree",
       "treeName": "Name of the new family tree",
-      "successNewTree": "Import completed – the new family tree “{{name}}” is open."
+      "successNewTree": "Import completed – the new family tree “{{name}}” is open.",
+      "chosenFile": "Chosen file: {{name}}"
     },
     "strategies": {
       "OVERWRITE": {
@@ -525,7 +598,9 @@
       "newRelations": "New relations",
       "newEvents": "New timeline entries",
       "newNotes": "New notes",
-      "newMedia": "New media"
+      "newMedia": "New media",
+      "newSources": "New sources",
+      "newCitations": "New citations"
     },
     "conflicts": {
       "title_one": "{{count}} person with differences",
@@ -547,7 +622,7 @@
       "NO_FILE": "No file was selected.",
       "TOO_LARGE": "The file is too large (limit: {{limit}}).",
       "UNPACKED_TOO_LARGE": "The file is too large once unpacked (limit: {{limit}}).",
-      "EXPORT_TOO_LARGE": "The media of this family tree are too large for one file (about {{size}}, limit: {{limit}}). Export without media instead.",
+      "EXPORT_TOO_LARGE": "The export (about {{size}}) is larger than the limit set in the settings ({{limit}}). Raise or remove the limit, or export without media.",
       "UNSUPPORTED_FILE": "The file is neither an export of this application (ZIP) nor a GEDCOM file (.ged).",
       "INVALID_ZIP": "The ZIP file is damaged and cannot be extracted.",
       "MISSING_PERSONS_JSON": "The ZIP file contains no persons.json – is it an export of this application?",
@@ -572,9 +647,14 @@
       "SAFETY_BACKUP_FAILED": "The current state could not be saved – so nothing was restored. Is the backup folder writable?",
       "BACKUP_FAILED": "The backup failed.",
       "RESTORE_FAILED": "The restore failed. No data was changed.",
-      "MEDIA_TOO_LARGE": "A file in the import is larger than {{limit}} and cannot be taken over.",
       "DOWNLOAD_CANCELLED": "The backup was not saved – the restore was not started.",
-      "OPERATION_IN_PROGRESS": "Another import, export or backup is running. Please wait until it is finished and try again."
+      "OPERATION_IN_PROGRESS": "Another import, export or backup is running. Please wait until it is finished and try again.",
+      "NOT_ENOUGH_SPACE": "Not enough free space on the drive: about {{needed}} are needed, {{free}} are free. Free up space and try again.",
+      "UPLOAD_NOT_FOUND": "The chosen file is no longer available on the server. Please choose it again.",
+      "CANCELLED": "Cancelled. No data was changed.",
+      "FILE_SYSTEM_LIMIT": "The file (about {{size}}) is too large for the chosen drive. Drives with FAT32 (many USB sticks) take at most 4 GB per file – choose a drive with exFAT or NTFS.",
+      "DOWNLOAD_FAILED": "The file could not be saved.",
+      "JOB_NOT_FOUND": "The server no longer knows the running operation (was it restarted?). Check the data and try again."
     },
     "history": {
       "title": "Previous imports",
@@ -595,7 +675,7 @@
     }
   },
   "statistics": {
-    "subtitle": "Analyses across all recorded persons (excluding the trash)",
+    "subtitle": "Analyses of the open family tree (excluding the trash) – every number leads to the persons behind it",
     "empty": "No persons recorded yet – the analyses appear here once persons have been added.",
     "noData": "No data available.",
     "barAria": "{{label}}: {{value}} ({{share}})",
@@ -603,7 +683,9 @@
     "years_other": "{{count, number}} years",
     "kpi": {
       "persons": "Persons",
-      "gender": "{{male, number}} male · {{female, number}} female · {{unknown, number}} not specified",
+      "male": "{{count, number}} male",
+      "female": "{{count, number}} female",
+      "unknownGender": "{{count, number}} not specified",
       "relations": "Relations",
       "families": "Family groups",
       "unconnected_one": "{{count, number}} person without relations",
@@ -644,6 +726,287 @@
       "persons": "Persons",
       "births": "Years of birth",
       "footnote": "{{families, number}} family groups, {{unconnected, number}} persons without relations (each in generation 1)."
+    },
+    "sources": {
+      "title": "Sources",
+      "description": "Sources used: {{sources}}, citations: {{citations}}. Persons with at least one citation: {{cited}} of {{persons}} ({{share}}).",
+      "mostCited": "Most cited sources (supported facts)",
+      "empty": "No fact of this family tree has a citation yet.",
+      "wholeTree": "The sources always refer to the whole family tree, not only to the chosen scope."
+    },
+    "tabs": {
+      "label": "Areas of the statistics",
+      "overview": "Overview",
+      "lives": "Lives",
+      "names": "Names & places",
+      "ancestors": "Ancestors",
+      "sources": "Sources"
+    },
+    "scope": {
+      "label": "Scope",
+      "kind": {
+        "all": "Whole family tree",
+        "ancestors": "Ancestors of a person",
+        "descendants": "Descendants of a person",
+        "surname": "Last name"
+      },
+      "person": "Person",
+      "choosePerson": "Choose a person",
+      "surname": "Last name",
+      "born": {
+        "label": "Born",
+        "fromLabel": "from (year)",
+        "toLabel": "to (year)",
+        "range": "born {{from}}–{{to}}",
+        "from": "born from {{from}}",
+        "to": "born until {{to}}"
+      },
+      "apply": "Apply",
+      "reset": "Reset",
+      "invalid": "This scope does not fit the open family tree – perhaps the person is not (or no longer) in it.",
+      "empty": "There are no persons in this scope.",
+      "summary_one": "{{scope}}: {{count, number}} person",
+      "summary_other": "{{scope}}: {{count, number}} persons",
+      "of": {
+        "all": "Whole family tree",
+        "ancestors": "Ancestors of {{name}}",
+        "descendants": "Descendants of {{name}}",
+        "surname": "Last name {{name}}"
+      }
+    },
+    "filter": {
+      "from": "From the statistics:",
+      "back": "Back to the statistics",
+      "clear": "Remove filter",
+      "empty": "No persons in this selection.",
+      "all": "All persons",
+      "gender": "Gender: {{gender}}",
+      "deceased": "Deceased",
+      "living": "Without death details",
+      "lifespan": "Deceased, with year of birth and death",
+      "livingAge": "Living, age {{ages}}",
+      "deathAge": "Deceased at the age of {{ages}}",
+      "withoutAge": "Without year of birth or death",
+      "probablyDeceased": "Probably deceased, without date of death",
+      "surname": "Last name: {{value}}",
+      "birthplace": "Place of birth: {{value}}",
+      "generation": "Generation {{value}}",
+      "family": "In a family group",
+      "unconnected": "Without relations",
+      "missing": "Missing: {{fact}}",
+      "ancestors": "Ancestors of {{name}}, generation {{generation}}",
+      "openEnds": "Open ends among the ancestors of {{name}}, generation {{generation}}",
+      "bornDecade": "Born {{decades}}",
+      "diedDecade": "Died {{decades}}",
+      "marriedDecade": "Married {{decades}}",
+      "noBirthYear": "Without year of birth",
+      "noDeathYear": "Deceased, without year of death",
+      "lives": "{{measure}} – {{gender}}, {{centuries}}",
+      "children": "Couples with common children: {{number}}",
+      "ageGap": "Couples: {{gap}}",
+      "firstName": "First name {{name}} – {{gender}}{{centuries}}",
+      "stayed": {
+        "yes": "Died at the place of birth",
+        "no": "Died elsewhere than the place of birth"
+      },
+      "move": "Path {{from}} → {{to}}",
+      "place": "Place: {{value}}"
+    },
+    "completeness": {
+      "title": "What is still missing?",
+      "description": "Share of the persons for whom a fact is recorded – a click on the missing ones shows for whom it is still missing.",
+      "score": "Research status (mean of the rows)",
+      "fact": "Fact",
+      "present": "Recorded",
+      "missing": "Missing",
+      "missingCount_one": "{{count, number}} missing",
+      "missingCount_other": "{{count, number}} missing",
+      "facts": {
+        "birthDate": "Date of birth",
+        "birthPlace": "Place of birth",
+        "deathDate": "Date of death (deceased)",
+        "deathPlace": "Place of death (deceased)",
+        "father": "Father known",
+        "mother": "Mother known",
+        "partner": "Partner (deceased from 18)",
+        "photo": "Photo or file",
+        "source": "At least one source"
+      }
+    },
+    "ancestors": {
+      "title": "Ancestors",
+      "description": "Ancestors found per generation compared with the possible ones (2, 4, 8 …). Every place in the pedigree counts – a person in two places counts twice.",
+      "of": "Ancestors of",
+      "homePerson": "home person",
+      "otherPerson": "Other person",
+      "makeHome": "Make home person",
+      "noHome": "No home person set yet – shown is the person with the most ancestors.",
+      "possible": "Possible",
+      "found": "Found",
+      "repeated": "Repeated",
+      "openEnds": "Open ends",
+      "collapse": "Pedigree collapse {{share}}: {{repeated, number}} of {{found, number}} places are taken by persons who already appear in another place.",
+      "names": {
+        "1": "Person",
+        "2": "Parents",
+        "3": "Grandparents",
+        "4": "Great-grandparents",
+        "5": "Great-great-grandparents"
+      }
+    },
+    "timeline": {
+      "title": "Time axis",
+      "description": "Per decade; empty decades stay, so gaps show. Weddings: the start of a marriage or the life event “wedding”.",
+      "measure": "Show",
+      "chart": "Time axis: {{measure}} per decade",
+      "bar": "{{decades}} – {{measure}}: {{count, number}}",
+      "without": "Without a year:",
+      "withoutBirths_one": "{{count, number}} birth",
+      "withoutBirths_other": "{{count, number}} births",
+      "withoutDeaths_one": "{{count, number}} death",
+      "withoutDeaths_other": "{{count, number}} deaths",
+      "measures": {
+        "births": "Births",
+        "deaths": "Deaths",
+        "weddings": "Weddings"
+      }
+    },
+    "lives": {
+      "title": "Lives through time",
+      "measure": "Figure",
+      "measures": {
+        "lifespan": "Lifespan",
+        "adultLifespan": "Lifespan from 15",
+        "firstWedding": "Age at first wedding",
+        "firstChild": "Age at first child"
+      },
+      "hints": {
+        "lifespan": "Mean age at death, by century of birth.",
+        "adultLifespan": "Like the lifespan, but only of those who reached 15 – so child mortality does not hide adult life.",
+        "firstWedding": "Mean age at the first wedding (start of a marriage or the life event “wedding”).",
+        "firstChild": "Mean age at the birth of the first child."
+      },
+      "footnote": "In brackets the number of persons; a mean of fewer than 5 persons is not shown.",
+      "century": "Born",
+      "allCenturies": "All centuries",
+      "genders": {
+        "male": "Men",
+        "female": "Women",
+        "all": "All"
+      },
+      "children": {
+        "title": "Children per couple",
+        "description": "Couples – partners or common parents – by the number of their common children; {{mean}} on average."
+      },
+      "ageGap": {
+        "title": "Age gap of partners",
+        "manOlderMean": "Couples of a man and a woman with both years of birth; on average the man is {{years}} years older.",
+        "womanOlderMean": "Couples of a man and a woman with both years of birth; on average the woman is {{years}} years older.",
+        "manOlder": "Man older",
+        "sameAge": "Same age (±1 year)",
+        "womanOlder": "Woman older"
+      },
+      "couples": "Couples"
+    },
+    "firstNames": {
+      "title": "First names",
+      "description": "Every given name counts – “Johann Georg” for Johann and for Georg; spellings are grouped.",
+      "male": "Most common first names – men",
+      "female": "Most common first names – women",
+      "fashion": "Fashion of names per century"
+    },
+    "migration": {
+      "title": "Migration",
+      "description": "Paths from the place of birth through moves to the place of death, in the order of time; places with all facts that happen there.",
+      "stayedIntro": "{{share}} of the deceased with places of birth and death died where they were born:",
+      "moves": "Most common paths",
+      "places": "Places",
+      "place": "Place",
+      "years": "Period",
+      "stayed_one": "{{count, number}} at the place of birth",
+      "stayed_other": "{{count, number}} at the place of birth",
+      "moved_one": "{{count, number}} elsewhere",
+      "moved_other": "{{count, number}} elsewhere",
+      "morePlaces_one": "… and {{count, number}} more place",
+      "morePlaces_other": "… and {{count, number}} more places"
+    },
+    "records": {
+      "title": "Records",
+      "description": "Deceased persons only. A record that is also a possible error is marked – often a typing error is behind it.",
+      "possibleError": "possible error",
+      "ties_one": "and {{count, number}} more",
+      "ties_other": "and {{count, number}} more",
+      "kinds": {
+        "longestLife": "Longest life",
+        "longestMarriage": "Longest marriage",
+        "mostChildren": "Most children",
+        "mostCommonChildren": "Most common children of a couple",
+        "mostPartners": "Most partners",
+        "mostDescendants": "Most descendants",
+        "youngestMother": "Youngest mother",
+        "oldestMother": "Oldest mother",
+        "youngestFather": "Youngest father",
+        "oldestFather": "Oldest father",
+        "largestAgeGap": "Largest age gap of a couple"
+      }
+    },
+    "print": "Print or save as PDF",
+    "csv": {
+      "copy": "Copy as CSV",
+      "copied": "Copied",
+      "failed": "Copying failed"
+    }
+  },
+  "plausibility": {
+    "title": "Possible errors",
+    "intro": "Facts that are allowed but rarely true – often a typing error. Correct them at the person, or mark them as right if they are.",
+    "none": "No possible errors found.",
+    "allChecked": "All possible errors are marked as right.",
+    "showChecked": "Also show those marked as right ({{count}})",
+    "markRight": "Is right",
+    "showAgain": "Show again",
+    "confirmSave": "This relation looks wrong:\n\n{{issues}}\n\nSave it anyway?",
+    "groups": {
+      "relations": "Relations",
+      "dates": "Dates of life and events",
+      "duplicates": "Duplicates and cycles"
+    },
+    "roles": {
+      "MOTHER": "mother",
+      "FATHER": "father",
+      "HUSBAND": "husband",
+      "WIFE": "wife"
+    },
+    "genders": {
+      "MALE": "male",
+      "FEMALE": "female"
+    },
+    "kinship": {
+      "PARENT": "parent and child",
+      "ANCESTOR": "ancestor and descendant",
+      "SIBLING": "siblings"
+    },
+    "issues": {
+      "ROLE_GENDER": "{{a}} is entered as {{role}} of {{b}} but is {{gender}}.",
+      "PARTNER_IS_RELATIVE": "{{a}} and {{b}} are partners but also {{kinship}}.",
+      "TOO_MANY_PARENTS": "{{a}} has {{count}} parents.",
+      "CHILD_BORN_BEFORE_PARENT": "{{b}} was born before the parent {{a}}.",
+      "PARENT_TOO_YOUNG": "{{a}} was only {{age}} years old at the birth of {{b}}.",
+      "PARENT_TOO_YOUNG_inexact": "{{a}} was at most {{age}} years old at the birth of {{b}}.",
+      "MOTHER_TOO_OLD": "{{a}} was {{age}} years old at the birth of {{b}}.",
+      "MOTHER_TOO_OLD_inexact": "{{a}} was at least {{age}} years old at the birth of {{b}}.",
+      "PARENT_DIED_BEFORE_BIRTH": "{{a}} died before the birth of {{b}}.",
+      "PARTNERSHIP_BEFORE_BIRTH": "The partnership of {{a}} and {{b}} begins before {{a}} was born.",
+      "PARTNERSHIP_AFTER_DEATH": "The partnership of {{a}} and {{b}} begins after {{a}} died.",
+      "DEATH_BEFORE_BIRTH": "{{a}} died before being born.",
+      "LIFESPAN_TOO_LONG": "{{a}} lived {{age}} years.",
+      "LIFESPAN_TOO_LONG_inexact": "{{a}} lived at least {{age}} years.",
+      "LIVING_TOO_OLD": "{{a}} would be {{age}} years old today – is the date of death missing?",
+      "LIVING_TOO_OLD_inexact": "{{a}} would be at least {{age}} years old today – is the date of death missing?",
+      "EVENT_BEFORE_BIRTH": "“{{event}}” of {{a}} lies before the birth.",
+      "EVENT_AFTER_DEATH": "“{{event}}” of {{a}} lies after the death.",
+      "POSSIBLE_DUPLICATE": "{{a}} and {{b}} could be the same person.",
+      "ANCESTOR_CYCLE": "{{names}} are their own ancestors."
     }
   },
   "search": {
@@ -677,14 +1040,14 @@
     },
     "limits": {
       "title": "Size limits",
-      "hint": "Largest file for export and import and for backup and restore. These are processed in memory, so the default of 2 GB suits most computers. Raise it only on a computer with plenty of free memory.",
+      "hint": "Optional upper limits for the files of export and import and of backup and restore. Files are read and written piece by piece, so by default there is no limit – only the free space on the drive counts. Leave a field empty for no limit.",
       "import": "Largest export and import file",
       "backup": "Largest backup file",
       "unit": "GB",
       "save": "Save",
-      "reset": "Restore default",
+      "reset": "Remove limits",
       "saved": "Saved. The new limits apply at once.",
-      "memoryWarning": "Above 4 GB: exporting, importing or restoring needs at least twice the file size as free memory (RAM). With less, the app can become very slow or stop."
+      "none": "No limit"
     },
     "backup": {
       "title": "Backup",
@@ -702,13 +1065,12 @@
       "downloaded": "Saved as {{file}}.",
       "missingMedia_one": "{{count}} media file was missing on the server and is not included.",
       "missingMedia_other": "{{count}} media files were missing on the server and are not included.",
-      "overLimit": "The backup (about {{size}}) is larger than the limit of {{limit}}: it is saved, but this app cannot restore it. Also save single family trees via “Import/Export”.",
+      "overLimit": "The backup (about {{size}}) is larger than the limit of {{limit}} set under “Size limits”: it is saved, but can only be restored after raising or removing the limit.",
       "singleTreeHint": "Export or import a single family tree:",
       "restore": {
         "title": "Restore backup",
         "intro": "Choose a backup file (cognatio_backup_….zip). It is checked first – nothing is changed yet.",
         "file": "Backup file",
-        "checking": "Checking file …",
         "backupFrom": "Backup from {{date}} (version {{version}})",
         "compare": "Current data and backup contents",
         "current": "Now",
@@ -720,11 +1082,14 @@
           "events": "Life events",
           "notes": "Notes",
           "media": "Media",
-          "trash": "In recycle bin"
+          "trash": "In recycle bin",
+          "sources": "Sources",
+          "citations": "Citations"
         },
         "trees": "Family trees in the backup (persons):",
         "missingFiles_one": "{{count}} media file is missing in the backup – the entry is kept, the file is not.",
         "missingFiles_other": "{{count}} media files are missing in the backup – the entries are kept, the files are not.",
+        "cycleTrees": "In {{trees}} someone is their own ancestor (cycle in the parent-child relations). The backup is still restored unchanged; the relations can be corrected afterwards.",
         "warning": "All current data will be deleted – all family trees, persons, media, the recycle bin and the import history – and replaced by the backup.",
         "autoBackup": "Before that, the current state is saved automatically in the backup folder on the server; the last three of these backups are kept.",
         "downloadFirst": "Also download the current state",
@@ -732,10 +1097,10 @@
         "typeToConfirm": "Type “{{word}}” to confirm",
         "submit": "Restore",
         "downloading": "Downloading the current state …",
-        "restoring": "Restoring … Please do not close the page.",
         "done_one": "The backup was restored: {{trees}} family tree(s), {{count}} person.",
         "done_other": "The backup was restored: {{trees}} family tree(s), {{count}} persons.",
-        "safetyBackup": "The previous state was saved as {{file}} (folder {{dir}}). This file can be used to undo the restore."
+        "safetyBackup": "The previous state was saved as {{file}} (folder {{dir}}). This file can be used to undo the restore.",
+        "largeSafetyBackup": "The current data is large ({{size}} of media): the complete backup of the current state, which is written first, needs about as much free space and takes a while."
       }
     },
     "system": {
@@ -847,7 +1212,8 @@
       "treeBehaviour": "Family tree: behaviour",
       "data": "Data and backup",
       "expandAll": "Expand all",
-      "collapseAll": "Collapse all"
+      "collapseAll": "Collapse all",
+      "mcp": "AI assistants (MCP)"
     },
     "logs": {
       "view": "Show logs",
@@ -864,7 +1230,8 @@
       "exportPartial": "The server log could not be included, the file contains only the browser log.",
       "clear": "Clear logs",
       "confirmClear": "Delete all logs of the server and of this browser? This cannot be undone.",
-      "cleared": "Logs deleted."
+      "cleared": "Logs deleted.",
+      "mcpOnly": "Only AI assistants (MCP)"
     },
     "search": {
       "label": "Search settings",
@@ -886,6 +1253,109 @@
       "channelBeta": "Also test versions (beta)",
       "betaHint": "Test versions come before the release and can contain errors. Cognatio saves your data before every update, but a database that a test version has changed cannot be used by an earlier version. Going back to released versions only takes effect with the next release.",
       "error": "The update check failed: {{message}}"
+    },
+    "mcp": {
+      "intro": "AI assistants such as Claude can work with your family trees through the Model Context Protocol (MCP): look up persons, answer questions and – if you allow it – enter data. They connect to this computer only.",
+      "enable": "Allow AI assistants",
+      "privacy": "What the assistant reads goes to the provider of the AI model you use (for Claude: Anthropic).",
+      "summary": {
+        "off": "Off",
+        "nothing": "On – nothing allowed",
+        "readOnly": "On – read only",
+        "readWrite": "On – read and write",
+        "withDelete": "On – deleting allowed as well",
+        "everything": "On – everything allowed"
+      },
+      "portChanged": "The app had to use another port at this start. Assistants set up before need the new address below.",
+      "connect": "Connect an assistant",
+      "address": "Address",
+      "token": "Token",
+      "tokenOnce": "The token is shown only now. Copy it into your assistant; Cognatio keeps only a fingerprint of it.",
+      "tokenHidden": "The token was shown when it was created and is not stored. If you no longer have it, create a new one – the old one then stops working.",
+      "renew": "New token",
+      "claudeCode": "Command for Claude Code",
+      "json": "Configuration file of other programs (mcpServers)",
+      "copy": "Copy {{what}}",
+      "copyShort": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Copying is not possible here. The text is selected – press Ctrl+C to copy it.",
+      "permissions": "What assistants may do",
+      "permissionsHint": "Set per area; a change applies at once. The settings for AI assistants can never be changed by an assistant.",
+      "noAccess": "No access.",
+      "areas": {
+        "persons": {
+          "name": "Persons, life events, notes, relations",
+          "read": "Look up and search persons, families, ancestors and descendants.",
+          "write": "Also create and change; move persons and relations into the recycle bin.",
+          "delete": "Also delete life events and notes for good."
+        },
+        "sources": {
+          "name": "Sources and citations",
+          "read": "Look up and search sources, archives and citations.",
+          "write": "Also create, change, cite and move into the recycle bin.",
+          "delete": "Also delete citations for good."
+        },
+        "media": {
+          "name": "Media",
+          "read": "Names and details of the files.",
+          "write": "Also add files of this computer and set profile pictures.",
+          "delete": "Also delete files for good."
+        },
+        "familyTrees": {
+          "name": "Family trees",
+          "read": "List the family trees.",
+          "write": "Also create, rename and move into the recycle bin.",
+          "delete": "Also delete family trees in the recycle bin for good (with “Recycle bin: Delete”)."
+        },
+        "recycleBin": {
+          "name": "Recycle bin",
+          "read": "See what is in the recycle bin.",
+          "write": "Also restore.",
+          "delete": "Also delete for good."
+        },
+        "transfer": {
+          "name": "Import and export",
+          "read": "Import history; export into a folder of this computer.",
+          "write": "Also import a file as a new family tree or merged into one.",
+          "delete": "Also import with “overwrite”, which replaces the persons of a family tree."
+        },
+        "backup": {
+          "name": "Backup",
+          "read": "List the backups.",
+          "write": "Also create a backup.",
+          "delete": "Also restore a backup – it replaces all data."
+        },
+        "settings": {
+          "name": "Settings",
+          "read": "Read size limits, log level and the state of the app.",
+          "write": "Also change size limits and log level."
+        },
+        "statistics": {
+          "name": "Statistics and log",
+          "read": "Numbers of a family tree and the log of the app."
+        }
+      },
+      "trees": "Family trees for assistants",
+      "treesHint": "Assistants see only the ticked family trees. New family trees are visible.",
+      "allTrees": "All family trees",
+      "warning": {
+        "write": {
+          "title": "Allow changes in “{{area}}”?",
+          "text": "The assistant can then change your data on its own, without asking you first. You can undo changes in the app; what it deletes goes into the recycle bin."
+        },
+        "delete": {
+          "title": "Allow deleting in “{{area}}”?",
+          "text": "The assistant can then delete data for good or replace all data. This cannot be undone. Allow it only if you trust the assistant and have a current backup."
+        },
+        "confirm": "Allow"
+      },
+      "area": "Area",
+      "allAreas": "All areas",
+      "columns": {
+        "read": "Read",
+        "write": "Write",
+        "delete": "Delete"
+      }
     }
   },
   "familyTrees": {
@@ -951,5 +1421,362 @@
     "title": "Something went wrong",
     "text": "This page could not be shown. Reloading usually helps; saved data is not affected. Details are in the log (Settings → System).",
     "reload": "Reload"
+  },
+  "transferProgress": {
+    "phases": {
+      "upload": "Uploading file",
+      "waiting": "Waiting for the running operation (e.g. a download) to finish",
+      "check": "Checking file",
+      "safetyBackup": "Saving the current state",
+      "media": "Copying media",
+      "database": "Saving the data – please do not close the app",
+      "download": "Downloading"
+    },
+    "bytes": "{{done}} of {{total}}",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling …"
+  },
+  "activity": {
+    "subtitle": "Long operations of this session: uploads, checks, import, restore, export and backup. They go on when you open another page. Finished ones stay listed until you remove them or close the app.",
+    "empty": "No operations in this session yet.",
+    "running": "Running",
+    "finished": "Finished",
+    "clearFinished": "Remove finished",
+    "open": "Go to page",
+    "show": "Show",
+    "remove": "Remove {{title}}",
+    "cancelled": "Cancelled, no data was changed.",
+    "title": "{{kind}}: {{label}}",
+    "kinds": {
+      "importCheck": "Check import file",
+      "import": "Import",
+      "restoreCheck": "Check backup",
+      "restore": "Restore",
+      "export": "Export",
+      "backup": "Backup",
+      "media": "Upload medium",
+      "mcp": "AI assistant"
+    },
+    "results": {
+      "importCheck": "Persons in the file: {{persons}} – the preview is on the import page.",
+      "import": "New: {{created}}, updated: {{updated}}, removed: {{removed}}.",
+      "restoreCheck": "Persons in the backup: {{persons}} – compare them in the dialog.",
+      "restore": "Restored – family trees: {{trees}}, persons: {{persons}}.",
+      "export": "Saved as {{file}} ({{size}}).",
+      "backup": "Saved as {{file}} ({{size}}).",
+      "media": "Uploaded ({{size}}).",
+      "mcp": "{{client}}: {{action}}.",
+      "mcpFailed": "{{client}}: {{action}} – refused ({{reason}})."
+    },
+    "states": {
+      "done": "Finished",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "notice": {
+      "done": "{{title}} is finished.",
+      "failed": "{{title}} has failed.",
+      "cancelled": "{{title}} was cancelled."
+    },
+    "missingMedia_one": "{{count}} media file was missing.",
+    "missingMedia_other": "{{count}} media files were missing.",
+    "mcpClient": "AI assistant",
+    "mcpTools": {
+      "create_person": "created a person",
+      "update_person": "changed a person",
+      "add_event": "added a life event",
+      "update_event": "changed a life event",
+      "delete_event": "deleted a life event",
+      "add_note": "added a note",
+      "update_note": "changed a note",
+      "delete_note": "deleted a note",
+      "create_relation": "created a relation",
+      "update_relation": "changed a relation",
+      "move_to_recycle_bin": "moved into the recycle bin",
+      "create_repository": "created an archive",
+      "update_repository": "changed an archive",
+      "create_source": "created a source",
+      "update_source": "changed a source",
+      "add_citation": "added a citation",
+      "update_citation": "changed a citation",
+      "link_citation": "linked a citation",
+      "unlink_citation": "removed a link of a citation",
+      "delete_citation": "deleted a citation",
+      "move_source_to_recycle_bin": "moved a source into the recycle bin",
+      "add_media": "added a file",
+      "set_profile_picture": "set the profile picture",
+      "remove_media": "deleted a file",
+      "create_family_tree": "created a family tree",
+      "rename_family_tree": "renamed a family tree",
+      "delete_family_tree": "moved a family tree into the recycle bin",
+      "restore_from_recycle_bin": "restored from the recycle bin",
+      "delete_for_good": "deleted for good",
+      "import_file": "started an import",
+      "restore_backup": "started a restore",
+      "set_settings": "changed the settings"
+    },
+    "mcpReasons": {
+      "NOT_ALLOWED": "not allowed",
+      "BAD_INPUT": "invalid input",
+      "INTERNAL_ERROR": "error in the app",
+      "PERSON_NOT_FOUND": "person not found",
+      "TREE_NOT_FOUND": "family tree not found",
+      "PATH_NOT_ALLOWED": "folder not allowed",
+      "FILE_NOT_FOUND": "file not found"
+    }
+  },
+  "sources": {
+    "title": "Sources",
+    "subtitle": "Where the facts come from: church books, registers, letters, websites … One library for all family trees; a citation names the page or entry and supports any number of facts.",
+    "areas": "Areas of the sources",
+    "area": {
+      "sources": "Sources",
+      "repositories": "Archives"
+    },
+    "types": {
+      "CHURCH_BOOK": "Church book",
+      "CIVIL_REGISTER": "Civil register",
+      "CENSUS": "Census",
+      "NEWSPAPER": "Newspaper",
+      "BOOK": "Book",
+      "LETTER": "Letter",
+      "GRAVESTONE": "Gravestone",
+      "WEBSITE": "Website",
+      "INTERVIEW": "Interview",
+      "DOCUMENT": "Document",
+      "OTHER": "Other"
+    },
+    "facts": {
+      "GENERAL": "Person as a whole",
+      "NAME": "Name",
+      "BIRTH": "Birth",
+      "DEATH": "Death"
+    },
+    "quality": {
+      "none": "Not rated",
+      "3": "Primary source – the original entry",
+      "2": "Secondary source – written down later",
+      "1": "Questionable – e.g. oral tradition",
+      "0": "Unreliable or estimated",
+      "hint": "How reliable the entry is for the fact (the levels of GEDCOM).",
+      "short": {
+        "3": "primary",
+        "2": "secondary",
+        "1": "questionable",
+        "0": "unreliable"
+      }
+    },
+    "fields": {
+      "type": "Kind",
+      "title": "Title",
+      "titlePlaceholder": "e.g. Church book St. Martin, baptisms 1820–1850",
+      "titleRequired": "Please enter a title.",
+      "author": "Author or creator",
+      "abbreviation": "Short title",
+      "publication": "Publication",
+      "publicationPlaceholder": "Publisher, place, year – or the web address",
+      "repository": "Archive",
+      "noRepository": "No archive",
+      "newRepository": "New archive…",
+      "newRepositoryName": "Name of the new archive",
+      "newRepositoryPlaceholder": "e.g. Registry office Musterstadt",
+      "newRepositoryRequired": "Please enter the name of the new archive.",
+      "repositoryInTrash": "(archive in the recycle bin)",
+      "callNumber": "Call number",
+      "text": "Transcription",
+      "note": "Note"
+    },
+    "form": {
+      "createTitle": "New source",
+      "editTitle": "Edit source"
+    },
+    "list": {
+      "filter": "Filter the sources…",
+      "allTypes": "All kinds",
+      "scope": "Which sources",
+      "thisTree": "This family tree",
+      "allTrees": "All family trees",
+      "new": "New source",
+      "empty": "This family tree has no sources yet. Create one here, or cite one on the page of a person (tab “Sources”).",
+      "emptyAll": "The library has no sources yet.",
+      "noMatches": "No source matches the filter.",
+      "citations": "Citations: {{count}}",
+      "unused": "not used",
+      "otherTrees": "also other family trees"
+    },
+    "detail": {
+      "notFound": "The source does not exist (anymore).",
+      "edit": "Edit",
+      "deleteConfirm": "Move the source “{{title}}” to the recycle bin? Its citations (citations: {{citations}}) disappear from all facts they support (facts: {{links}}), also in other family trees, until it is restored.",
+      "citations": "Citations",
+      "newCitation": "New citation",
+      "noCitations": "No citations yet. A citation names the page or entry and the facts it supports.",
+      "supports": "Supports",
+      "unused": "Not linked with any fact yet.",
+      "inTrash": "in the recycle bin",
+      "supportsCount": "Facts: {{facts}} · Persons: {{persons}}",
+      "otherTree": "Belongs to the family tree “{{name}}”",
+      "factsOf": "Supported facts of {{name}}",
+      "unlink": "Unlink “{{fact}}” of {{name}}",
+      "unlinkConfirm": "No longer link “{{fact}}” of {{name}} with this citation?",
+      "showMore": "Show more persons ({{count}})",
+      "showLess": "Show less",
+      "linkFacts": "Link facts with {{entry}}",
+      "editCitation": "Edit {{entry}}",
+      "deleteCitation": "Delete {{entry}}",
+      "deleteCitationConfirm": "Delete this citation for good? It is removed from all facts it supports (facts: {{count}}), also in other family trees."
+    },
+    "citation": {
+      "page": "Page or entry",
+      "pagePlaceholder": "e.g. p. 12, no. 117, folio 3r",
+      "date": "Date of the entry",
+      "quality": "Reliability",
+      "text": "Transcription",
+      "textPlaceholder": "The entry word for word",
+      "note": "Note",
+      "createTitle": "New citation",
+      "editTitle": "Edit citation",
+      "withoutPage": "Citation without page",
+      "supports": "Supported facts: {{count}}"
+    },
+    "cite": {
+      "title": "Cite a source",
+      "fact": "Fact",
+      "source": "Source",
+      "searchSource": "Search the sources…",
+      "newSource": "New source…",
+      "more": "Further hits: {{count}} – narrow the search.",
+      "entry": "Citation",
+      "newEntry": "New citation",
+      "chooseSource": "Please choose a source or create a new one.",
+      "save": "Cite"
+    },
+    "linkFacts": {
+      "title": "Link facts",
+      "intro": "Choose a person of the open family tree and tick the facts the citation supports – one person after the other, e.g. groom, bride, parents and witnesses of a marriage entry.",
+      "choosePerson": "Person",
+      "factsOf": "Facts of {{name}}",
+      "already": "linked already",
+      "link": "Link ({{count}})",
+      "linked": "Linked: {{names}}",
+      "otherPerson": "Choose another person"
+    },
+    "person": {
+      "title": "Sources",
+      "cite": "Cite source",
+      "citeFor": "Cite a source for {{fact}}",
+      "intro": "Citations of the person, of their life events and of their relations. The book next to a fact shows how many citations it has.",
+      "empty": "No citations yet. “Cite source” links a source with a fact of the person.",
+      "unlink": "Remove the citation of {{source}}",
+      "unlinkConfirm": "Remove the citation of “{{source}}” from {{fact}}? The citation stays in the source."
+    },
+    "mark": {
+      "label": "{{fact}} – citations: {{count}}"
+    },
+    "repositories": {
+      "new": "New archive",
+      "empty": "No archives yet. An archive (registry office, church records office, library, website) keeps sources; it is entered once and chosen for every source.",
+      "createTitle": "New archive",
+      "editTitle": "Edit archive",
+      "nameRequired": "Please enter a name.",
+      "fields": {
+        "name": "Name",
+        "address": "Address",
+        "url": "Web address",
+        "email": "E-mail",
+        "phone": "Phone",
+        "note": "Note"
+      },
+      "sources": "Sources: {{count}}",
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}",
+      "deleteConfirm": "Move the archive “{{name}}” to the recycle bin? Its sources stay (sources: {{count}}) and show no archive until it is restored."
+    },
+    "scans": {
+      "title": "Scans",
+      "ofSource": "Scans of the source",
+      "ofCitation": "Scans of {{entry}}",
+      "add": "Add scan",
+      "remove": "Remove {{name}}",
+      "removeConfirm": "Remove “{{name}}” here? The file is deleted once nothing else uses it."
+    },
+    "search": {
+      "title": "Found in sources: {{count}}"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "intro": "Print the data of the family tree or save it as a PDF – a sheet per person or family, ancestor and descendant lists.",
+    "report": "Report",
+    "start": "Starting person",
+    "choosePerson": "Choose a person…",
+    "choosePersonHint": "Choose a starting person for the report.",
+    "allPersons": "All persons",
+    "generations": "Generations",
+    "allGenerations": "All ({{max}})",
+    "contents": "Contents",
+    "options": {
+      "photos": "Photos",
+      "notes": "Notes",
+      "sources": "Sources",
+      "contact": "Contact data",
+      "hideLiving": "Living persons only with name and year of birth"
+    },
+    "paper": "Paper",
+    "papers": {
+      "AUTO": "Automatic",
+      "A4": "A4",
+      "LETTER": "Letter"
+    },
+    "print": "Print",
+    "savePdf": "Save as PDF",
+    "pdfHint": "In the print dialog choose “Save as PDF” as the printer.",
+    "printFailed": "The report could not be printed.",
+    "empty": "The family tree has no persons yet.",
+    "types": {
+      "person": "Person sheet",
+      "family": "Family sheet",
+      "ancestors": "Ancestor list",
+      "descendants": "Descendant list",
+      "statistics": "Statistics"
+    },
+    "born": "Born",
+    "died": "Died",
+    "age": "Age",
+    "ageAtDeath": "Age at death",
+    "years_one": "{{count}} year",
+    "years_other": "{{count}} years",
+    "bornIn": "Born in {{year}}",
+    "livingHidden": "Details of living persons are not shown.",
+    "nameAndPerson": "Sources on the name and the person",
+    "family": "Family",
+    "father": "Father",
+    "mother": "Mother",
+    "partner": "Partner",
+    "children": "Children",
+    "siblings": "Siblings",
+    "marriedOn": "married on {{date}}",
+    "events": "Life events",
+    "notes": "Notes",
+    "photos": "Photos",
+    "sources": "Sources",
+    "citationPage": "p. {{page}}",
+    "wedding": "Wedding",
+    "unknown": "unknown",
+    "until": "until {{date}}",
+    "noChildren": "No children recorded.",
+    "name": "Name",
+    "generationNames": {
+      "1": "Starting person",
+      "2": "Parents",
+      "3": "Grandparents",
+      "4": "Great-grandparents",
+      "5": "Great-great-grandparents"
+    },
+    "generation": "Generation {{number}}",
+    "see": "see {{number}}",
+    "noAncestors": "No parents recorded.",
+    "noDescendants": "No children recorded.",
+    "footer": "Created with Cognatio on {{date}}"
   }
 }

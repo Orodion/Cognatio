@@ -4,11 +4,13 @@ import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { MemoryRouter } from 'react-router-dom';
 import { GET_PERSONS } from '@/features/persons/graphql/personQueries';
 import { makePerson } from '@/test/fixtures';
+import { ANNIVERSARY_RELATIONS } from '../../graphql/dashboardQueries';
 import { DashboardPage } from '../DashboardPage';
 
-function setup(persons: Array<ReturnType<typeof makePerson>>) {
+function setup(persons: Array<ReturnType<typeof makePerson>>, relations: unknown[] = []) {
   const mocks: MockedResponse[] = [
     { request: { query: GET_PERSONS, variables: { includeDeleted: false } }, result: { data: { getPersons: persons } }, maxUsageCount: Infinity },
+    { request: { query: ANNIVERSARY_RELATIONS }, result: { data: { getRelations: relations } }, maxUsageCount: Infinity },
   ];
   render(
     <MockedProvider mocks={mocks}>
@@ -55,5 +57,46 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: /dashboard.openPersonList/ })).toHaveAttribute('href', '/persons');
     fireEvent.click(screen.getByRole('button', { name: /persons.newPerson/ }));
     expect(screen.getByRole('dialog')).toHaveTextContent('form.createTitle');
+  });
+
+  it('lists the anniversaries of the coming days with links to the persons', async () => {
+    const inDays = (days: number, year: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${year}`;
+    };
+    const wedding = new Date();
+    wedding.setDate(wedding.getDate() + 3);
+    setup(
+      [
+        makePerson({ id: 'kind', firstName: 'Kind', birthDate: inDays(1, 2000) }),
+        makePerson({ id: 'oma', firstName: 'Oma', birthDate: '1900', deathDate: inDays(0, 1990) }),
+        makePerson({ id: 'mann', firstName: 'Mann' }),
+      ],
+      [
+        {
+          __typename: 'Relation',
+          id: 'r',
+          personAId: 'kind',
+          personBId: 'mann',
+          type: 'HUSBAND',
+          active: true,
+          startDate: new Date(Date.UTC(2020, wedding.getMonth(), wedding.getDate())).toISOString(),
+        },
+      ],
+    );
+    expect(await screen.findByText('dashboard.anniversaries.DEATH')).toBeInTheDocument();
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringMatching(/^Oma Muster.*dashboard.anniversaries.DEATH.*dashboard.anniversaries.today/),
+      expect.stringMatching(/^Kind Muster.*dashboard.anniversaries.BIRTHDAY.*dashboard.anniversaries.tomorrow/),
+      expect.stringMatching(/^Kind Muster & Mann Muster.*dashboard.anniversaries.WEDDING.*dashboard.anniversaries.inDays/),
+    ]);
+    expect(screen.getByRole('link', { name: 'Mann Muster' })).toHaveAttribute('href', '/persons/mann');
+  });
+
+  it('says when there are no anniversaries', async () => {
+    setup([makePerson({ id: 'a', birthDate: 'um 1900' })]);
+    expect(await screen.findByText('dashboard.anniversaries.none')).toBeInTheDocument();
   });
 });

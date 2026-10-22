@@ -71,6 +71,12 @@ describe('errorSummary', () => {
     assert.equal(errorSummary(stderr), 'Server could not be started: ENOTDIR: not a directory');
   });
 
+  it('does not show a warning of the logger as the reason of a crash', () => {
+    const stderr = 'Error: something else\n' + line({ level: 'warn', msg: 'GET /uploads/x.jpg 401' });
+    assert.equal(errorSummary(stderr), 'Error: something else');
+    assert.equal(errorSummary(line({ level: 'warn', msg: 'GET /uploads/x.jpg 401' })), null);
+  });
+
   it('falls back to the last line, shortens it and is null without output', () => {
     assert.equal(errorSummary('first\nlast line\n'), 'last line');
     assert.equal(errorSummary('x'.repeat(500))?.length, 300);

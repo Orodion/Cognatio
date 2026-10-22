@@ -137,3 +137,10 @@ export const SET_PROFILE_PICTURE = gql`
     }
   }
 `;
+
+/** Places already used in the family tree, most used first – suggestions in the place fields */
+export const PLACES = gql`
+  query Places {
+    places
+  }
+`;

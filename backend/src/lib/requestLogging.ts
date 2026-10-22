@@ -6,7 +6,9 @@ import type { Logger } from './logger.js';
 /**
  * Access log: one line per request with method, path, status and duration.
  * Changes (mutations, uploads, import) and exports are logged at INFO, plain reads
- * (GraphQL queries, images, health check) at DEBUG, error responses at WARN (4xx) or ERROR (5xx).
+ * (GraphQL queries, images, health check) at DEBUG, error responses at WARN (4xx) or ERROR (5xx) – except refusals
+ * a route marks as part of the normal course (`res.locals.expectedRefusal`, e.g. the version probe of an MCP client),
+ * which stay at DEBUG.
  * Content such as GraphQL variables is not logged – it contains personal data.
  */
 export function requestLogger(log: Logger) {
@@ -18,7 +20,8 @@ export function requestLogger(log: Logger) {
       const mutation = graphql && /^\s*mutation\b/.test(body.query as string);
       const routine = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS' || (graphql && !mutation);
       const important = !routine || req.originalUrl.startsWith('/api/v1/export');
-      const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : important ? 'info' : 'debug';
+      const expected = res.locals.expectedRefusal === true && res.statusCode < 500;
+      const level = expected ? 'debug' : res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : important ? 'info' : 'debug';
       if (!log.isEnabled(level)) {
         return;
       }

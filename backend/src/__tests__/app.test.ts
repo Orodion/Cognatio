@@ -165,8 +165,8 @@ describe('security headers', () => {
     );
   });
 
-  it('sends uploads that could run code as downloads and shows images, PDFs and media', async () => {
-    for (const name of ['seite.html', 'bild.svg', 'verlauf.gpx', 'daten.zip', 'OHNE_ENDUNG']) {
+  it('sends uploads that could run code as downloads and shows images, PDFs, media and text', async () => {
+    for (const name of ['seite.html', 'bild.svg', 'daten.zip', 'OHNE_ENDUNG']) {
       fs.writeFileSync(path.join(mockLogDir, name), 'x');
       const res = await request(app).get(`/uploads/${name}`);
       expect(res.headers['content-disposition']).toBe('attachment');
@@ -178,6 +178,22 @@ describe('security headers', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-disposition']).toBeUndefined();
     }
+    // Text files as plain text – never as HTML or XML
+    for (const name of ['notiz.md', 'liste.csv', 'verlauf.gpx', 'familie.ged']) {
+      fs.writeFileSync(path.join(mockLogDir, name), '<b>x</b>');
+      const res = await request(app).get(`/uploads/${name}`);
+      expect(res.headers['content-type']).toBe('text/plain; charset=utf-8');
+      expect(res.headers['content-disposition']).toBeUndefined();
+    }
+  });
+
+  it('names the file with ?name= for the viewer and for "Save as"', async () => {
+    fs.writeFileSync(path.join(mockLogDir, 'abc.pdf'), 'x');
+    const shown = await request(app).get('/uploads/abc.pdf').query({ name: 'Taufe Müller (1880).pdf' });
+    expect(shown.headers['content-disposition']).toBe(`inline; filename="Taufe M_ller (1880).pdf"; filename*=UTF-8''Taufe%20M%C3%BCller%20%281880%29.pdf`);
+    fs.writeFileSync(path.join(mockLogDir, 'abc.zip'), 'x');
+    const saved = await request(app).get('/uploads/abc.zip').query({ name: 'a"b/c\\d.zip' });
+    expect(saved.headers['content-disposition']).toBe(`attachment; filename="abcd.zip"; filename*=UTF-8''abcd.zip`);
   });
 
   it('keeps GraphQL free of the strict policy (Apollo Sandbox in development)', async () => {

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import { unzipSync, strFromU8 } from 'fflate';
-import { PNG_1x1, createPerson, createRelation, createTree, gql, removeTree, treeHeader, uid } from './helpers';
+import { PNG_1x1, createPerson, createRelation, createTree, gql, removeTree, treeHeader, uid, uploadFile } from './helpers';
 
 // The restore replaces all data of the test database – not in parallel with other tests
 test.describe.configure({ mode: 'serial' });
@@ -40,6 +40,7 @@ test('Backup: save, change data, restore via the settings', async ({ page, reque
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Backup herunterladen' }).click()]);
     expect(download.suggestedFilename()).toMatch(/^cognatio_backup_\d{8}_\d{6}\.zip$/);
     const backupFile = await download.path();
+    // Shown once the backend has sent everything
     await expect(page.getByText(/Gespeichert als cognatio_backup_/)).toBeVisible();
 
     // After the backup: Bert into the recycle bin, Carl and another family tree new
@@ -103,8 +104,8 @@ test('Backup: save, change data, restore via the settings', async ({ page, reque
 test('Backup: restore without confirmation and an export instead of a backup are rejected', async ({ page, request }) => {
   const backup = await request.get('/api/v1/backup');
   expect(backup.ok()).toBeTruthy();
-  const file = { name: 'sicherung.zip', mimeType: 'application/zip', buffer: await backup.body() };
-  const unconfirmed = await request.post('/api/v1/backup/restore', { multipart: { file } });
+  const uploadId = await uploadFile(request, 'backup', await backup.body(), 'sicherung.zip');
+  const unconfirmed = await request.post('/api/v1/backup/restore', { data: { uploadId } });
   expect(unconfirmed.status()).toBe(400);
   expect((await unconfirmed.json()).reason).toBe('RESTORE_NOT_CONFIRMED');
 

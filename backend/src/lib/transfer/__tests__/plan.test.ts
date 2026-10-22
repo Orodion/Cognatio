@@ -1,4 +1,4 @@
-import { analyze, buildPlan, summarize } from '../plan.js';
+import { analyze, buildPlan, planCycles, summarize } from '../plan.js';
 import { validateTransfer, TransferError } from '../format.js';
 import { person, relation, transfer, T1, T2 } from '../../../test/transferFixtures.js';
 
@@ -45,7 +45,7 @@ describe('analyze', () => {
       person('same'),
       person('changed', { birthPlace: 'Berlin' }),
       person('onlyExisting'),
-      person('withEvent', { events: [{ id: 'e1', title: 'Taufe', category: 'BAPTISM', mediaIds: [], createdAt: T1, updatedAt: T1 }] }),
+      person('withEvent', { events: [{ id: 'e1', title: 'Taufe', category: 'BAPTISM', mediaIds: [], citationIds: [], createdAt: T1, updatedAt: T1 }] }),
     ],
     [relation('r1', 'same', 'changed', 'CHILD')],
   );
@@ -56,8 +56,8 @@ describe('analyze', () => {
       person('new'),
       person('withEvent', {
         events: [
-          { id: 'e1', title: 'Taufe', category: 'BAPTISM', mediaIds: [], place: 'Köln', createdAt: T1, updatedAt: T2 },
-          { id: 'e2', title: 'Hochzeit', category: 'WEDDING', mediaIds: [], createdAt: T1, updatedAt: T1 },
+          { id: 'e1', title: 'Taufe', category: 'BAPTISM', mediaIds: [], citationIds: [], place: 'Köln', createdAt: T1, updatedAt: T2 },
+          { id: 'e2', title: 'Hochzeit', category: 'WEDDING', mediaIds: [], citationIds: [], createdAt: T1, updatedAt: T1 },
         ],
       }),
     ],
@@ -123,5 +123,26 @@ describe('analyze', () => {
     expect(plan.updateEvents.map((e) => e.record.id)).toEqual(['e1']);
     expect(buildPlan(imported, analysis, 'MERGE_MANUAL').updateEvents).toHaveLength(0);
     expect(summarize(analysis, plan)).toMatchObject({ updatedPersons: 1, keptPersons: 1 });
+  });
+});
+
+describe('planCycles', () => {
+  // Existing: a is the parent of b. The file makes b the parent of a – only together that is a cycle.
+  const existing = transfer([person('a', { firstName: 'Anna' }), person('b', { firstName: 'Bert' })], [relation('r1', 'a', 'b', 'CHILD')]);
+  const imported = transfer([person('a', { firstName: 'Anna' }), person('b', { firstName: 'Bert' })], [relation('r2', 'b', 'a', 'CHILD')]);
+  const analysis = analyze(imported, existing);
+
+  it('names the persons when merging creates a cycle', () => {
+    const cycles = planCycles(imported, existing, buildPlan(imported, analysis, 'MERGE_NEWER'));
+    expect(cycles.map((c) => [...c].sort())).toEqual([['Anna Muster', 'Bert Muster']]);
+  });
+
+  it('only looks at the imported relations when overwriting', () => {
+    expect(planCycles(imported, existing, buildPlan(imported, analysis, 'OVERWRITE'))).toEqual([]);
+  });
+
+  it('takes changed relations into account', () => {
+    const turned = transfer(imported.persons, [relation('r1', 'b', 'a', 'CHILD', { updatedAt: T2 })]);
+    expect(planCycles(turned, existing, buildPlan(turned, analyze(turned, existing), 'MERGE_NEWER'))).toEqual([]);
   });
 });

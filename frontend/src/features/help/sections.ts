@@ -8,13 +8,17 @@ export const HELP_SECTIONS = [
   'persons',
   'relations',
   'tree',
+  'sources',
   'search',
   'statistics',
+  'checks',
+  'reports',
   'family-trees',
   'import-export',
   'backup',
   'trash',
   'settings',
+  'ai-assistants',
   'desktop-app',
   'versions',
   'faq',
@@ -28,6 +32,6 @@ export function helpSectionFor(pathname: string): HelpSectionId | null {
     return null;
   }
   const segment = pathname.split('/')[1];
-  const pageSections: HelpSectionId[] = ['persons', 'tree', 'statistics', 'import-export', 'family-trees', 'trash', 'settings'];
+  const pageSections: HelpSectionId[] = ['persons', 'tree', 'sources', 'statistics', 'checks', 'reports', 'import-export', 'family-trees', 'trash', 'settings'];
   return pageSections.find((id) => id === segment) ?? 'getting-started';
 }

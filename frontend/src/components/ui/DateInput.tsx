@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { CalendarDays } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { parseFlexibleDate, isoToDisplay, displayToIso } from '@/lib/dateParsing';
+import { parseFlexibleDate, isoToDisplay, displayToIso, numericDate } from '@/lib/dateParsing';
 import { ClearableInput } from './ClearableInput';
 
 interface DateInputProps {
@@ -14,7 +14,8 @@ interface DateInputProps {
 }
 
 /**
- * Free-text date field (e.g. "04.01.1980", "um 1980", "1980-1985") with an optional calendar popup.
+ * Free-text date field (e.g. "04.01.1980", "um 1980", "1980-1985") with an optional calendar popup. A date written
+ * out ("2. Oktober 1951") is turned into its numeric form when the field is left.
  */
 export function DateInput({ id, value, onChange, placeholder, showPrecision = true }: DateInputProps) {
   const { t } = useTranslation();
@@ -47,6 +48,7 @@ export function DateInput({ id, value, onChange, placeholder, showPrecision = tr
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={() => numericDate(value) !== value && onChange(numericDate(value))}
           onClear={() => onChange('')}
           placeholder={placeholder ?? t('form.datePlaceholder')}
           autoComplete="off"

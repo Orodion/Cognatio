@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('cognatioPlatform', {
   // false: the user cancelled the dialog
   saveFile: async (data: Blob, filename: string): Promise<boolean> =>
     (await ipcRenderer.invoke('cognatio:save-file', await data.arrayBuffer(), filename)) === true,
+  // Backup and export: "Save as", then the file goes straight from the backend into it (also above 4 GB)
+  downloadTo: (url: string, filename: string): Promise<{ saved: boolean; error?: string }> => ipcRenderer.invoke('cognatio:download-to', url, filename),
+  // Reports: the page as printed goes into a PDF file; false: the user cancelled the dialog
+  savePdf: async (filename: string): Promise<boolean> => (await ipcRenderer.invoke('cognatio:save-pdf', filename)) === true,
   // "Quit" button of the app: stops the database in order, like closing the window
   quit: (): Promise<void> => ipcRenderer.invoke('cognatio:quit'),
   // Updates of the program (Settings → System): switch, "check now", "restart and install"

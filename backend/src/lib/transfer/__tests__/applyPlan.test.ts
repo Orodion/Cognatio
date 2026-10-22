@@ -9,10 +9,13 @@ jest.mock('../../files/uploads.js', () => {
 });
 
 import { applyPlan } from '../applyPlan.js';
+import { ArchiveFiles } from '../../files/archive.js';
 import type { ImportPlan } from '../plan.js';
 import type { TransferEvent, TransferMedia } from '../format.js';
 import { prismaMock } from '../../../test/prismaMock.js';
 import { person, T1, T2 } from '../../../test/transferFixtures.js';
+
+const archive = (entries: Record<string, Uint8Array>) => ArchiveFiles.fromBuffers(entries);
 
 afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 beforeEach(() => {
@@ -36,6 +39,14 @@ const emptyPlan = (overrides: Partial<ImportPlan> = {}): ImportPlan => ({
   updateMedia: [],
   createRelations: [],
   updateRelations: [],
+  createRepositories: [],
+  updateRepositories: [],
+  createSources: [],
+  updateSources: [],
+  createCitations: [],
+  updateCitations: [],
+  createLibraryMedia: [],
+  updateLibraryMedia: [],
   ...overrides,
 });
 
@@ -52,7 +63,7 @@ const media = (id: string, overrides: Partial<TransferMedia> = {}): TransferMedi
 });
 
 const event = (id: string, mediaIds: string[] = []): TransferEvent =>
-  ({ id, title: id, category: 'OTHER', mediaIds, createdAt: T1, updatedAt: T1 }) as TransferEvent;
+  ({ id, title: id, category: 'OTHER', mediaIds, citationIds: [], createdAt: T1, updatedAt: T1 }) as TransferEvent;
 
 const uploaded = () => fs.readdirSync(tmpDir);
 
@@ -63,12 +74,12 @@ describe('applyPlan', () => {
     mockEmptyLookups();
     const plan = emptyPlan({
       createPersons: [person('a'), person('b')],
-      createRelations: [{ id: 'r1', personAId: 'a', personBId: 'b', type: 'WIFE', active: true, createdAt: T1, updatedAt: T1 }],
+      createRelations: [{ id: 'r1', personAId: 'a', personBId: 'b', type: 'WIFE', active: true, citationIds: [], createdAt: T1, updatedAt: T1 }],
       createEvents: [{ personId: 'a', record: event('e1') }],
       createNotes: [{ personId: 'a', record: { id: 'n1', text: 'Hi', createdAt: T1, updatedAt: T1 } }],
     });
 
-    const result = await applyPlan(prismaMock as never, plan, new Map(), { treeId: 't1' });
+    const result = await applyPlan(prismaMock as never, plan, archive({}), { treeId: 't1' });
 
     expect(result).toMatchObject({
       familyTreeId: 't1',
@@ -95,7 +106,7 @@ describe('applyPlan', () => {
     mockEmptyLookups();
     prismaMock.familyTree.create.mockResolvedValue({ id: 'new-tree' } as never);
 
-    const result = await applyPlan(prismaMock as never, emptyPlan({ createPersons: [person('a')] }), new Map(), { newTreeName: 'Neu' });
+    const result = await applyPlan(prismaMock as never, emptyPlan({ createPersons: [person('a')] }), archive({}), { newTreeName: 'Neu' });
 
     expect(prismaMock.familyTree.create).toHaveBeenCalledWith({ data: { name: 'Neu' }, select: { id: true } });
     expect(result.familyTreeId).toBe('new-tree');
@@ -108,7 +119,7 @@ describe('applyPlan', () => {
       args.where.familyTreeId ? [{ fileName: 'old.png' }] : []) as never);
     prismaMock.person.deleteMany.mockResolvedValue({ count: 4 });
 
-    const result = await applyPlan(prismaMock as never, emptyPlan({ strategy: 'OVERWRITE', replaceAll: true }), new Map(), { treeId: 't1' });
+    const result = await applyPlan(prismaMock as never, emptyPlan({ strategy: 'OVERWRITE', replaceAll: true }), archive({}), { treeId: 't1' });
 
     expect(result.removedPersons).toBe(4);
     expect(prismaMock.person.deleteMany).toHaveBeenCalledWith({ where: { familyTreeId: 't1' } });
@@ -120,7 +131,7 @@ describe('applyPlan', () => {
     mockEmptyLookups();
     const plan = emptyPlan({ updatePersons: [person('a', { firstName: 'Neu', updatedAt: T2 })] });
 
-    const result = await applyPlan(prismaMock as never, plan, new Map(), { treeId: 't1' });
+    const result = await applyPlan(prismaMock as never, plan, archive({}), { treeId: 't1' });
 
     expect(result.updatedPersons).toBe(1);
     expect(prismaMock.person.update).toHaveBeenCalledWith(
@@ -139,14 +150,14 @@ describe('applyPlan', () => {
       createEvents: [{ personId: 'a', record: event('e1', ['m1']) }],
     });
 
-    const result = await applyPlan(prismaMock as never, plan, new Map([['media/m1.png', new Uint8Array([1, 2, 3, 4, 5])]]), { treeId: 't1' });
+    const result = await applyPlan(prismaMock as never, plan, archive({ 'media/m1.png': new Uint8Array([1, 2, 3, 4, 5]) }), { treeId: 't1' });
 
     expect(result.createdMedia).toBe(1);
     const [file] = uploaded();
     expect(file).toMatch(/^[0-9a-f-]{36}\.png$/);
     expect(fs.readFileSync(path.join(tmpDir, file))).toEqual(Buffer.from([1, 2, 3, 4, 5]));
     // The size is that of the stored file, not the one the import file claims (3)
-    expect((prismaMock.media.createMany.mock.calls[0]![0]!.data as Array<{ id: string; fileName: string }>)[0]).toMatchObject({
+    expect(prismaMock.media.createMany.mock.calls.flatMap((call) => call[0]!.data as Array<{ id: string; fileName: string }>)[0]).toMatchObject({
       id: 'm1',
       fileName: file,
       sizeBytes: 5,
@@ -163,7 +174,7 @@ describe('applyPlan', () => {
       createEvents: [{ personId: 'a', record: event('e1', ['m1']) }],
     });
 
-    const result = await applyPlan(prismaMock as never, plan, new Map(), { treeId: 't1' });
+    const result = await applyPlan(prismaMock as never, plan, archive({}), { treeId: 't1' });
 
     expect(result).toMatchObject({ createdMedia: 0, missingFiles: ['media/m1.png'] });
     expect(uploaded()).toEqual([]);
@@ -177,7 +188,7 @@ describe('applyPlan', () => {
     prismaMock.media.findUnique.mockResolvedValue({ fileName: 'old.png' } as never);
     const plan = emptyPlan({ updateMedia: [{ personId: 'a', record: media('m1') }] });
 
-    await applyPlan(prismaMock as never, plan, new Map([['media/m1.png', new Uint8Array([9])]]), { treeId: 't1' });
+    await applyPlan(prismaMock as never, plan, archive({ 'media/m1.png': new Uint8Array([9]) }), { treeId: 't1' });
 
     expect(prismaMock.media.update).toHaveBeenCalledTimes(1);
     const files = uploaded();
@@ -189,14 +200,14 @@ describe('applyPlan', () => {
     prismaMock.$transaction.mockRejectedValue(new Error('db down'));
     const plan = emptyPlan({ createPersons: [person('a')], createMedia: [{ personId: 'a', record: media('m1') }] });
 
-    await expect(applyPlan(prismaMock as never, plan, new Map([['media/m1.png', new Uint8Array([1])]]), { treeId: 't1' })).rejects.toThrow('db down');
+    await expect(applyPlan(prismaMock as never, plan, archive({ 'media/m1.png': new Uint8Array([1]) }), { treeId: 't1' })).rejects.toThrow('db down');
 
     expect(uploaded()).toEqual([]);
   });
 
   it('drops event-media links that are no longer part of an updated event', async () => {
     mockEmptyLookups();
-    await applyPlan(prismaMock as never, emptyPlan({ updateEvents: [{ personId: 'a', record: event('e1', ['m2']) }] }), new Map(), { treeId: 't1' });
+    await applyPlan(prismaMock as never, emptyPlan({ updateEvents: [{ personId: 'a', record: event('e1', ['m2']) }] }), archive({}), { treeId: 't1' });
 
     expect(prismaMock.eventMedia.deleteMany).toHaveBeenCalledWith({ where: { eventId: 'e1', mediaId: { notIn: ['m2'] } } });
     expect(prismaMock.eventMedia.createMany).toHaveBeenCalledWith(expect.objectContaining({ skipDuplicates: true }));

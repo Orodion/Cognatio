@@ -35,9 +35,26 @@ describe('eventResolvers - Query', () => {
     expect(result[0].title).toBe('Geburt');
     expect(prismaMock.event.findMany).toHaveBeenCalledWith({
       where: { personId: '1', person: { familyTreeId: TEST_TREE_ID } },
-      orderBy: [{ sortOrder: 'asc' }, { date: 'asc' }, { createdAt: 'asc' }],
+      orderBy: { createdAt: 'asc' },
       include: { media: { include: { media: true }, orderBy: { createdAt: 'asc' } } },
     });
+  });
+
+  it('sorts chronologically by the sort key or the date as typed, undated last', async () => {
+    const event = (id: string, date: string | null, sortOrder: number | null = null) => ({ ...mockEvent, id, date, sortOrder, media: [] });
+    prismaMock.event.findMany.mockResolvedValueOnce([
+      event('later', '03.11.2025'),
+      event('undated', null),
+      event('earlier', '14.09.1951'),
+      event('about', 'about 1925'),
+      event('saved', '1960', 19600101),
+      event('text', 'Ostern'),
+      event('same', '14.09.1951'),
+    ] as never);
+
+    const result = await eventResolvers.Query.getEvents(null, { personId: '1' }, ctx);
+
+    expect(result.map((e) => e.id)).toEqual(['about', 'earlier', 'same', 'saved', 'later', 'undated', 'text']);
   });
 
   it('returns the linked media themselves instead of the links', async () => {
@@ -161,6 +178,19 @@ describe('eventResolvers - Mutation', () => {
       expect(result.place).toBe('Berlin');
       // Without mediaIds the links stay unchanged
       expect(prismaMock.event.update.mock.calls[0][0].data).not.toHaveProperty('media');
+    });
+
+    it('keeps the fields that are not passed and clears those passed as null', async () => {
+      prismaMock.event.update.mockResolvedValueOnce(mockEvent);
+
+      await eventResolvers.Mutation.updateEvent(null, { id: 'e1', data: { title: 'Umzug', category: 'MOVE', place: null, sortOrder: null } }, ctx);
+
+      const { data } = prismaMock.event.update.mock.calls[0][0];
+      expect(data).toMatchObject({ title: 'Umzug', category: 'MOVE', place: null, sortOrder: null });
+      // undefined leaves the column unchanged
+      expect(data.date).toBeUndefined();
+      expect(data.datePrecision).toBeUndefined();
+      expect(data.description).toBeUndefined();
     });
 
     it('replaces the links: removes missing ones and adds new ones', async () => {

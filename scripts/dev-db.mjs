@@ -1,8 +1,10 @@
 // Local development database: the PostgreSQL that the Windows app bundles, started as a plain server on 127.0.0.1:5432.
-//   node scripts/dev-db.mjs start | stop | status | backup | restore <file> | reset --yes
-// Data lives in .dev-data/ (gitignored), the server log in .dev-data/postgres.log. Two databases are created:
+//   node scripts/dev-db.mjs start | stop | status | backup | restore <file> | upgrade | reset --yes
+// Data lives in .dev-data/ (gitignored; DEV_DB_DIR chooses another folder), the server log in .dev-data/postgres.log. Two databases are created:
 // cognatio_db (development) and cognatio_test (E2E and upgrade tests, see e2e/scripts/guard.mjs).
-// Binaries: tools/postgres (npm run postgres:fetch) or the folder in COGNATIO_PG_DIR – a PostgreSQL 16 of your own works too.
+// Binaries: tools/postgres (npm run postgres:fetch) or the folder in COGNATIO_PG_DIR – a PostgreSQL 18 of your own works too.
+// upgrade: converts a data folder of an earlier PostgreSQL major version with its server from tools/postgres/upgrade/<major>
+// (COGNATIO_PG_OLD_DIR chooses another one); the old folder stays as pgdata-<major>.old until you delete it.
 // Authentication is "trust" on the loopback address only, so the passwords in the connection strings are not checked.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -11,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dataRoot = path.join(root, '.dev-data');
+const dataRoot = path.resolve(process.env.DEV_DB_DIR?.trim() || path.join(root, '.dev-data'));
 const pgdata = path.join(dataRoot, 'pgdata');
 const serverLog = path.join(dataRoot, 'postgres.log');
 const PORT = Number(process.env.DEV_DB_PORT ?? 5432);
@@ -19,15 +21,16 @@ const USER = 'cognatio';
 const DATABASES = ['cognatio_db', 'cognatio_test'];
 
 const pgDir = path.resolve(process.env.COGNATIO_PG_DIR?.trim() || path.join(root, 'tools', 'postgres'));
-const bin = (name) => path.join(pgDir, 'bin', process.platform === 'win32' ? `${name}.exe` : name);
+const binIn = (dir, name) => path.join(dir, 'bin', process.platform === 'win32' ? `${name}.exe` : name);
+const bin = (name) => binIn(pgDir, name);
 
 const fail = (message) => {
   console.error(`[dev-db] ${message}`);
   process.exit(1);
 };
 
-const run = (name, args, { quiet = false } = {}) => {
-  const result = spawnSync(bin(name), args, { encoding: 'utf8', stdio: quiet ? 'ignore' : ['ignore', 'pipe', 'pipe'] });
+const run = (name, args, { quiet = false, dir = pgDir } = {}) => {
+  const result = spawnSync(binIn(dir, name), args, { encoding: 'utf8', stdio: quiet ? 'ignore' : ['ignore', 'pipe', 'pipe'] });
   return { code: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 };
 
@@ -42,12 +45,21 @@ const isRunning = () => fs.existsSync(path.join(pgdata, 'PG_VERSION')) && run('p
 
 function requireBinaries() {
   if (!fs.existsSync(bin('pg_ctl'))) {
-    fail(`PostgreSQL not found in ${pgDir}. Run "npm run postgres:fetch" (Windows and Linux) or set COGNATIO_PG_DIR to a PostgreSQL 16 folder.`);
+    fail(`PostgreSQL not found in ${pgDir}. Run "npm run postgres:fetch" (Windows and Linux) or set COGNATIO_PG_DIR to a PostgreSQL 18 folder.`);
   }
 }
 
+/** Major version of the programs in `dir` and of the data folder (null if there is none yet) */
+const binMajor = (dir = pgDir) => Number(/\(PostgreSQL\)\s+(\d+)/.exec(run('pg_ctl', ['--version'], { dir }).stdout)?.[1]);
+const dataMajor = (folder = pgdata) =>
+  fs.existsSync(path.join(folder, 'PG_VERSION')) ? Number.parseInt(fs.readFileSync(path.join(folder, 'PG_VERSION'), 'utf8'), 10) : null;
+
 async function start() {
   requireBinaries();
+  const major = dataMajor();
+  if (major !== null && major !== binMajor()) {
+    fail(`The data in ${pgdata} belongs to PostgreSQL ${major}, the programs are PostgreSQL ${binMajor()}. Run "npm run db:upgrade" to convert it.`);
+  }
   if (isRunning()) {
     console.log(`[dev-db] already running on port ${PORT}`);
     return;
@@ -152,6 +164,105 @@ function restore(file) {
   console.log('[dev-db] restored');
 }
 
+/**
+ * Converts the data folder of an earlier major version: the old server is started on it, the current pg_dump saves every
+ * database, the current initdb creates a new cluster next to it, pg_restore fills it. Only then the old folder becomes
+ * pgdata-<major>.old (kept until you delete it). If a step fails, the new cluster is removed and the old folder is untouched.
+ */
+async function upgrade() {
+  requireBinaries();
+  const from = dataMajor();
+  const to = binMajor();
+  if (from === null || from === to) {
+    console.log(`[dev-db] nothing to convert (PostgreSQL ${to})`);
+    return;
+  }
+  if (from > to) {
+    fail(`The data belongs to PostgreSQL ${from}, newer than the programs (${to}).`);
+  }
+  const oldDir = path.resolve(process.env.COGNATIO_PG_OLD_DIR?.trim() || path.join(pgDir, 'upgrade', String(from)));
+  if (!fs.existsSync(binIn(oldDir, 'pg_ctl')) || binMajor(oldDir) !== from) {
+    fail(`PostgreSQL ${from} is needed for the conversion but not in ${oldDir} (npm run postgres:fetch, or set COGNATIO_PG_OLD_DIR).`);
+  }
+  if (run('pg_ctl', ['status', '-D', pgdata], { dir: oldDir }).code === 0) {
+    fail(`The database is still running with PostgreSQL ${from} – stop it first: COGNATIO_PG_DIR=${oldDir} npm run db:stop`);
+  }
+  if (await portInUse()) {
+    fail(`Port ${PORT} is in use by another program. Set DEV_DB_PORT to use another port.`);
+  }
+  const old = path.join(dataRoot, `pgdata-${from}.old`);
+  if (fs.existsSync(old)) {
+    fail(`${old} exists from an earlier conversion – delete or move it first.`);
+  }
+  const next = `${pgdata}.upgrade`;
+  const dumps = path.join(dataRoot, `upgrade-from-${from}`);
+  const startOn = (dir, folder) =>
+    run('pg_ctl', ['start', '-D', folder, '-w', '-t', '60', '-l', serverLog, '-o', `-p ${PORT} -c listen_addresses=127.0.0.1`], { dir, quiet: true }).code ===
+    0;
+  const stopOn = (dir, folder) => run('pg_ctl', ['stop', '-D', folder, '-m', 'fast', '-w', '-t', '60'], { dir });
+  let running = null;
+  const abort = (message) => {
+    if (running) {
+      stopOn(...running);
+    }
+    fs.rmSync(next, { recursive: true, force: true });
+    fail(`${message}\nNothing was changed: ${pgdata} is still the PostgreSQL ${from} data (the dumps stay in ${dumps}).`);
+  };
+
+  console.log(`[dev-db] converting PostgreSQL ${from} → ${to} ...`);
+  fs.rmSync(next, { recursive: true, force: true });
+  fs.rmSync(path.join(pgdata, 'postmaster.pid'), { force: true });
+  fs.mkdirSync(dumps, { recursive: true });
+  if (!startOn(oldDir, pgdata)) {
+    abort('The old server did not start (see the server log).');
+  }
+  running = [oldDir, pgdata];
+  const list = run(
+    'psql',
+    [...connection, '-d', 'postgres', '-tAc', "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY 1"],
+    {
+      dir: oldDir,
+    },
+  );
+  if (list.code !== 0) {
+    abort(`Listing the databases failed: ${list.stderr}`);
+  }
+  const databases = list.stdout.split(/\r?\n/).filter(Boolean);
+  for (const name of databases) {
+    // The current pg_dump reads older servers (the other way round it does not work)
+    const dumped = run('pg_dump', [...connection, '-Fc', '-f', path.join(dumps, `${name}.dump`), name]);
+    if (dumped.code !== 0) {
+      abort(`pg_dump ${name} failed: ${dumped.stderr}`);
+    }
+    console.log(`[dev-db] saved ${name}`);
+  }
+  stopOn(oldDir, pgdata);
+  running = null;
+
+  const init = run('initdb', ['-D', next, '-U', USER, '--encoding=UTF8', '--locale=C', '--auth=trust']);
+  if (init.code !== 0) {
+    abort(`initdb failed: ${init.stderr || init.stdout}`);
+  }
+  if (!startOn(pgDir, next)) {
+    abort('The new server did not start (see the server log).');
+  }
+  running = [pgDir, next];
+  for (const name of databases) {
+    const restored = run('pg_restore', [...connection, '--create', '--no-owner', '--exit-on-error', '-d', 'postgres', path.join(dumps, `${name}.dump`)]);
+    if (restored.code !== 0) {
+      abort(`pg_restore ${name} failed: ${restored.stderr}`);
+    }
+    console.log(`[dev-db] restored ${name}`);
+  }
+  stopOn(pgDir, next);
+  running = null;
+
+  fs.renameSync(pgdata, old);
+  fs.renameSync(next, pgdata);
+  fs.rmSync(dumps, { recursive: true, force: true });
+  console.log(`[dev-db] converted to PostgreSQL ${to}. The old data stays in ${old} – delete it once everything works.`);
+}
+
 const command = process.argv[2];
 if (command === 'start') {
   await start();
@@ -164,6 +275,8 @@ if (command === 'start') {
   backup();
 } else if (command === 'restore') {
   restore(process.argv[3]);
+} else if (command === 'upgrade') {
+  await upgrade();
 } else if (command === 'reset') {
   requireBinaries();
   if (!process.argv.includes('--yes')) {
@@ -173,5 +286,5 @@ if (command === 'start') {
   fs.rmSync(dataRoot, { recursive: true, force: true });
   console.log('[dev-db] .dev-data deleted');
 } else {
-  fail('usage: node scripts/dev-db.mjs start | stop | status | backup | restore <file> | reset --yes');
+  fail('usage: node scripts/dev-db.mjs start | stop | status | backup | restore <file> | upgrade | reset --yes');
 }

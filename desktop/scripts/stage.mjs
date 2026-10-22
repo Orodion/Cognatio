@@ -2,13 +2,14 @@
 // to the `resources` folder, see electron-builder.yml):
 //   backend/   compiled backend with its production dependencies and the migrations
 //   frontend/  built web app
-//   postgres/  bundled PostgreSQL (npm run postgres:fetch)
+//   postgres/  bundled PostgreSQL (npm run postgres:fetch); in an upgrade release with upgrade/<major>, the server of an
+//              earlier major version that converts an old database folder
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { backendLockfile } from './backend-lock.mjs';
-import { prunePostgres } from './prune-postgres.mjs';
+import { prunePostgres, UPGRADE_PROGRAMS } from './prune-postgres.mjs';
 
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = path.resolve(desktop, '..');
@@ -36,6 +37,11 @@ fs.cpSync(path.join(root, 'backend', 'prisma', 'migrations'), path.join(backend,
 fs.cpSync(path.join(root, 'frontend', 'dist'), path.join(stage, 'frontend'), { recursive: true });
 fs.cpSync(path.join(root, 'tools', 'postgres'), path.join(stage, 'postgres'), { recursive: true });
 console.log(`PostgreSQL: ${(prunePostgres(path.join(stage, 'postgres')) / 1024 / 1024).toFixed(1)} MB of unused programs and files left out`);
+const upgradeDir = path.join(stage, 'postgres', 'upgrade');
+for (const major of fs.existsSync(upgradeDir) ? fs.readdirSync(upgradeDir) : []) {
+  const removed = prunePostgres(path.join(upgradeDir, major), UPGRADE_PROGRAMS);
+  console.log(`PostgreSQL ${major} for the upgrade: ${(removed / 1024 / 1024).toFixed(1)} MB left out`);
+}
 
 // Production dependencies only: package.json of the backend without scripts and development dependencies, installed with
 // exactly the versions of the repository's package-lock.json (see backend-lock.mjs)

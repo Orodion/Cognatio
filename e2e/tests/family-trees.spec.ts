@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { createPerson, createRelation, createTree, gql, removeTree, treeHeader, uid } from './helpers';
+import { createPerson, createRelation, createTree, gql, importViaApi, removeTree, treeHeader, uid } from './helpers';
 
 // Clean-up: remove the created family trees with their data so the test database does not grow
 const created: string[] = [];
@@ -23,14 +23,7 @@ const importFile = async (
   file: Buffer,
   fields: { strategy: string; target?: 'NEW' | 'CURRENT'; treeName?: string },
   tree?: string,
-) => {
-  const res = await request.post('/api/v1/import/execute', {
-    headers: treeHeader(tree),
-    multipart: { file: { name: 'export.zip', mimeType: 'application/zip', buffer: file }, decisions: '{}', ...fields },
-  });
-  expect(res.ok(), await res.text()).toBeTruthy();
-  return (await res.json()) as { familyTreeId: string; createdPersons: number; removedPersons: number };
-};
+) => importViaApi(request, file, fields, tree);
 
 test('Create and switch family trees – each shows only its own persons', async ({ page, request }) => {
   const id = uid();
@@ -189,7 +182,7 @@ test('Without any family tree the app offers to create, import or restore one', 
   const restoreAll = async () => {
     const { deletedFamilyTrees } = await gql<{ deletedFamilyTrees: { id: string }[] }>(request, '{ deletedFamilyTrees { id } }');
     for (const tree of trashed.filter((t) => deletedFamilyTrees.some((d) => d.id === t))) {
-      await gql(request, 'mutation($id: ID!) { restoreFamilyTree(id: $id) }', { id: tree });
+      await gql(request, 'mutation($id: ID!) { restoreFamilyTree(id: $id) { id } }', { id: tree });
     }
   };
   try {
@@ -220,11 +213,15 @@ test('Without any family tree the app offers to create, import or restore one', 
     // Delete it again and get the old one back from the recycle bin
     await page.goto('/family-trees');
     await page.getByRole('button', { name: `Neu ${id} löschen` }).click();
+    // Only leave the page once the family tree is gone – a new page would cancel the request
+    await expect(page.getByRole('button', { name: `Neu ${id} löschen` })).toBeHidden();
     await page.goto('/persons');
     await page.getByRole('link', { name: 'Aus dem Papierkorb holen' }).click();
     await page
       .getByRole('region', { name: 'Gelöschte Stammbäume' })
       .getByRole('button', { name: `${keep.name} wiederherstellen` })
+      // Newest deletion first: with older ones of the same name (left by aborted runs) it is the top one
+      .first()
       .click();
     await expect(page.getByLabel('Geöffneter Stammbaum').locator('option:checked')).toHaveText(keep.name);
   } finally {

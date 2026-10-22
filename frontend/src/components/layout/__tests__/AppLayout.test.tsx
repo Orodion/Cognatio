@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { useThemeStore } from '@/stores/themeStore';
@@ -7,7 +7,12 @@ import { useActiveTreeStore } from '@/stores/activeTreeStore';
 import { makePerson, makeTree, treesMock } from '@/test/fixtures';
 import { GET_DELETED_PERSONS } from '@/features/persons/graphql/personQueries';
 import { GET_DELETED_FAMILY_TREES } from '@/features/family-trees/graphql/familyTreeQueries';
+import { GET_DELETED_REPOSITORIES, GET_DELETED_SOURCES } from '@/features/sources/graphql/sourceQueries';
+import { MCP_SETTINGS } from '@/features/settings/graphql/mcpQueries';
+import { GET_OPEN_PLAUSIBILITY_ISSUES } from '@/features/plausibility/graphql/plausibilityQueries';
 import { AppLayout } from '../AppLayout';
+import { useActivityStore, type Activity } from '@/stores/activityStore';
+import { notifyDataChange } from '@/lib/dataChanges';
 
 afterEach(() => {
   delete window.cognatioPlatform;
@@ -28,10 +33,19 @@ function Page() {
   return <p data-testid="page">{location.pathname + location.search}</p>;
 }
 
-// The sidebar queries the recycle bin (also after every switch) – empty unless the test says otherwise
+// The sidebar queries the recycle bin (also after every switch) – empty unless the test says otherwise; AI assistants are off;
+// no possible errors
 const emptyTrash: MockedResponse[] = [
+  { request: { query: GET_OPEN_PLAUSIBILITY_ISSUES }, result: { data: { openPlausibilityIssues: 0 } }, maxUsageCount: Infinity },
   { request: { query: GET_DELETED_PERSONS }, result: { data: { getDeletedPersons: [] } }, maxUsageCount: Infinity },
   { request: { query: GET_DELETED_FAMILY_TREES }, result: { data: { deletedFamilyTrees: [] } }, maxUsageCount: Infinity },
+  { request: { query: GET_DELETED_SOURCES }, result: { data: { deletedSources: [] } }, maxUsageCount: Infinity },
+  { request: { query: GET_DELETED_REPOSITORIES }, result: { data: { deletedRepositories: [] } }, maxUsageCount: Infinity },
+  {
+    request: { query: MCP_SETTINGS },
+    result: { data: { mcpSettings: { enabled: false, address: null, portChanged: false, permissions: [], excludedTrees: [] } } },
+    maxUsageCount: Infinity,
+  },
 ];
 
 function setup(url = '/persons', mocks: MockedResponse[] = [treesMock(trees)]) {
@@ -91,9 +105,40 @@ describe('AppLayout', () => {
     // Two persons and one family tree; as text for screen readers
     expect(await within(link).findByText('3')).toBeInTheDocument();
     expect(within(link).getByText('nav.trashCount')).toHaveClass('sr-only');
-    // Set apart at the end of the navigation, followed only by the help
+    // Set apart at the end of the navigation, followed only by the settings and the help
     const links = within(screen.getByRole('navigation')).getAllByRole('link');
-    expect(links.slice(-2)).toEqual([link, screen.getByRole('link', { name: 'nav.help' })]);
+    expect(links.slice(-3)).toEqual([link, screen.getByRole('link', { name: 'nav.settings' }), screen.getByRole('link', { name: 'nav.help' })]);
+  });
+
+  it('groups the areas under headings and shows the number of open possible errors', async () => {
+    setup('/persons', [
+      treesMock(trees),
+      { request: { query: GET_OPEN_PLAUSIBILITY_ISSUES }, result: { data: { openPlausibilityIssues: 4 } }, maxUsageCount: Infinity },
+    ]);
+    const evaluate = await screen.findByRole('group', { name: 'nav.groups.evaluate' });
+    expect(
+      within(evaluate)
+        .getAllByRole('link')
+        .map((l) => l.getAttribute('href')),
+    ).toEqual(['/tree', '/statistics', '/checks', '/reports']);
+    expect(within(screen.getByRole('group', { name: 'nav.groups.manage' })).getByRole('link', { name: 'nav.importExport' })).toBeInTheDocument();
+    const checks = within(evaluate).getByRole('link', { name: /nav.plausibility/ });
+    expect(await within(checks).findByText('4')).toBeInTheDocument();
+    expect(within(checks).getByText('nav.plausibilityOpen')).toHaveClass('sr-only');
+  });
+
+  it('counts the open possible errors again after a change on the same page', async () => {
+    let open = 2;
+    setup('/persons', [
+      treesMock(trees),
+      { request: { query: GET_OPEN_PLAUSIBILITY_ISSUES }, result: () => ({ data: { openPlausibilityIssues: open } }), maxUsageCount: Infinity },
+    ]);
+    const checks = await screen.findByRole('link', { name: /nav.plausibility/ });
+    expect(await within(checks).findByText('2')).toBeInTheDocument();
+    // e.g. a relation corrected in a dialog: no change of page
+    open = 1;
+    act(() => notifyDataChange());
+    expect(await within(checks).findByText('1')).toBeInTheDocument();
   });
 
   it('opens the help for the current page', async () => {
@@ -213,5 +258,39 @@ describe('Quit button', () => {
     await screen.findByTestId('page');
     fireEvent.click(screen.getByRole('button', { name: 'nav.quit' }));
     expect(quit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Activity in the sidebar', () => {
+  afterEach(() => useActivityStore.setState({ activities: [] }));
+
+  const activity = (change: Partial<Activity>): Activity => ({
+    id: Math.random().toString(),
+    kind: 'import',
+    label: 'a.zip',
+    state: 'running',
+    phase: 'media',
+    done: 0,
+    total: 0,
+    startedAt: 0,
+    seen: false,
+    ...change,
+  });
+
+  it('counts the running operations and marks one that failed and was not seen yet', async () => {
+    useActivityStore.setState({ activities: [activity({}), activity({}), activity({ state: 'failed' })] });
+    setup('/persons');
+    await screen.findByTestId('page');
+    const link = screen.getByRole('link', { name: /nav.activity/ });
+    expect(link).toHaveAttribute('href', '/activity');
+    expect(link).toHaveTextContent('2');
+    expect(link).toHaveTextContent('nav.activityRunning');
+    expect(link).toHaveTextContent('nav.activityFailed');
+  });
+
+  it('shows the plain entry without operations', async () => {
+    setup('/persons');
+    await screen.findByTestId('page');
+    expect(screen.getByRole('link', { name: 'nav.activity' })).toBeInTheDocument();
   });
 });

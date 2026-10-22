@@ -8,6 +8,7 @@ Please do not open a public issue for security problems. Report them privately (
 
 - Cognatio is a single-user application without login. It is meant to run on a trusted machine or behind a reverse proxy that provides authentication and HTTPS. Do not expose it to the internet as it is.
 - The backend listens on `127.0.0.1` by default, answers only under its own address (protection against DNS rebinding; further names in `ALLOWED_HOSTS`) and refuses changes sent by another website. In the desktop app every request also needs a random token of the current start.
+- AI assistants (MCP, endpoint `/mcp`) are switched off by default. Switched on, the endpoint needs its own token (only its hash is stored), refuses requests of web pages and allows per area only what the user granted (read, write, delete); an assistant can never change these settings itself. What an assistant reads goes to the provider of its AI model.
 - The backend sets security headers (`helmet`) and a strict Content-Security-Policy for `/api` and `/uploads`.
 - The program file of the desktop app has the Electron fuses for `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect` switched off.
 - Dependencies are checked by `npm audit` in the pipeline (a finding in the shipped packages stops a release); SAST and secret detection run on every pipeline.

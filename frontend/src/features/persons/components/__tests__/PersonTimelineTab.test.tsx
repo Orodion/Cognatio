@@ -4,6 +4,7 @@ import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { GET_EVENTS, DELETE_EVENT } from '@/features/persons/graphql/eventQueries';
 import { makePerson } from '@/test/fixtures';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { factCitation, personCitationsMock } from '@/test/citations';
 import { PersonTimelineTab } from '../PersonTimelineTab';
 
 const person = makePerson({ id: 'p1' });
@@ -30,20 +31,34 @@ const eventsMock = (events: Array<ReturnType<typeof event>>): MockedResponse => 
   maxUsageCount: Infinity,
 });
 
-function setup(mocks: MockedResponse[], filter?: string) {
+function setup(mocks: MockedResponse[], filter?: string, onShowSources?: () => void) {
   render(
-    <MockedProvider mocks={mocks}>
-      <PersonTimelineTab person={person} filter={filter} />
+    <MockedProvider mocks={[...mocks, personCitationsMock('p1', citations)]}>
+      <PersonTimelineTab person={person} filter={filter} onShowSources={onShowSources} />
     </MockedProvider>,
   );
 }
 
+let citations: unknown[] = [];
+
 afterEach(() => {
+  citations = [];
   vi.restoreAllMocks();
   useSettingsStore.setState({ timelineView: 'timeline', timelineOrder: 'desc' });
 });
 
 describe('PersonTimelineTab', () => {
+  it('marks an event that has citations; a click opens the sources', async () => {
+    citations = [factCitation('EVENT', { eventId: 'e1' })];
+    const onShowSources = vi.fn();
+    setup([eventsMock([event('e1', { title: 'Taufe', category: 'BAPTISM' }), event('e2', { title: 'Umzug', category: 'MOVE' })])], undefined, onShowSources);
+    const mark = await screen.findByRole('button', { name: 'sources.mark.label' });
+    expect(mark).toHaveTextContent('1');
+    expect(screen.getAllByRole('button', { name: 'sources.mark.label' })).toHaveLength(1);
+    fireEvent.click(mark);
+    expect(onShowSources).toHaveBeenCalled();
+  });
+
   it('lists events with category, date, precision, place and description', async () => {
     setup([
       eventsMock([
@@ -101,6 +116,7 @@ describe('PersonTimelineTab', () => {
       fileName: `${id}.bin`,
       originalFileName,
       mimeType,
+      viewable: true,
       sizeBytes: 1,
       type: 'PHOTO',
       createdAt: '1',
@@ -124,7 +140,7 @@ describe('PersonTimelineTab', () => {
       'groupPhoto.jpg (timeline.media.from)',
       'media.downloadButton: groupPhoto.jpg',
     ]);
-    expect(links[2]).toHaveAttribute('href', '/uploads/gruppe.bin');
+    expect(links[2]).toHaveAttribute('href', '/uploads/gruppe.bin?name=groupPhoto.jpg');
     expect(links[3]).toHaveAttribute('href', '/api/v1/media/gruppe/download');
     expect(list.querySelectorAll('img')).toHaveLength(1);
   });
@@ -137,6 +153,7 @@ describe('PersonTimelineTab', () => {
       fileName: 'm1.jpg',
       originalFileName: 'Hochzeitsfoto.jpg',
       mimeType: 'image/jpeg',
+      viewable: true,
       sizeBytes: 1,
       type: 'PHOTO',
       createdAt: '1',
@@ -271,6 +288,7 @@ describe('PersonTimelineTab', () => {
         fileName: 'm1.jpg',
         originalFileName: 'foto.jpg',
         mimeType: 'image/jpeg',
+        viewable: true,
         sizeBytes: 1,
         type: 'PHOTO',
         createdAt: '1',
@@ -279,7 +297,7 @@ describe('PersonTimelineTab', () => {
       };
       setup([eventsMock([event('e1', { title: 'Taufe', category: 'BAPTISM', sortOrder: 1, media: [file] })])]);
 
-      expect(await screen.findByRole('link', { name: 'foto.jpg' })).toHaveAttribute('href', '/uploads/m1.jpg');
+      expect(await screen.findByRole('link', { name: 'foto.jpg' })).toHaveAttribute('href', '/uploads/m1.jpg?name=foto.jpg');
       fireEvent.click(screen.getByRole('button', { name: 'timeline.editLabel' }));
       expect(within(screen.getByRole('dialog')).getByLabelText(/timeline.form.title/)).toHaveValue('Taufe');
     });

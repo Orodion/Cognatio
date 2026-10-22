@@ -37,6 +37,9 @@ function fakeRun(options: { running?: boolean; failOn?: string } = {}) {
       const pwfile = args.find((a) => a.startsWith('--pwfile='))!.slice('--pwfile='.length);
       calls[calls.length - 1].args = [...args, `pw:${fs.readFileSync(pwfile, 'utf8')}`];
     }
+    if (verb === 'pg_ctl --version') {
+      return { code: 0, stdout: 'pg_ctl (PostgreSQL) 16.15\n', stderr: '' };
+    }
     if (verb === 'pg_ctl status') {
       return { code: options.running ? 0 : 3, stdout: '', stderr: '' };
     }
@@ -119,7 +122,7 @@ describe('startBundledPostgres', () => {
     fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({ postgres: { password: 'pw' } }));
     const { run, calls } = fakeRun({ running: true });
     await startBundledPostgres({ pgDir: fakePgDir(), dataDir, log, run });
-    expect(calls.map((c) => c.tool)).toEqual(['pg_ctl status', 'pg_ctl stop', 'pg_ctl start']);
+    expect(calls.map((c) => c.tool)).toEqual(['pg_ctl --version', 'pg_ctl status', 'pg_ctl stop', 'pg_ctl start']);
     expect(fs.existsSync(path.join(dataDir, 'pgdata', 'postmaster.pid'))).toBe(false);
   });
 

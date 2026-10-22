@@ -18,7 +18,7 @@ the same checks (`.gitlab-ci.yml` and `.github/workflows/ci.yml`); a change to o
 - [ ] Help chapter "Version history": the new version with its main changes is added to `RELEASES` in
       `frontend/src/features/help/releases.ts` and to every `frontend/src/features/help/releaseNotes/<language>.ts`
       (English is the original; the tests check that all languages have all entries). The `date` of the entry is the day of the
-      release.
+      release (an entry written in advance has none until then; check its version against `npm run release:dry`).
 - [ ] **New migration since the last release?**
   - [ ] It follows the rules of the migration policy (concept 3.4): forward only, expand before contract, never edit a
         released migration.
@@ -139,6 +139,12 @@ Automatic helpers in `desktop/scripts/` (`update-test.mjs` exists for Windows on
       backup, close – no `postgres` process stays. `node desktop/scripts/smoke.mjs --packaged <unpacked app>/cognatio` does the technical part
       (build it with `npm run dist:linux -w desktop`; the unpacked app is `desktop/release/linux-unpacked`).
 - [ ] User name with umlaut and space, program on a path with spaces: start works (the smoke test uses such paths).
+- [ ] **Only in a release that changes the PostgreSQL major version** (new app major version; also the release after 1.0.0, 16 → 18): `MAJOR` and `UPGRADE_FROM` in
+      `scripts/fetch-postgres.mjs` are set (the checksum of a new version is pinned there), `desktop/stage/postgres/upgrade/<old>`
+      exists after the build, and with `COGNATIO_PG_UPGRADE_DIR=desktop/stage/postgres` (converts with the slimmed servers of the
+      installer; the old data comes from `tools/postgres/upgrade/<old>`) the upgrade test of
+      `backend/src/lib/postgres/__tests__/bundledPostgres.integration.test.ts` passes. Developers run `npm run db:upgrade` once.
+      By hand: install the previous release, create data, update – the data is there, `pgdata-<old>.old` lies next to `pgdata`.
 
 ## 5. Afterwards
 

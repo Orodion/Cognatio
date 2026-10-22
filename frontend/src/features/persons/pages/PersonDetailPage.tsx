@@ -12,6 +12,7 @@ import { PersonRelationsTab } from '@/features/persons/components/PersonRelation
 import { PersonTimelineTab } from '@/features/persons/components/PersonTimelineTab';
 import { PersonNotesTab } from '@/features/persons/components/PersonNotesTab';
 import { PersonMediaTab } from '@/features/persons/components/PersonMediaTab';
+import { PersonSourcesTab } from '@/features/sources/components/PersonSourcesTab';
 import { cn } from '@/lib/utils';
 import { formatPersonName } from '@/features/persons/lib/personUtils';
 import { PersonFormDialog } from '@/features/persons/components/PersonFormDialog';
@@ -20,7 +21,7 @@ import type { DeletedPersonState } from './PersonListPage';
 import { LOCATE_PERSON } from '@/features/family-trees/graphql/familyTreeQueries';
 import { useFamilyTrees, useSwitchTree } from '@/features/family-trees/lib/useFamilyTrees';
 
-type DetailTab = 'overview' | 'timeline' | 'relations' | 'notes' | 'media';
+type DetailTab = 'overview' | 'timeline' | 'relations' | 'notes' | 'media' | 'sources';
 
 export function PersonDetailPage() {
   const { t } = useTranslation();
@@ -69,7 +70,10 @@ export function PersonDetailPage() {
     { id: 'relations', label: t('personDetail.tabs.relations') },
     { id: 'notes', label: t('personDetail.tabs.notes') },
     { id: 'media', label: t('personDetail.tabs.media') },
+    { id: 'sources', label: t('personDetail.tabs.sources') },
   ];
+  // The marks at birth, death, events and relations lead to the sources
+  const showSources = () => setActiveTab('sources');
 
   const handleDelete = async () => {
     if (!person) {
@@ -192,11 +196,12 @@ export function PersonDetailPage() {
         )}
       </div>
 
-      {activeTab === 'overview' && <PersonOverviewTab person={person} />}
-      {activeTab === 'relations' && <PersonRelationsTab person={person} filter={filter} />}
-      {activeTab === 'timeline' && <PersonTimelineTab person={person} filter={filter} />}
+      {activeTab === 'overview' && <PersonOverviewTab person={person} onShowSources={showSources} />}
+      {activeTab === 'relations' && <PersonRelationsTab person={person} filter={filter} onShowSources={showSources} />}
+      {activeTab === 'timeline' && <PersonTimelineTab person={person} filter={filter} onShowSources={showSources} />}
       {activeTab === 'notes' && <PersonNotesTab person={person} filter={filter} />}
       {activeTab === 'media' && <PersonMediaTab person={person} filter={filter} />}
+      {activeTab === 'sources' && <PersonSourcesTab person={person} filter={filter} />}
 
       <PersonFormDialog open={isFormOpen} onClose={() => setIsFormOpen(false)} person={person} onSuccess={() => refetch()} />
     </div>

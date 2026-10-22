@@ -21,6 +21,17 @@ describe('colognePhonetics', () => {
     expect(colognePhonetics(word)).toBe(code);
   });
 
+  it('transliterates Cyrillic names, so they match their Latin spellings', () => {
+    expect(colognePhonetics('Иванов')).toBe(colognePhonetics('Iwanow'));
+    expect(colognePhonetics('Иванов')).toBe(colognePhonetics('Ivanov'));
+    expect(colognePhonetics('Шевченко')).toBe(colognePhonetics('Schewtschenko'));
+    expect(colognePhonetics('Хрущёв')).toBe(colognePhonetics('Chruschtschow'));
+    expect(colognePhonetics('Олена')).toBe(colognePhonetics('Olena'));
+    expect(colognePhonetics('Петров')).not.toBe('');
+    // Other scripts give no code
+    expect(colognePhonetics('Παπαδόπουλος')).toBe('');
+  });
+
   it('groups common spelling variants', () => {
     expect(colognePhonetics('Müller')).toBe(colognePhonetics('Mueller'));
     expect(colognePhonetics('Schulz')).toBe(colognePhonetics('Schultz'));
@@ -31,7 +42,8 @@ describe('colognePhonetics', () => {
   it('ignores case, accents and non-letters and yields nothing for other scripts', () => {
     expect(colognePhonetics('meier')).toBe('67');
     expect(colognePhonetics('René')).toBe(colognePhonetics('Rene'));
-    expect(colognePhonetics('Иван')).toBe('');
+    expect(colognePhonetics('Иван')).toBe(colognePhonetics('Iwan'));
+    expect(colognePhonetics('李')).toBe('');
     expect(colognePhonetics('')).toBe('');
   });
 });

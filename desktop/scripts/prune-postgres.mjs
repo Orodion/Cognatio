@@ -1,5 +1,6 @@
 // Removes what the app never uses from a copy of the bundled PostgreSQL (the installer gets smaller; Windows and Linux):
 //   bin/    every program except postgres, initdb, pg_ctl, pg_dump and pg_restore, and every DLL that none of them loads
+//           (in upgrade/<major>, the server of an earlier major version: only postgres and pg_ctl)
 //           (Stack Builder with wxWidgets, psql, ecpg, pgbench, ...)
 //   lib/    import libraries (*.lib), the contrib modules and the embedded-SQL libraries; the encoding conversions and
 //           the modules initdb needs (plpgsql, dict_snowball, ...) stay
@@ -56,8 +57,14 @@ export function importedDlls(file) {
   return names.map((n) => n.toLowerCase());
 }
 
-/** Prunes the PostgreSQL folder `dir` (with bin/, lib/, share/) in place; returns the number of bytes removed */
-export function prunePostgres(dir) {
+/** Programs the server of an earlier major version needs for the upgrade (pg_dump and pg_restore are the current ones) */
+export const UPGRADE_PROGRAMS = ['postgres', 'pg_ctl'];
+
+/**
+ * Prunes the PostgreSQL folder `dir` (with bin/, lib/, share/) in place; returns the number of bytes removed.
+ * Only bin/, lib/ and share/ are touched – upgrade/ (servers of earlier major versions) is pruned on its own.
+ */
+export function prunePostgres(dir, programs = PROGRAMS) {
   let removed = 0;
   const remove = (target) => {
     if (!fs.existsSync(target)) return;
@@ -69,7 +76,7 @@ export function prunePostgres(dir) {
   // bin: the programs we run and, on Windows, transitively the DLLs they load
   const bin = path.join(dir, 'bin');
   const present = new Map(fs.readdirSync(bin).map((f) => [f.toLowerCase(), f]));
-  const keep = new Set(PROGRAMS.map((p) => (windows ? `${p}.exe` : p)));
+  const keep = new Set(programs.map((p) => (windows ? `${p}.exe` : p)));
   const queue = [...keep];
   while (windows && queue.length) {
     for (const dll of importedDlls(path.join(bin, present.get(queue.pop())))) {
